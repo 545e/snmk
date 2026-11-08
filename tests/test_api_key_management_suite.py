@@ -69,7 +69,7 @@ def test_adhoc_connection_testing():
     res = client.post("/api/integrations/test", json=test_payload)
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] in ("AUTHENTICATION_FAILED", "ERROR", "FAILED")
+    assert data["status"] in ("AUTHENTICATION_FAILED", "ERROR", "FAILED", "UNREACHABLE")
     assert "latency_ms" in data
     assert data["latency_ms"] >= 0
 

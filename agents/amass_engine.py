@@ -311,6 +311,8 @@ class AmassSubdomainEngine:
             d = parsed.hostname or d
         # Remove port if present
         d = d.split(":")[0].rstrip(".")
+        if re.match(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", d) or d in ("localhost", "127.0.0.1"):
+            return d
 
         # Try tldextract if available for perfect public suffix list matching
         try:

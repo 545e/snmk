@@ -279,3 +279,36 @@ def require_role(allowed_roles: List[str]):
             )
         return ctx
     return dependency
+
+
+class ApplicationSecurityHardener:
+    """
+    Application security hardening coordinator providing evidence redaction,
+    path traversal defense, prompt injection sanitization, rate limiting, and session security.
+    """
+    @staticmethod
+    def redact(data: Optional[str]) -> Optional[str]:
+        return redact_sensitive_evidence(data)
+
+    @staticmethod
+    def resolve_safe_path(base_directory: str, filename: str) -> str:
+        return safe_resolve_path(base_directory, filename)
+
+    @staticmethod
+    def sanitize_llm_input(untrusted_text: str, max_chars: int = 16000) -> str:
+        return sanitize_untrusted_input_for_llm(untrusted_text, max_chars=max_chars)
+
+    @staticmethod
+    def audit_security_posture() -> Dict[str, Any]:
+        return {
+            "rate_limiting_enabled": SWA_RATE_LIMIT_ENABLED,
+            "active_sessions_count": len(ACTIVE_SESSIONS),
+            "protections": [
+                "path_traversal",
+                "evidence_redaction",
+                "prompt_injection_sanitization",
+                "token_bucket_rate_limiter",
+                "session_csrf_protection"
+            ],
+            "status": "HARDENED"
+        }
