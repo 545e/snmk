@@ -181,27 +181,8 @@ def test_false_positive_review_workflow():
 # 4. Metrics & Multi-Dimensional Advanced Search (§8.1 & §8.3)
 # ---------------------------------------------------------------------------
 
-def _ensure_baseline_findings():
-    current = db.list_findings()
-    if len(current) < 25:
-        severities = [Severity.CRITICAL, Severity.HIGH, Severity.HIGH, Severity.HIGH, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO]
-        for idx in range(len(current), 28):
-            sev = severities[idx % len(severities)]
-            db.save_finding(VulnerabilityFinding(
-                id=f"SEED-FIND-{idx:03d}",
-                scan_id="scan-ci-baseline",
-                title=f"Baseline CI Finding {idx}",
-                description=f"Automated test fixture finding {idx}",
-                severity=sev,
-                cvss_score=8.5 if sev == Severity.HIGH else 5.0,
-                endpoint=f"/api/v1/test_fixture_{idx}",
-                lifecycle_status=FindingLifecycleStatus.NEW.value,
-                remediation_status=RemediationStatus.OPEN.value
-            ))
-
 def test_finding_metrics_10_cards_and_distributions():
     """Verify 10 summary KPI counts and distribution bars."""
-    _ensure_baseline_findings()
     metrics = db.get_finding_metrics()
     assert "total_findings" in metrics
     assert "open_vulnerabilities" in metrics

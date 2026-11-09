@@ -25,9 +25,6 @@ if hasattr(sys.stdout, "reconfigure"):
 # Ensure parent directory is in sys.path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from core.env_loader import load_env_file
-load_env_file()
-
 
 from core.models import ScanConfig, ScanJob, ScanProfile, ScanStatus
 from core.database import db

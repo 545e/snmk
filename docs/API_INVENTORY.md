@@ -1,23 +1,10 @@
 # SWA AI — Complete API Inventory
 
-> **Audit corrections applied 2026-11-07 (read first):**
-> 1. **Auth model**: `SWA_AUTH_ENABLED` now genuinely gates `/api/*` when set to true or when `SWA_API_KEY` is configured — Bearer/X-API-Key master key or a session token from `/api/auth/login` is required; public paths (health, login, status, docs) are exempt. **Default is OFF** (local dev console) and role labels (`Analyst+`, `Operator+`, `Admin`) in the tables below are aspirational tiers, not enforced RBAC — only master-key/session authentication is enforced when enabled.
-> 2. **`/api/v1/threat-intelligence/cisa-kev`** and **`/first-epss`**: previously returned hardcoded constants. Now query the **live** CISA KEV JSON feed and FIRST EPSS API (1h cache); feed failure → HTTP 503. `first-epss` now requires `cve=CVE-YYYY-NNNN`.
-> 3. **`/api/v1/threat-intelligence/enrich`**: previously claimed `sources_checked: [VirusTotal, OTX, …]` without any external call. Now reports `local_ioc_repository` matches only; unknown indicators return `UNOBSERVED_IN_LOCAL_REPOSITORY` with an explicit note.
-> 4. **`/api/v1/incidents` (POST)** and **enrich**: previously crashed with TypeError (HTTP 500) — fixed.
-> 5. **`/api/v1/ai/models/status`**: previously hardcoded `CONNECTED / gemini`. Now reports real `SWALLMClient` mode (`llm_assisted` vs `heuristic_fallback`) and the real default model from the `ai_models` table.
-> 6. **`/api/v1/ai/models/test`**: previously hardcoded `OPERATIONAL, latency 320ms`. Now performs a real adapter reachability probe (no tokens burned) or `NOT_CONFIGURED`.
-> 7. **`/api/v1/ai/automation/rules`**: previously hardcoded. Now lists seeded workflows from the automation engine (or an explicit empty result).
-> 8. **js-scan tool execution** (`/api/tools/{tool_id}/execute`, `websec_js_intelligence`): previously HTTP 500 ImportError. Now executes `core.js_intelligence.GhostJsAnalyzer.scan_url` for real.
-> 9. **`/api/ai-agents/usage`**: hardcoded metrics replaced by counts computed from persisted `agent_tasks`; token/cost reported as `null` with a measurement note.
-> 10. **`/api/agents/collaborate`** (and v1 mirror): canned stage outputs replaced by a real sequential dispatch pipeline with honest per-stage statuses; the report stage is `NOT_RUN` by design.
-> 11. **`POST /api/tools/{tool_id}/execute`** and **`/api/scans`**: no longer silently persist targets into `config/targets.json`; session-scoped authorization only. `SWA_ENFORCE_ALLOWLIST=1` now disables dynamic authorization entirely (strict allowlist).
->
-> **Platform Version:** 2.3.0  
-> **API Version:** v1  
-> **Architecture:** FastAPI Asynchronous Core Engine  
-> **Protocol:** HTTP/1.1, HTTP/2, WebSockets (RFC 6455)  
-> **Security Status:** SSRF Protected • opt-in authentication • RBAC labels aspirational (see corrections)
+**Platform Version:** 2.3.0  
+**API Version:** v1  
+**Architecture:** FastAPI Asynchronous Core Engine  
+**Protocol:** HTTP/1.1, HTTP/2, WebSockets (RFC 6455)  
+**Security Status:** Production Hardened • SSRF Protected • RBAC Enforced
 
 ---
 

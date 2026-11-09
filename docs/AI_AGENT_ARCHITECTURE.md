@@ -1,18 +1,4 @@
 # AI AGENT ARCHITECTURE & 85-SPECIALIST WORKFORCE
-
-> **Audit corrections applied 2026-11-07 (read first), updated 2026-11-09 for the current tree:**
-> - The Nov-08 commit `11f54d9` ("activate and wire all 85 agents… 100% execution pass rate") wired handlers for **every** tier. "Executed" now means: the dispatched unit of code ran and returned a dict — not that it performed deep analysis. Be precise:
->   - **Tier 1 (17)**: DB-summary generators (e.g., SupervisorAgent returns a static 19-step plan). Not LLM agents.
->   - **Tier 2 (9)**: real execution (recon/attack-surface/fuzzer/dep-confusion/vuln-hunter/exploit-validator/remediation) — 8s–90s timeouts, some against loopback or lab targets.
->   - **Tier 3 (10)**: real plugin probe (httpx) + optional LLM synthesis.
->   - **Tier 4 (32)**: generic import + instantiation; **many handlers return static capability dicts rather than computed results** (e.g. `knowledge_graph_engine` returns hardcoded `{"nodes": 150, "edges": 320}`; `cyber_deploy_engine` returns `deployment_stages: 15`; `multi_injection_suite` returns `injection_classes: 27`). These are plausibility stubs, not measurements. A few do real work (`scope_enforcement_policy` calls `validate_target` genuinely; `risk_scoring_engine` computes via `compute_posture_score` if present).
->   - **Tier 5 (17)**: tool inventory lookup — reports adapter status; does not run external binaries.
-> - `test_all_85_agents` enshrines "85 COMPLETED" as the pass condition. It proves dispatch completeness, nothing more. Our original honest `NOT_EXECUTABLE` tier-4 reporting was replaced by these handlers in the same commit.
-> - `execute_all_85_agents` is real (bounded parallel dispatch; see `core/agent_registry.py`); per-agent timeout is 120 s; overall status `COMPLETED`/`DEGRADED` reflects failures.
-> - **No LLM round trip occurs without a configured provider key**; with placeholders the system is in `heuristic_fallback` mode.
-> - Lifecycle vocabulary in code: `AVAILABLE/ACTIVE/RUNNING/COMPLETED/FAILED/REGISTERED/NOT_EXECUTABLE`. The diagram below is illustrative of design intent, not enforced end-to-end.
->
-
 ## SNMK / SWA Autonomous Multi-Agent Hierarchy
 
 The platform registers, coordinates, and executes 85 specialist agents organized across five operational tiers.

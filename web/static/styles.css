@@ -6321,3 +6321,204 @@ body {
         grid-template-columns: 1fr !important;
     }
 }
+
+/* =====================================================================
+   SNMK v2.4 — Color-coded sidebar sections + typography hierarchy
+   (added: distinct accent per nav section; clearer card/heading scale)
+   ===================================================================== */
+
+/* ---- Color-coded navigation sections ---- */
+.swa-sidebar-nav .nav-sec {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 2px 0 8px;
+    margin-bottom: 2px;
+    border-bottom: 1px solid var(--border);
+}
+.swa-sidebar-nav .nav-sec:last-of-type { border-bottom: none; }
+
+.swa-sidebar-nav .nav-sec > .swa-sidebar-group-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--sec, var(--text-muted));
+    font-weight: 800;
+    opacity: 0.98;
+}
+.swa-sidebar-nav .nav-sec > .swa-sidebar-group-title::before {
+    content: "";
+    width: 16px;
+    height: 3px;
+    border-radius: 3px;
+    background: var(--sec, var(--text-muted));
+    box-shadow: 0 0 10px -1px var(--sec, transparent);
+    flex: none;
+}
+
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link {
+    border-left: 2px solid transparent;
+}
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link svg {
+    color: var(--sec, var(--text-muted));
+    opacity: 0.72;
+}
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link:hover {
+    background: color-mix(in srgb, var(--sec) 13%, transparent);
+    border-left-color: color-mix(in srgb, var(--sec) 50%, transparent);
+    color: var(--text-title);
+}
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link:hover svg {
+    color: var(--sec);
+    opacity: 1;
+}
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link.active {
+    background: color-mix(in srgb, var(--sec) 20%, transparent);
+    border: 1px solid transparent;
+    border-left: 3px solid var(--sec);
+    color: var(--text-title);
+    font-weight: 700;
+}
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link.active svg {
+    color: var(--sec);
+    opacity: 1;
+}
+
+/* ---- Typography hierarchy: make screens scannable, not flat ---- */
+/* View / page headings */
+.swa-view-title {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.4px;
+    color: var(--text-title);
+    line-height: 1.2;
+}
+.swa-view-subtitle {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.1px;
+}
+
+/* KPI cards: muted label  ->  big metric  ->  small unit */
+.soc-kpi-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+}
+.soc-kpi-number {
+    font-family: var(--mono);
+    font-size: 30px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    color: var(--text-title);
+    line-height: 1.1;
+}
+.soc-kpi-unit {
+    font-family: var(--font);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    letter-spacing: 0;
+}
+
+/* Panel / card section headers get weight + a touch more size */
+.soc-panel-title, .swa-card-title, .swa-panel-title, .soc-section-title {
+    font-weight: 700;
+    letter-spacing: -0.2px;
+    color: var(--text-title);
+}
+
+/* Numbers / counts / CVSS read as data via the mono face */
+.soc-kpi-subtags .sev-tag, .sb, .mono-num, .cvss-score {
+    font-family: var(--mono);
+    letter-spacing: 0;
+}
+
+/* =====================================================================
+   SNMK v2.5 — "Buttery" polish: smooth scroll, sleek scrollbars,
+   eased micro-interactions, soft view transitions
+   ===================================================================== */
+
+/* Smooth, inertia-friendly scrolling everywhere */
+html { scroll-behavior: smooth; }
+.swa-view, .swa-main-shell, .swa-sidebar-nav, .smain, main, .swa-content,
+[class*="-body"], [class*="-list"], [class*="-scroll"], .modal-body {
+    scroll-behavior: smooth;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+/* Sleek thin scrollbars (dark + light aware) */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--text-muted) 45%, transparent) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--text-muted) 38%, transparent);
+    border-radius: 20px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    transition: background .2s ease;
+}
+*::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--brand) 70%, var(--text-muted));
+    background-clip: padding-box;
+}
+*::-webkit-scrollbar-corner { background: transparent; }
+
+/* Soft fade/rise when a section becomes active */
+.swa-view.active {
+    animation: snmkViewIn .36s cubic-bezier(.22,.61,.36,1) both;
+}
+@keyframes snmkViewIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Consistent easing for interactive chrome */
+.swa-sidebar-link, .soc-nav-item, .swa-action-btn, .btn, button, .pill-item,
+.swa-topbar-select, .nav-badge {
+    transition: background-color .18s ease, color .18s ease, border-color .18s ease,
+                box-shadow .22s ease, transform .16s cubic-bezier(.22,.61,.36,1) !important;
+}
+
+/* Nav items glide a touch to the right on hover */
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link:hover { transform: translateX(3px); }
+.swa-sidebar-nav .nav-sec > .swa-sidebar-link.active { transform: translateX(2px); }
+
+/* Cards lift gently on hover */
+.soc-kpi-card, .swa-card, .soc-panel, .soc-kpi-disc, .at-item, .rcard,
+.soc-finding-card, .tool-card, .agent-card, .report-card, .asset-card, .kpi {
+    transition: transform .2s cubic-bezier(.22,.61,.36,1), box-shadow .24s ease, border-color .2s ease;
+    will-change: transform;
+}
+.soc-kpi-card:hover, .swa-card:hover, .soc-panel:hover, .tool-card:hover,
+.agent-card:hover, .report-card:hover, .asset-card:hover, .soc-finding-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 30px -14px rgba(0,0,0,.55), 0 0 0 1px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+/* Tactile button press */
+button:active, .swa-action-btn:active, .btn:active, .swa-sidebar-link:active, .pill-item:active {
+    transform: translateY(1px) scale(.985);
+}
+
+/* Rows highlight smoothly */
+tr, .at-item, .soc-nav-item, li[class*="item"] { transition: background-color .16s ease; }
+
+/* Modals / drawers ease in */
+.swa-ai-drawer, .modal, [class*="modal"][class*="open"], [class*="drawer"] {
+    transition: transform .3s cubic-bezier(.22,.61,.36,1), opacity .3s ease;
+}
+
+/* Respect users who prefer less motion */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .001ms !important;
+        scroll-behavior: auto !important;
+    }
+}

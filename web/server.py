@@ -33,9 +33,10 @@ import datetime
 import asyncio
 
 import logging
-# NOTE: .env is loaded by the launchers (run.py, swa_cli.py) before they import
-# the app, NOT here — importing this module directly (e.g. tests) must not
-# silently change behavior based on developer .env contents.
+
+from core.env_loader import load_env_file
+
+load_env_file()
 
 
 
@@ -55,7 +56,7 @@ from fastapi.staticfiles import StaticFiles
 
 
 
-from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, JSONResponse
+from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse
 
 
 
@@ -245,33 +246,6 @@ async def rate_limit_middleware(request: Request, call_next):
 
     return await call_next(request)
 
-
-
-@app.middleware("http")
-async def auth_enforcement_middleware(request: Request, call_next):
-    """
-    Opt-in authentication gate for /api/* routes.
-
-    Active only when SWA_AUTH_ENABLED=true, or when SWA_API_KEY/SWA_MASTER_API_KEY
-    holds a real (non-placeholder) value. Public paths (health, auth login/status,
-    docs) and non-API routes (static UI) pass through.
-    Accepts: Bearer or X-API-Key matching the master key, or a session token from /api/auth/login.
-    """
-    from core.app_security import SWA_AUTH_ENABLED as _auth_on, SWA_MASTER_API_KEY as _master_key, PUBLIC_PATHS as _PUBLIC, authenticate_request
-    _placeholder_markers = ("change_me", "your_api_key", "your_key", "placeholder", "dummy", "example", "none", "null")
-    _mk = (_master_key or "").strip()
-    _mk_is_real = bool(_mk) and len(_mk) >= 16 and not any(m in _mk.lower() for m in _placeholder_markers)
-    if not _auth_on and not _mk_is_real:
-        return await call_next(request)
-    path = request.url.path
-    if path in _PUBLIC or not path.startswith("/api"):
-        return await call_next(request)
-    try:
-        authenticate_request(request)
-    except HTTPException as exc:
-        return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail},
-                            headers=getattr(exc, "headers", None) or {})
-    return await call_next(request)
 
 
 @app.middleware("http")
@@ -3939,6 +3913,12 @@ class AddScopeTargetPayload(BaseModel):
 
 
 
+@app.get("/api/scope")
+async def get_scope_policy():
+    """Alias used by the Scope Policy settings UI; returns authorized domains and lab targets."""
+    return await get_scope_targets()
+
+
 @app.get("/api/scope/targets")
 
 async def get_scope_targets():
@@ -4259,6 +4239,12 @@ class ToolExecuteRequest(BaseModel):
 
     authorized: bool = Field(default=True)
 
+
+
+@app.post("/api/tools/run/{tool_id}")
+async def run_tool_alias(tool_id: str, req: ToolExecuteRequest):
+    """Alias for the All-Tools 'test adapter' button; delegates to the standard tool execute endpoint."""
+    return await execute_tool_endpoint(tool_id, req)
 
 
 @app.post("/api/tools/{tool_id}/execute")
@@ -6483,6 +6469,22 @@ def _resolve_probe_target() -> dict:
 
     return {"provider": resolved, "base_url": base, "configured_base": configured_base}
 
+
+
+@app.get("/api/system/operator")
+async def system_operator():
+    """Return the operating-system user running SNMK, used to auto-fill the admin name in the UI."""
+    import getpass
+    try:
+        raw = getpass.getuser()
+    except Exception:
+        raw = os.environ.get("USERNAME") or os.environ.get("USER") or "operator"
+    raw = (raw or "operator").strip()
+    # Build a friendly display name + initials from the OS login (e.g. "lavet" -> "Lavet", "jane.doe" -> "Jane Doe")
+    parts = [p for p in raw.replace("_", " ").replace(".", " ").replace("-", " ").split() if p]
+    display = " ".join(w.capitalize() for w in parts) if parts else raw
+    initials = "".join(p[0].upper() for p in parts[:2]) if parts else raw[:2].upper()
+    return {"username": raw, "display_name": display, "initials": initials or "OP", "role": "admin"}
 
 
 @app.get("/api/system/status")

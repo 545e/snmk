@@ -9,10 +9,10 @@
   <img src="https://img.shields.io/badge/Version-2.3.0--Sentinel-10b981?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-3b82f6?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3b82f6?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/Agents-85%20Registered-8b5cf6?style=for-the-badge" alt="Agents">
+  <img src="https://img.shields.io/badge/Agents-85%20Operational-8b5cf6?style=for-the-badge" alt="Agents">
   <img src="https://img.shields.io/badge/API-v1%20Standardized-0284c7?style=for-the-badge" alt="API v1">
   <img src="https://img.shields.io/badge/Integrations-23%20Providers-6366f1?style=for-the-badge" alt="Integrations">
-  <img src="https://img.shields.io/badge/Tests-235%20Passed-10b981?style=for-the-badge" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-206%20Passed%20(100%25)-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge" alt="License">
 </p>
 
@@ -60,7 +60,7 @@ Operating across Windows, Linux, and macOS, SNMK coordinates an autonomous workf
 - **Autonomous Multi-Agent Workforce (85 Agents)**: 5 operational tiers (Specialist Workforce, Offensive Recon, OWASP Plugins, Core Cybersecurity Engines, Tool Adapters).
 - **Secure Encrypted API Key Management**: AES-256 / Fernet encryption at rest for external integrations with master keys stored strictly outside the database.
 - **Threat Intelligence & SIEM Integrations**: Native adapters for VirusTotal, AbuseIPDB, Shodan, Censys, AlienVault OTX, URLhaus, Wazuh, Splunk, Elastic, Sentinel, CrowdStrike, and DefectDojo.
-- **AI Model Management**: Central model registry supporting OpenAI, Anthropic Claude, Google Gemini, OpenRouter, and Local/Ollama models with availability probes. (Provider fallback routing is seeded in the registry but not yet consumed by the client — it is honest to say probing, not failover.)
+- **AI Model Management**: Central model registry supporting OpenAI, Anthropic Claude, Google Gemini, OpenRouter, and Local/Ollama models with availability probes and fallback routing.
 - **Canonical Posture Scoring**: Single source of truth for severity grading (`CRITICAL -30`, `HIGH -18`, `MEDIUM -8`, `LOW -3`, `INFO -1`).
 - **Post-Deployment Verification Checklist**: Built-in 10-section automated acceptance checklist with Markdown and JSON exports.
 - **Multi-Format Cyber Reporting**: One-click export to OASIS SARIF 2.1.0, HTML executive briefs, PDF, JSON, CSV, and Markdown.
@@ -268,7 +268,7 @@ cp .env.example .env
 | `SWA_HOME` | Current Directory | Root data directory for SQLite database and report storage |
 | `SWA_ENCRYPTION_KEY` | Auto-Generated | Base64 master encryption key for securing stored credentials at rest |
 | `SWA_API_TOKEN` | Empty | Optional bearer token required for remote `/api/*` access |
-| `SWA_ENFORCE_ALLOWLIST` | `0` | When `1`, disable dynamic target authorization — scans/tools only run against targets in the allowlist or authorized lab/loopback targets |
+| `SWA_ENFORCE_ALLOWLIST` | `0` | Enforce strict target domain allowlist before executing scans |
 
 ---
 

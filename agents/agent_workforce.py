@@ -550,7 +550,7 @@ class APISecurityAgent(BaseSpecialistAgent):
 
     async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
 
-        endpoints = task.inputs.get("endpoints") or []
+        endpoints = task.inputs.get("endpoints", [])
 
         await self.log(task.scan_id, f"Auditing {len(endpoints)} API endpoints for authorization and parameter flaws...")
 

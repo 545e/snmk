@@ -34,7 +34,8 @@
         })();
     </script>
     <meta name="description" content="SNMK — Autonomous Cybersecurity Platform, Threat Forensics & WAF/SIEM Defense Center.">
-    <link rel="stylesheet" href="styles.css?v=3.5.0">
+    <link rel="stylesheet" href="styles.css?v=3.6.0">
+    <link rel="stylesheet" href="snmk-enhance.css?v=3.1.0">
     <link rel="manifest" href="/static/manifest.json">
 
 </head>
@@ -71,6 +72,7 @@
         <!-- Sidebar Navigation (Maintains soc-nav-bar and all required view dispatches) -->
                 <!-- Sidebar Navigation (Maintains soc-nav-bar and all required view dispatches) -->
         <nav class="swa-sidebar-nav soc-nav-bar" id="socTopNav">
+            <div class="nav-sec" style="--sec:#6366f1">
             <!-- OVERVIEW -->
             <div class="swa-sidebar-group-title">OVERVIEW</div>
             <button class="swa-sidebar-link soc-nav-item active" id="navItemDashboard" onclick="navToView('dashboard')">
@@ -78,6 +80,8 @@
                 <span>Dashboard</span>
             </button>
 
+            </div>
+            <div class="nav-sec" style="--sec:#3b82f6">
             <!-- SECURITY OPERATIONS -->
             <div class="swa-sidebar-group-title">SECURITY OPERATIONS</div>
             <button class="swa-sidebar-link soc-nav-item" id="navItemAssessments" onclick="navToView('assessments')">
@@ -97,6 +101,8 @@
                 <span>Scan Comparison</span>
             </button>
 
+            </div>
+            <div class="nav-sec" style="--sec:#06b6d4">
             <!-- SECURITY TOOLS -->
             <div class="swa-sidebar-group-title">SECURITY TOOLS</div>
             <button class="swa-sidebar-link soc-nav-item" id="navItemAllTools" onclick="navToView('all_tools')">
@@ -125,6 +131,8 @@
                 <span>Code Security</span>
             </button>
 
+            </div>
+            <div class="nav-sec" style="--sec:#a855f7">
             <!-- INTELLIGENCE -->
             <div class="swa-sidebar-group-title">INTELLIGENCE</div>
             <button class="swa-sidebar-link soc-nav-item" id="navItemAgents" onclick="navToView('agents')">
@@ -160,8 +168,10 @@
 
             <!-- CYBER OPERATIONS -->
             
+            </div>
+            <div class="nav-sec" style="--sec:#f59e0b">
             <!-- TESTING AND OPERATIONS -->
-            <div class="swa-sidebar-group-title">TESTING & OPERATIONS</div>
+            <div class="swa-sidebar-group-title">TESTING &amp; OPERATIONS</div>
             <button class="swa-sidebar-link soc-nav-item" id="navItemSecurityTesting" onclick="navToView('security_testing')">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
                 <span>Security Testing</span>
@@ -199,6 +209,8 @@
                 <span>Acceptance Checklist (§52)</span>
             </button>
 
+            </div>
+            <div class="nav-sec" style="--sec:#14b8a6">
             <div class="swa-sidebar-group-title">CYBER OPERATIONS</div>
             <button class="swa-sidebar-link soc-nav-item" id="navItemAiLab" onclick="navToView('ai_lab')">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2v7.31L4.65 18.2A2 2 0 0 0 6.36 21h11.28a2 2 0 0 0 1.71-2.8L14 9.31V2"></path><line x1="8" y1="2" x2="16" y2="2"></line></svg>
@@ -217,6 +229,8 @@
                 <span>Cyber Deploy</span>
             </button>
 
+            </div>
+            <div class="nav-sec" style="--sec:#64748b">
             <!-- PLATFORM -->
             <div class="swa-sidebar-group-title">PLATFORM</div>
             <button class="swa-sidebar-link soc-nav-item" id="navItemReports" onclick="navToView('reports')">
@@ -257,6 +271,7 @@
                 <span>Documentation</span>
             </button>
 
+            </div>
             <!-- LEGACY DISPATCH ALIASES (Preserves backward compatibility for test_01_dashboard_html_and_soc_navigation) -->
             <div style="display:none;" aria-hidden="true">
                 <button id="navItemPentest" onclick="navToView('pentest')"></button>
@@ -338,10 +353,10 @@
                     <span id="themeToggleIcon">☀️</span>
                 </button>
                 <div class="cyber-user-profile" id="userProfileBadge" title="Operator Profile">
-                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' rx='40' fill='%233478F6'/%3E%3Ctext x='40' y='52' font-family='Arial,sans-serif' font-size='34' font-weight='700' fill='white' text-anchor='middle'%3ERC%3C/text%3E%3C/svg%3E" alt="Avatar" class="cyber-avatar-img">
+                    <img id="operatorAvatarImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' rx='40' fill='%233478F6'/%3E%3Ctext x='40' y='52' font-family='Arial,sans-serif' font-size='34' font-weight='700' fill='white' text-anchor='middle'%3EOP%3C/text%3E%3C/svg%3E" alt="Avatar" class="cyber-avatar-img">
                     <div>
-                        <div class="cyber-user-name">Rayan Cooked</div>
-                        <div class="cyber-user-role">admin</div>
+                        <div class="cyber-user-name" id="operatorName">Operator</div>
+                        <div class="cyber-user-role" id="operatorRole">admin</div>
                     </div>
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748B" stroke-width="2" style="margin-left:4px;"><polyline points="6 9 12 15 18 9"></polyline></svg>
                 </div>
@@ -915,7 +930,7 @@
                     <div>
                         <div style="font-size: 15px; font-weight: 800; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
                             <span>SNMK Autonomous Multi-Agent Workforce</span>
-                            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 11px; padding: 2px 7px; font-weight: 700;">85 REGISTERED AGENTS</span>
+                            <span class="badge" style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); font-size: 11px; padding: 2px 7px; font-weight: 700;">85 OPERATIONAL AGENTS</span>
                         </div>
                         <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
                             17 Specialist Workforce Agents &bull; 9 Offensive/Recon &bull; 10 OWASP Top 10 &bull; 32 Core Engines &bull; 17 Tool Adapters
