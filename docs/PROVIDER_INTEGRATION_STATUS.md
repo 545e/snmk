@@ -1,7 +1,9 @@
 # SWA AI Provider Integration Status & Verification Matrix
 
+> **Correction applied 2026-11-11:** the "Verified" column below means "adapter implemented, probe code runs against the real endpoint shape, and unit tests pass". It does **NOT** mean a live authenticated session was established with each provider: on this machine, every authenticated provider is `NOT_CONFIGURED`/`AUTHENTICATION_FAILED` (no real keys exist). Live, billable model round-trips and provider sessions are **unverified**. Only the keyless sources (CISA KEV JSON feed, FIRST EPSS API) were confirmed working end-to-end over HTTPS on 2026-11-09. Where "Verified" appears below, read it as "probe implemented + test green", not "provider session established".
+
 ## Overview
-This matrix summarizes all 23 third-party integration adapters discovered, implemented, and verified within SWA AI.
+This matrix summarizes all 23 third-party integration adapters discovered, implemented, and probed within SWA AI.
 
 ---
 

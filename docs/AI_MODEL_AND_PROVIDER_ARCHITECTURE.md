@@ -1,45 +1,43 @@
 # AI MODEL AND PROVIDER ARCHITECTURE
-## Multi-Provider Orchestration, Dynamic Fallback & Encrypted Credential Brokerage
+## Audited 2026-11-07 — What actually exists in code
 
-### 1. Supported Providers & Models
+### 1. Providers (code reality)
 
-| Provider | Supported Model Identifiers | Authentication Mechanism | Streaming Support | Function / Tool Calling |
-|---|---|---|---|---|
-| **OpenAI** | `gpt-4o`, `gpt-4o-mini`, `o1-preview`, `o3-mini` | `Authorization: Bearer <key>` | YES | Standard OpenAI Tool JSON |
-| **Anthropic** | `claude-3-5-sonnet-20241022`, `claude-3-haiku-20240307` | `x-api-key: <key>`, `anthropic-version: 2023-06-01` | YES | Anthropic Tool Block Schema |
-| **Google Gemini** | `gemini-1.5-pro`, `gemini-1.5-flash`, `gemini-2.0-flash` | Query parameter `?key=<key>` or Bearer | YES | Gemini Function Declarations |
-| **OpenRouter** | `meta-llama/llama-3.3-70b-instruct`, `mistralai/mistral-large-2407` | `Authorization: Bearer <key>` | YES | OpenAI Compatible |
-| **Azure OpenAI** | Custom deployed endpoints (`gpt-4o`) | `api-key: <key>` | YES | OpenAI Compatible |
-| **Ollama (Local)** | `llama3.2:latest`, `deepseek-r1:latest`, `codellama` | HTTP endpoint (`http://localhost:11434/api/generate`) | YES | Direct JSON Payload |
-| **Deterministic Fallback** | `heuristic-engine-v2.3` | Internal rule-based scoring (Zero dependency) | NO | Direct Rule Execution |
+| Provider | Wired in code | Auth mechanism | Model list source | Streaming | Tool calling |
+|---|---|---|---|---|---|
+| OpenAI | `OpenAIAdapter` probe (`GET /models`); chat path in `SWALLMClient` (`_call_llm`, chat/completions) | `Authorization: Bearer` | static `KNOWN_PROVIDER_MODELS` + live probe only via test endpoints | NO | NO |
+| Anthropic | `AnthropicAdapter` probe; Messages API path (`anthropic-version: 2023-06-01`) | `x-api-key` | static catalog | NO | NO |
+| Google Gemini | `GoogleGeminiAdapter` probe (`GET /v1beta/models?key=`); `generateContent` path | query `?key=` | static catalog | NO | NO |
+| OpenRouter | `OpenRouterAdapter` probe (`GET /api/v1/auth/key`); OpenAI-compatible chat path | `Authorization: Bearer` + `HTTP-Referer`/`X-Title` | static catalog | NO | NO |
+| Ollama (local) | `OllamaLocalAdapter` probe (`GET /api/tags`); OpenAI-compatible chat path | none (loopback) | static catalog | NO | NO |
+| Azure OpenAI | **NOT IMPLEMENTED** (no adapter, no code path) | — | — | — | — |
+| Deterministic fallback | `heuristic` provider in `SWALLMClient` | none | built-in | NO | Direct rule execution |
 
----
+Default routing: `SWA_AI_PROVIDER=auto` → heuristic if no key; if a key is present in env (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `OPENROUTER_API_KEY` / `SWA_AI_API_KEY` / `LLM_API_KEY`, placeholder-filtered) it selects that provider. Otherwise it falls back to the encrypted integrations vault via `integration_registry.get_default_ai_provider()`.
 
-### 2. Credential Brokerage & Zero-Leakage Guarantee
+**No streaming, no function/tool calling anywhere.** History is truncated to the last 8 messages. Upstream errors are swallowed to a fixed notice string ("SWA AI Security Notice: Upstream LLM provider unavailable. Local heuristic fallback active.").
 
-All external provider keys are stored in an encrypted database table (`integration_credentials`) using Fernet symmetric encryption (AES-128-CBC with HMAC-SHA256).
-- **Master Key**: Generated and isolated in `.swa_master.key` outside the database.
-- **PBKDF2 Key Derivation**: 100,000 SHA-256 iterations with per-installation salt.
-- **Zero Plain-Text Leakage**: All API responses (`GET /api/integrations`, `GET /api/settings`) mask secrets automatically (e.g. `sk-pro************9aF`).
+### 2. Fallback chain — simulated, not wired
+`ai_models.fallback_model_id` is seeded (gpt-4o → claude-3-5-sonnet → gemini-1.5-flash → openrouter-default → ollama-local) but **never read by any executor**. Failure today is binary: LLM call succeeds or the client returns the heuristic notice string; it does not rotate providers.
 
----
+### 3. Credential brokerage (real)
+- `core/credentials.py`: Fernet (AES-128-CBC + HMAC-SHA256), PBKDF2-HMAC-SHA256 100k iterations, per-value 16-byte salt. Master key from `SWA_ENCRYPTION_KEY` or repo-root `.swa_master.key` (git-ignored).
+- `core/integrations/registry.py`: `encrypted_credentials` table; `get_active_credential()` decrypts in-memory only for the outbound call; list APIs return masked values only.
+- Legacy `ai_api_key` setting is now stored as `enc:v1:<cipher>:<salt>` (2026-11-07) with lazy in-place migration on first read; raw-key storage in the `settings` table is closed.
+- `cryptography` fallback: if the package is missing, a non-authenticated HMAC-XOR cipher is used. **`cryptography` is a hard dependency in requirements.txt — do not remove it.**
 
-### 3. Fail-Safe Execution Flow
-
+### 4. Fail-safe execution flow (actual)
 ```text
-User Request / Assessment Probe
-              │
-              ▼
-   Is Vault Credential Configured?
-        ├── YES ──► Route to Target Provider API (OpenAI / Anthropic / Gemini / Ollama)
-        │                 │
-        │           Is API Successful?
-        │                 ├── YES ──► Parse Structured JSON Output
-        │                 └── NO (Network / Quota) ──► Transparent Fallback
-        │                                                     │
-        └── NO ───────────────────────────────────────────────▼
-                                                 Autonomous Deterministic Engine
-                                                 • CVSS v3.1 Matrix Engine
-                                                 • RAG Grounded Context Analysis
-                                                 • Zero False-Positive Evidence Rules
+Request → SWALLMClient._call_llm
+   ├─ provider == 'heuristic' or no key → deterministic response text (labeled heuristic)
+   └─ key present → provider HTTP call (30s timeout, no retries)
+         ├─ success → response text
+         └─ exception → fixed notice string (caller cannot distinguish failure from content)
 ```
+The previous diagram ("transparent fallback to deterministic engine after provider failure") was aspirational; callers now at least get the notice, and Kill-Chain AI treats it as unavailable and uses its own deterministic path.
+
+### 5. What is NOT verified
+- Any real provider round trip (no valid keys on this machine; `.env` ships a placeholder).
+- Token/cost metering (not implemented; reported as null).
+- Azure OpenAI, Azure AD auth, managed identity: not present anywhere.
+- Model behavior under tool-calling schemas: no tools schema is ever sent to a model.

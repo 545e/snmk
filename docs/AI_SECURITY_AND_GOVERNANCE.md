@@ -1,4 +1,13 @@
 # AI SECURITY, GOVERNANCE & RED-TEAMING
+
+> **Audit corrections applied 2026-11-07 (read first):**
+> - The 12-vector harness is a **deterministic rule-based prober**, not an LLM-driven red-teamer. It passes offline without any API key; it checks regex indicators and transport-level behaviors, not whether a live model actually leaks data.
+> - "Indirect Prompt Injection – sanitizes third-party retrieved documents" is a **design claim, not a wired control**: `core/app_security.sanitize_untrusted_input_for_llm` exists but is not called on the RAG retrieval path; RAG context is inserted verbatim into the system prompt by `llm_client.reason()`. Treat retrieved content as untrusted by policy, not by enforcement.
+> - No model has ever executed on this machine with a real provider key (`.env` ships a placeholder); the platform runs in `heuristic_fallback` mode. Any behavior observably tied to an LLM round trip is UNVERIFIED until a key is configured.
+> - Tool execution does NOT expose shell/PowerShell to models; external binaries run only via adapter allowlists with `scope_policy` validation. LLM-driven function/tool calling does not exist in this codebase at all.
+> - Approval gates are enforced in the automation engine for non-lab targets and exist as an `approval_requests` table + `/api/approvals` UI path; the autonomous scan pipeline does not currently pause for human approval.
+> - Cross-tenant isolation is by `project_id`/`workspace_id` filters in the DB and RAG store; there is no cryptographic tenant isolation, and `SWA_ENFORCE_ALLOWLIST=1` is required for strict scope enforcement (dynamic target authorization is session-scoped by default, never persisted to `targets.json`).
+
 ## Guardrails Against Adversarial LLM Threats, Jailbreaks, and Data Leakage
 
 The platform enforces strict AI security controls in compliance with the OWASP Top 10 for Large Language Model Applications:

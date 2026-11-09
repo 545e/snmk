@@ -1,4 +1,11 @@
 # MULTI-AGENT WORKFLOWS & THREAT ORCHESTRATION
+
+> **Audit corrections applied 2026-11-07 (read first):**
+> - The diagram below is the **intended** pipeline. In code, the real loop is: `POST /api/scans` → `SWAOrchestrator.execute()` (ReconAgent → AttackSurfaceAgent → optional FuzzerAgent → plugin_manager/VulnHunter fan-out → optional Nuclei (if binary installed) → ExploitValidatorAgent (httpx re-probe + optional LLM) → RemediationAgent) → knowledge-graph ingest → EASM drift → report generation.
+> - `/api/agents/collaborate` now runs a **real bounded pipeline**: Stage 1 attack-surface dispatch, Stage 2 dependency-confusion dispatch, Stage 3 deterministic posture scoring from stored findings, Stage 4 exploit-validation dispatch, Stage 5 remediation dispatch, Stage 6 report generation explicitly `NOT_RUN`. Each stage reports its true status (`COMPLETED`, `FAILED`, `NOT_EXECUTABLE`, `NOT_RUN`); overall status is `COMPLETED`, `DEGRADED`, or `NOT_COMPLETED` accordingly.
+> - Claims like "delegation depth bounded to 5 handoffs" were never enforced in code and are retained below only as design intent. Actual bounds: orchestrator pipeline is linear; `execute_all_85_agents` uses a semaphore of 4 and a 60-second per-agent timeout; LLM `reason()` uses bounded history (last 8 messages).
+> - Approval gates are enforced only in the automation engine for non-lab targets (`requires_approval` steps pause as `PENDING_APPROVAL`); the agent-dispatch path itself does not yet flip agents into `WAITING_FOR_APPROVAL`.
+
 ## End-to-End Task Delegation, Context Passing, and Kill Chain Correlation
 
 ### 1. The Standard Security Assessment Workflow

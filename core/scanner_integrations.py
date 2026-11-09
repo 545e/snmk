@@ -818,6 +818,13 @@ class ScannerIntegrations:
     @staticmethod
     async def run_nmap_safe(target_host: str, ports: str = "top100", timeout: int = 45) -> Dict[str, Any]:
         from core.scope_policy import validate_tool_target
+        if not target_host or target_host.strip().startswith("-"):
+            return {
+                "tool": "nmap",
+                "executed": False,
+                "reason": "Invalid target host.",
+                "ports": []
+            }
         scope = validate_tool_target(target_host, tool_id="nmap")
         if not scope.is_allowed:
             return {
@@ -839,7 +846,28 @@ class ScannerIntegrations:
                 "ports": []
             }
 
-        port_arg = ["-F"] if ports == "top100" else ["-p", ports]
+        if ports == "top100":
+            port_arg = ["-F"]
+        else:
+            # Validate port spec: comma-separated integers and ranges (e.g. "22,80,443,8000-8010").
+            # Anything else is rejected to prevent flag injection into the nmap argv.
+            if not re.fullmatch(r"[0-9]{1,5}(?:[,\-][0-9]{1,5})*", ports.strip()):
+                return {
+                    "tool": "nmap",
+                    "executed": False,
+                    "reason": f"Invalid ports specification: {ports!r}. Use 'top100' or a comma-separated list of ports/ranges like '22,80,443,8000-8010'.",
+                    "ports": []
+                }
+            for part in re.split(r"[,\-]", ports.strip()):
+                pnum = int(part)
+                if not (1 <= pnum <= 65535):
+                    return {
+                        "tool": "nmap",
+                        "executed": False,
+                        "reason": f"Port out of range: {pnum}. Valid range is 1-65535.",
+                        "ports": []
+                    }
+            port_arg = ["-p", ports.strip()]
         cmd = [
             nmap_meta["binary_path"],
             "-sV",
@@ -901,6 +929,8 @@ class ScannerIntegrations:
     # =====================================================================
     @staticmethod
     async def run_nuclei_safe(target_url: str, scan_id: str, timeout: int = 60) -> Tuple[List[VulnerabilityFinding], Dict[str, Any]]:
+        if not target_url or target_url.strip().startswith("-"):
+            return [], {"tool": "nuclei", "executed": False, "reason": "Invalid target URL."}
         from core.scope_policy import validate_tool_target
         scope = validate_tool_target(target_url, tool_id="nuclei")
         if not scope.is_allowed:
@@ -995,6 +1025,8 @@ class ScannerIntegrations:
         is_lab_mode_authorized: bool = False,
         timeout: int = 40
     ) -> Tuple[List[VulnerabilityFinding], Dict[str, Any]]:
+        if not target_url or target_url.strip().startswith("-"):
+            return [], {"tool": "sqlmap", "executed": False, "reason": "Invalid target URL."}
         if not is_lab_mode_authorized:
             return [], {
                 "tool": "sqlmap",
