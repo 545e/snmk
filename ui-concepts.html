@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en" data-concept="focus">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SNMK — 5 UI/UX Design Concepts</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   SNMK UI CONCEPT GALLERY
+   One file, 5 fully distinct design systems. Same product data.
+   Switch concepts from the top bar. Pick one → it gets built for real.
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;overflow-x:hidden}
+
+/* ---------- Concept switcher (chrome) ---------- */
+.switcher{position:fixed;top:0;left:0;right:0;height:56px;z-index:1000;display:flex;align-items:center;
+  gap:6px;padding:0 16px;background:rgba(10,10,12,.86);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,.08)}
+.switcher .brand{font-family:'Space Grotesk';font-weight:700;font-size:15px;color:#fff;margin-right:14px;white-space:nowrap}
+.switcher .brand b{color:#38bdf8}
+.sw-tab{appearance:none;border:1px solid transparent;background:transparent;color:#9ca3af;
+  font:inherit;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;
+  display:flex;align-items:center;gap:7px;transition:.18s;white-space:nowrap}
+.sw-tab .dot{width:8px;height:8px;border-radius:50%;flex:none}
+.sw-tab:hover{color:#fff;background:rgba(255,255,255,.05)}
+.sw-tab.on{color:#fff;background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.14)}
+.sw-tab small{color:#6b7280;font-weight:500;font-size:10.5px}
+.sw-hint{margin-left:auto;font-size:11.5px;color:#6b7280;white-space:nowrap}
+@media(max-width:1100px){.sw-tab small{display:none}.sw-hint{display:none}}
+
+.stage{position:relative;margin-top:56px;min-height:calc(100vh - 56px)}
+.concept{display:none}
+.concept.on{display:block}
+
+/* reusable mock data colorway */
+:root{
+  --c-crit:#f43f5e;--c-high:#fb7185;--c-high2:#f97316;--c-med:#f59e0b;--c-low:#38bdf8;--c-ok:#22c55e;
+}
+
+/* ============================================================
+   CONCEPT 1 — FOCUS FLOW  (task-first, minimal, calm)
+   ============================================================ */
+.focus{--bg:#0d0f14;--panel:#141821;--line:#232a38;--txt:#e8ecf3;--mut:#8a94a6;--accent:#6366f1;--accent2:#818cf8;
+  background:var(--bg);color:var(--txt);font-family:'Inter';min-height:calc(100vh - 56px);display:grid;grid-template-columns:230px 1fr}
+.focus .fnav{border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:3px}
+.focus .flogo{display:flex;align-items:center;gap:10px;padding:4px 8px 22px}
+.focus .flogo .mk{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#38bdf8);display:grid;place-items:center;font-weight:800;color:#fff;font-size:14px}
+.focus .flogo b{font-size:16px;font-weight:700;letter-spacing:-.3px}
+.focus .fnav a{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:10px;color:var(--mut);
+  text-decoration:none;font-size:13.5px;font-weight:500;transition:.15s}
+.focus .fnav a svg{width:17px;height:17px;flex:none}
+.focus .fnav a:hover{background:#1a1f2b;color:var(--txt)}
+.focus .fnav a.sel{background:var(--accent);color:#fff}
+.focus .fnav .sp{flex:1}
+.focus .fnav .acct{display:flex;align-items:center;gap:10px;padding:10px 8px;border-top:1px solid var(--line);margin-top:8px}
+.focus .fnav .acct .av{width:28px;height:28px;border-radius:50%;background:#2a3344;display:grid;place-items:center;font-size:12px;font-weight:700}
+.focus .fmain{padding:40px 54px;overflow:auto}
+.focus .fhero{max-width:720px;margin:0 auto 40px;text-align:center;padding-top:28px}
+.focus .fhero h1{font-size:30px;font-weight:700;letter-spacing:-.6px}
+.focus .fhero p{color:var(--mut);font-size:15px;margin-top:10px}
+.focus .scanbox{max-width:720px;margin:0 auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:18px;padding:10px;display:flex;gap:10px;box-shadow:0 20px 60px -20px rgba(0,0,0,.6)}
+.focus .scanbox input{flex:1;background:transparent;border:none;outline:none;color:var(--txt);font:inherit;font-size:15px;padding:0 14px}
+.focus .scanbox input::placeholder{color:#5a6475}
+.focus .scanbox .seg{display:flex;background:#0e1118;border:1px solid var(--line);border-radius:11px;padding:3px}
+.focus .scanbox .seg button{border:none;background:transparent;color:var(--mut);font:inherit;font-size:12.5px;font-weight:600;padding:8px 12px;border-radius:8px;cursor:pointer}
+.focus .scanbox .seg button.on{background:#232a38;color:var(--txt)}
+.focus .scanbox .go{border:none;background:var(--accent);color:#fff;font:inherit;font-weight:700;font-size:14px;padding:0 24px;border-radius:12px;cursor:pointer;display:flex;align-items:center;gap:8px}
+.focus .quick{max-width:720px;margin:16px auto 0;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.focus .quick span{font-size:12px;color:var(--mut)}
+.focus .quick b{font-size:12px;color:var(--accent2);background:#1a1f2b;padding:5px 11px;border-radius:20px;font-weight:600;cursor:pointer}
+.focus .recent{max-width:900px;margin:52px auto 0}
+.focus .recent h3{font-size:13px;text-transform:uppercase;letter-spacing:.8px;color:var(--mut);margin-bottom:14px;font-weight:600}
+.focus .rcard{display:flex;align-items:center;gap:16px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 20px;margin-bottom:10px;transition:.15s}
+.focus .rcard:hover{border-color:#34405a;transform:translateY(-1px)}
+.focus .rcard .url{font-weight:600;font-size:14px}
+.focus .rcard .meta{color:var(--mut);font-size:12px;margin-top:3px}
+.focus .rcard .spacer{flex:1}
+.focus .pill{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
+.pill-crit{background:rgba(244,63,94,.14);color:#fb7185}
+.pill-high{background:rgba(249,115,22,.14);color:#fb923c}
+.pill-med{background:rgba(245,158,11,.14);color:#fbbf24}
+.pill-low{background:rgba(56,189,248,.14);color:#38bdf8}
+.pill-ok{background:rgba(34,197,94,.14);color:#4ade80}
+.focus .grade{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:18px;background:rgba(245,158,11,.14);color:#fbbf24}
+
+/* ============================================================
+   CONCEPT 2 — COMMAND CONSOLE  (terminal / pentest aesthetic)
+   ============================================================ */
+.console{background:#05070a;color:#c9d6c9;font-family:'JetBrains Mono',monospace;min-height:calc(100vh - 56px);
+  background-image:linear-gradient(rgba(0,255,120,.015) 1px,transparent 1px);background-size:100% 3px}
+.console .cwrap{display:grid;grid-template-columns:200px 1fr;min-height:calc(100vh - 56px)}
+.console .cside{border-right:1px solid #16241a;padding:16px 0}
+.console .cbrand{padding:0 16px 18px;color:#39ff88;font-weight:700;font-size:14px;letter-spacing:1px}
+.console .cbrand span{color:#2a3a2f}
+.console .cside a{display:block;padding:7px 16px;color:#5f7a66;text-decoration:none;font-size:12.5px;border-left:2px solid transparent}
+.console .cside a::before{content:"> ";color:#2a3a2f}
+.console .cside a:hover{color:#c9d6c9;background:#0a110c}
+.console .cside a.sel{color:#39ff88;border-left-color:#39ff88;background:#0a140d}
+.console .cside a.sel::before{color:#39ff88}
+.console .cgrp{padding:14px 16px 5px;color:#2a3a2f;font-size:10px;letter-spacing:1.5px}
+.console .cmain{padding:22px 26px;overflow:auto}
+.console .cline{color:#5f7a66;font-size:12px;margin-bottom:3px}
+.console .cline .g{color:#39ff88}.console .cline .a{color:#ffcf40}.console .cline .r{color:#ff4d6d}.console .cline .b{color:#49b6ff}
+.console .cprompt{display:flex;align-items:center;gap:8px;background:#0a110c;border:1px solid #16241a;border-radius:4px;padding:12px 14px;margin:14px 0 22px}
+.console .cprompt .ps{color:#39ff88;font-size:13px}
+.console .cprompt input{flex:1;background:transparent;border:none;outline:none;color:#c9d6c9;font:inherit;font-size:13px}
+.console .cprompt .run{background:#16241a;color:#39ff88;border:1px solid #1f3a28;padding:6px 14px;border-radius:3px;font:inherit;font-size:11px;cursor:pointer}
+.console .cgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
+.console .cstat{border:1px solid #16241a;background:#070d09;padding:12px 14px;border-radius:4px}
+.console .cstat .k{color:#2a3a2f;font-size:10px;letter-spacing:1px;text-transform:uppercase}
+.console .cstat .v{font-size:22px;font-weight:700;margin-top:6px}
+.console .cstat .v.g{color:#39ff88}.console .cstat .v.r{color:#ff4d6d}.console .cstat .v.a{color:#ffcf40}.console .cstat .v.b{color:#49b6ff}
+.console .cpanel{border:1px solid #16241a;border-radius:5px;overflow:hidden;margin-bottom:18px}
+.console .cpanel .hd{background:#0a140d;padding:9px 14px;color:#39ff88;font-size:11px;letter-spacing:1px;border-bottom:1px solid #16241a;display:flex;justify-content:space-between}
+.console .cpanel .hd span{color:#2a3a2f}
+.console .crow{display:grid;grid-template-columns:70px 1fr 90px 80px;gap:12px;padding:10px 14px;font-size:12px;border-bottom:1px solid #0d1710;align-items:center}
+.console .crow:last-child{border-bottom:none}
+.console .crow:hover{background:#080f0a}
+.console .sev{font-size:10px;font-weight:700;padding:2px 7px;border-radius:3px;text-align:center}
+.sevC{background:rgba(255,77,109,.14);color:#ff4d6d;border:1px solid rgba(255,77,109,.3)}
+.sevH{background:rgba(255,140,60,.14);color:#ff8c3c;border:1px solid rgba(255,140,60,.3)}
+.sevM{background:rgba(255,207,64,.14);color:#ffcf40;border:1px solid rgba(255,207,64,.3)}
+.sevL{background:rgba(73,182,255,.14);color:#49b6ff;border:1px solid rgba(73,182,255,.3)}
+.console .crow .desc{color:#c9d6c9}.console .crow .loc{color:#5f7a66}.console .crow .cvss{color:#ffcf40;text-align:right}
+.console .blink{animation:blink 1.1s steps(1) infinite}@keyframes blink{50%{opacity:0}}
+
+/* ============================================================
+   CONCEPT 3 — ENTERPRISE SOC  (clean corporate, fixed version)
+   ============================================================ */
+.soc{--bg:#0f1729;--side:#0b1120;--card:#162136;--line:#243249;--txt:#e8eef7;--mut:#8ea2bd;--acc:#3b82f6;--acc2:#60a5fa;
+  background:var(--bg);color:var(--txt);font-family:'Plus Jakarta Sans';min-height:calc(100vh - 56px);display:grid;grid-template-columns:240px 1fr}
+.soc .sside{background:var(--side);border-right:1px solid var(--line);padding:18px 12px;overflow:auto}
+.soc .slogo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
+.soc .slogo .mk{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1e3a8a,#3b82f6);display:grid;place-items:center}
+.soc .slogo b{font-size:15px;font-weight:800}
+.soc .slogo small{display:block;color:#38bdf8;font-size:9px;font-weight:700;letter-spacing:.5px}
+.soc .sgrp{color:#5b6b85;font-size:10px;font-weight:700;letter-spacing:1px;padding:16px 12px 6px}
+.soc .sside a{display:flex;align-items:center;gap:11px;padding:9px 12px;border-radius:8px;color:var(--mut);text-decoration:none;font-size:13px;font-weight:600;transition:.14s}
+.soc .sside a svg{width:16px;height:16px;flex:none}
+.soc .sside a:hover{background:#13203a;color:var(--txt)}
+.soc .sside a.sel{background:rgba(59,130,246,.16);color:var(--acc2);box-shadow:inset 2px 0 0 var(--acc)}
+.soc .sside a .bdg{margin-left:auto;font-size:9px;font-weight:700;background:rgba(99,102,241,.2);color:#a5b4fc;padding:2px 6px;border-radius:5px}
+.soc .smain{overflow:auto}
+.soc .stop{display:flex;align-items:center;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line);background:rgba(11,17,32,.6)}
+.soc .stop h2{font-size:17px;font-weight:700}
+.soc .stop .ctx{margin-left:auto;display:flex;gap:22px}
+.soc .stop .ctx .it{text-align:right}
+.soc .stop .ctx .k{font-size:9px;letter-spacing:.8px;color:var(--mut);font-weight:700}
+.soc .stop .ctx .v{font-size:13px;font-weight:700;margin-top:2px}
+.soc .sbody{padding:24px 28px}
+.soc .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:22px}
+.soc .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px}
+.soc .kpi .top{display:flex;justify-content:space-between;align-items:center}
+.soc .kpi .top .t{font-size:12px;color:var(--mut);font-weight:600}
+.soc .kpi .ic{width:34px;height:34px;border-radius:9px;display:grid;place-items:center}
+.soc .kpi .num{font-size:30px;font-weight:800;margin:12px 0 4px;letter-spacing:-1px}
+.soc .kpi .num small{font-size:13px;font-weight:600;color:var(--mut)}
+.soc .kpi .tags{display:flex;gap:6px;flex-wrap:wrap}
+.soc .tag{font-size:10px;font-weight:700;padding:3px 8px;border-radius:6px}
+.tg-c{background:rgba(244,63,94,.16);color:#fb7185}.tg-h{background:rgba(249,115,22,.16);color:#fb923c}
+.tg-m{background:rgba(245,158,11,.16);color:#fbbf24}.tg-l{background:rgba(56,189,248,.16);color:#38bdf8}
+.soc .bar{height:6px;border-radius:4px;background:#0c1322;overflow:hidden;display:flex;margin-top:12px}
+.soc .bar i{height:100%}
+.soc .two{display:grid;grid-template-columns:1.6fr 1fr;gap:16px}
+.soc .panel{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.soc .panel .ph{padding:14px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+.soc .panel .ph h4{font-size:14px;font-weight:700}
+.soc .panel .ph a{font-size:11px;color:var(--acc2);text-decoration:none;font-weight:600}
+.soc table{width:100%;border-collapse:collapse}
+.soc td,.soc th{text-align:left;padding:12px 18px;font-size:12.5px;border-bottom:1px solid #1b2840}
+.soc th{font-size:10px;letter-spacing:.6px;color:var(--mut);text-transform:uppercase;font-weight:700}
+.soc tr:last-child td{border-bottom:none}
+.soc tr:hover td{background:#13203a}
+.soc .sb{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block}
+.soc .mono{font-family:'JetBrains Mono';font-size:11.5px;color:var(--mut)}
+.soc .ag{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid #1b2840}
+.soc .ag:last-child{border:none}
+.soc .ag .st{width:8px;height:8px;border-radius:50%;background:var(--c-ok);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
+.soc .ag .st.idle{background:#64748b;box-shadow:0 0 0 3px rgba(100,116,139,.18)}
+.soc .ag .nm{font-size:13px;font-weight:600}.soc .ag .sub{font-size:11px;color:var(--mut)}
+
+/* ============================================================
+   CONCEPT 4 — LIGHT & FRIENDLY  (approachable, plain english)
+   ============================================================ */
+.friendly{background:#f4f6fb;color:#1e293b;font-family:'Plus Jakarta Sans';min-height:calc(100vh - 56px);display:grid;grid-template-columns:238px 1fr}
+.friendly .lside{background:#fff;border-right:1px solid #e8edf5;padding:22px 16px}
+.friendly .llogo{display:flex;align-items:center;gap:11px;padding:0 6px 24px}
+.friendly .llogo .mk{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center;color:#fff;font-weight:800}
+.friendly .llogo b{font-size:17px;font-weight:800;color:#0f172a}
+.friendly .lside a{display:flex;align-items:center;gap:13px;padding:12px 14px;border-radius:14px;color:#64748b;text-decoration:none;font-size:14px;font-weight:600;margin-bottom:4px;transition:.15s}
+.friendly .lside a svg{width:19px;height:19px}
+.friendly .lside a:hover{background:#f1f5fd;color:#334155}
+.friendly .lside a.sel{background:#eef2ff;color:#4f46e5}
+.friendly .lmain{padding:34px 46px;overflow:auto}
+.friendly .lhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+.friendly .lhead h1{font-size:26px;font-weight:800;color:#0f172a;letter-spacing:-.5px}
+.friendly .lhead p{color:#64748b;font-size:14px;margin-top:4px}
+.friendly .lbtn{background:#4f46e5;color:#fff;border:none;font:inherit;font-weight:700;font-size:14px;padding:13px 22px;border-radius:14px;cursor:pointer;display:flex;align-items:center;gap:9px;box-shadow:0 8px 20px -6px rgba(79,70,229,.5)}
+.friendly .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:26px}
+.friendly .fc{background:#fff;border:1px solid #e8edf5;border-radius:20px;padding:22px;box-shadow:0 2px 10px rgba(15,23,42,.03)}
+.friendly .fc .ic{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;margin-bottom:14px}
+.friendly .fc .big{font-size:34px;font-weight:800;color:#0f172a;letter-spacing:-1px}
+.friendly .fc .lbl{color:#64748b;font-size:14px;font-weight:600;margin-top:2px}
+.friendly .fc .note{font-size:12.5px;margin-top:10px;font-weight:600}
+.friendly .scanrow{background:linear-gradient(120deg,#eef2ff,#ecfeff);border:1px solid #e0e7ff;border-radius:22px;padding:26px 28px;display:flex;align-items:center;gap:22px;margin-bottom:26px}
+.friendly .scanrow .txt h3{font-size:19px;font-weight:800;color:#0f172a}
+.friendly .scanrow .txt p{color:#64748b;font-size:14px;margin-top:4px}
+.friendly .scanrow .inp{margin-left:auto;display:flex;gap:10px;align-items:center}
+.friendly .scanrow input{border:1px solid #cdd7ea;background:#fff;border-radius:14px;padding:14px 18px;font:inherit;font-size:14px;width:280px;outline:none}
+.friendly .lbig{background:#fff;border:1px solid #e8edf5;border-radius:20px;overflow:hidden}
+.friendly .lbig .h{padding:18px 24px;border-bottom:1px solid #eef2f8;display:flex;justify-content:space-between;align-items:center}
+.friendly .lbig .h h3{font-size:16px;font-weight:800;color:#0f172a}
+.friendly .litem{display:flex;align-items:center;gap:16px;padding:18px 24px;border-bottom:1px solid #f1f5f9}
+.friendly .litem:last-child{border:none}
+.friendly .litem:hover{background:#fafbff}
+.friendly .litem .ring{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:13px;flex:none}
+.friendly .litem .ti{font-size:15px;font-weight:700;color:#1e293b}
+.friendly .litem .de{font-size:13px;color:#64748b;margin-top:2px}
+.friendly .litem .sp{flex:1}
+.friendly .fpill{font-size:11.5px;font-weight:800;padding:6px 13px;border-radius:30px}
+.fp-h{background:#fff1f2;color:#e11d48}.fp-m{background:#fffbeb;color:#d97706}.fp-l{background:#eff6ff;color:#2563eb}.fp-ok{background:#f0fdf4;color:#16a34a}
+.friendly .fix{font-size:12px;font-weight:700;color:#4f46e5;background:#eef2ff;padding:7px 14px;border-radius:30px;cursor:pointer}
+
+/* ============================================================
+   CONCEPT 5 — REPORT-CENTRIC  (Linear/Jira style, findings hero)
+   ============================================================ */
+.report{background:#0c0d10;color:#e4e4e7;font-family:'Inter';min-height:calc(100vh - 56px);display:grid;grid-template-columns:52px 300px 1fr}
+.report .ricon{background:#0a0a0c;border-right:1px solid #1c1d22;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:10px}
+.report .ricon .mk{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;margin-bottom:8px}
+.report .ricon a{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#71717a;cursor:pointer}
+.report .ricon a svg{width:18px;height:18px}
+.report .ricon a:hover{background:#17181d;color:#e4e4e7}
+.report .ricon a.sel{background:#201c2e;color:#c4b5fd}
+.report .rlist{border-right:1px solid #1c1d22;overflow:auto;background:#0b0b0e}
+.report .rlh{padding:16px 18px;border-bottom:1px solid #1c1d22;position:sticky;top:0;background:#0b0b0e}
+.report .rlh h3{font-size:14px;font-weight:700}
+.report .rlh .sub{font-size:12px;color:#71717a;margin-top:3px}
+.report .rfilt{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #1c1d22;flex-wrap:wrap}
+.report .rfilt button{font:inherit;font-size:11px;font-weight:600;padding:5px 10px;border-radius:7px;border:1px solid #27282e;background:transparent;color:#a1a1aa;cursor:pointer}
+.report .rfilt button.on{background:#201c2e;border-color:#3b2f5e;color:#c4b5fd}
+.report .ri{padding:14px 18px;border-bottom:1px solid #141418;cursor:pointer;border-left:2px solid transparent}
+.report .ri:hover{background:#111115}
+.report .ri.sel{background:#121018;border-left-color:#8b5cf6}
+.report .ri .l1{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.report .ri .sd{width:7px;height:7px;border-radius:2px}
+.report .ri .tt{font-size:13.5px;font-weight:600;color:#e4e4e7;line-height:1.3}
+.report .ri .l2{display:flex;align-items:center;gap:10px;font-size:11.5px;color:#71717a}
+.report .ri .l2 .mono{font-family:'JetBrains Mono';font-size:11px}
+.report .rsev{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:5px;letter-spacing:.3px}
+.report .rmain{overflow:auto}
+.report .rdetail{max-width:860px;padding:34px 44px}
+.report .rbread{font-size:12px;color:#71717a;margin-bottom:18px}
+.report .rbread b{color:#a1a1aa}
+.report .rtitle{display:flex;align-items:flex-start;gap:14px;margin-bottom:8px}
+.report .rtitle h1{font-size:25px;font-weight:700;letter-spacing:-.5px;line-height:1.25}
+.report .rtags{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 26px;align-items:center}
+.report .rmeta{display:flex;gap:7px;align-items:center;font-size:12.5px;color:#a1a1aa;background:#141418;border:1px solid #232329;padding:7px 13px;border-radius:9px}
+.report .rmeta b{color:#e4e4e7}
+.report .rsec{margin-bottom:26px}
+.report .rsec h4{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#71717a;margin-bottom:11px;font-weight:700}
+.report .rsec p{font-size:14px;line-height:1.7;color:#c4c4cb}
+.report .rcode{background:#08080a;border:1px solid #1f1f24;border-radius:11px;padding:16px 18px;font-family:'JetBrains Mono';font-size:12.5px;line-height:1.8;color:#c9d1d9;overflow:auto;white-space:pre}
+.report .rcode .cm{color:#6b7280}.report .rcode .st{color:#7ee787}.report .rcode .kw{color:#ff7b72}.report .rcode .fn{color:#d2a8ff}
+.report .rfixbox{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.22);border-radius:11px;padding:16px 18px}
+.report .rfixbox .ft{font-size:13px;font-weight:700;color:#4ade80;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.report .rfixbox p{font-size:13.5px;color:#c4c4cb;line-height:1.65}
+.report .rpanel{border-left:1px solid #1c1d22}
+sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(249,115,22,.16);color:#fb923c}
+.rs-M{background:rgba(245,158,11,.16);color:#fbbf24}.rs-L{background:rgba(56,189,248,.16);color:#38bdf8}
+.sd-C{background:#f43f5e}.sd-H{background:#f97316}.sd-M{background:#f59e0b}.sd-L{background:#38bdf8}
+@media(max-width:1200px){.report{grid-template-columns:52px 280px 1fr}}
+
+/* generic icon helper */
+.ico{width:18px;height:18px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round}
+</style>
+</head>
+<body>
+
+<!-- ============ CONCEPT SWITCHER ============ -->
+<div class="switcher">
+  <div class="brand">SNMK <b>·</b> UI Concepts</div>
+  <button class="sw-tab on" data-go="focus"><span class="dot" style="background:#6366f1"></span>1 · Focus Flow <small>minimal</small></button>
+  <button class="sw-tab" data-go="console"><span class="dot" style="background:#39ff88"></span>2 · Command Console <small>terminal</small></button>
+  <button class="sw-tab" data-go="soc"><span class="dot" style="background:#3b82f6"></span>3 · Enterprise SOC <small>corporate</small></button>
+  <button class="sw-tab" data-go="friendly"><span class="dot" style="background:#22d3ee"></span>4 · Light &amp; Friendly <small>approachable</small></button>
+  <button class="sw-tab" data-go="report"><span class="dot" style="background:#8b5cf6"></span>5 · Report-Centric <small>findings-first</small></button>
+  <div class="sw-hint">Same data, 5 looks — pick one to build</div>
+</div>
+
+<div class="stage">
+
+<!-- ================= 1 · FOCUS FLOW ================= -->
+<section class="concept on" id="c-focus">
+ <div class="focus">
+  <nav class="fnav">
+    <div class="flogo"><div class="mk">S</div><b>SNMK</b></div>
+    <a class="sel"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12l2-2 4 4 7-7 5 5"/></svg>Scan</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Findings</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>Assets</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/><circle cx="17" cy="9" r="2"/></svg>Agents</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12h6M9 16h6"/></svg>Reports</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Integrations</a>
+    <div class="sp"></div>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Settings</a>
+    <div class="acct"><div class="av">H</div><div><div style="font-size:12.5px;font-weight:600">Hari</div><div style="font-size:11px;color:#8a94a6">Security Lead</div></div></div>
+  </nav>
+  <main class="fmain">
+    <div class="fhero">
+      <h1>What do you want to check today?</h1>
+      <p>Point SNMK at a target you're authorized to test. We scan — you review.</p>
+    </div>
+    <div class="scanbox">
+      <div class="seg"><button class="on">Standard</button><button>Passive</button><button>Deep</button></div>
+      <input placeholder="target.example.com  or  https://target.example.com/login" value="target.example.com">
+      <button class="go"><svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>Start scan</button>
+    </div>
+    <div class="quick"><span>Try:</span><b>Web app</b><b>API endpoint</b><b>Single URL</b><b>Re-scan last target</b></div>
+
+    <div class="recent">
+      <h3>Recent scans</h3>
+      <div class="rcard">
+        <div class="grade">B</div>
+        <div><div class="url">target.example.com</div><div class="meta">Standard scan · 6 findings · 4 min ago</div></div>
+        <div class="spacer"></div>
+        <span class="pill pill-high">1 High</span><span class="pill pill-med">2 Med</span><span class="pill pill-low">3 Low</span>
+      </div>
+      <div class="rcard">
+        <div class="grade" style="background:rgba(34,197,94,.14);color:#4ade80">A</div>
+        <div><div class="url">api.internal.example.com</div><div class="meta">API scan · 1 finding · yesterday</div></div>
+        <div class="spacer"></div>
+        <span class="pill pill-low">1 Low</span><span class="pill pill-ok">Clean TLS</span>
+      </div>
+      <div class="rcard">
+        <div class="grade" style="background:rgba(244,63,94,.14);color:#fb7185">D</div>
+        <div><div class="url">legacy.example.net</div><div class="meta">Deep scan · 23 findings · 2 days ago</div></div>
+        <div class="spacer"></div>
+        <span class="pill pill-crit">2 Crit</span><span class="pill pill-high">5 High</span><span class="pill pill-low">16 Low</span>
+      </div>
+    </div>
+  </main>
+ </div>
+</section>
+
+<!-- ================= 2 · COMMAND CONSOLE ================= -->
+<section class="concept" id="c-console">
+ <div class="console">
+  <div class="cwrap">
+   <aside class="cside">
+     <div class="cbrand">SNMK<span>://</span>soc</div>
+     <div class="cgrp">OPERATE</div>
+     <a class="sel">scan</a><a>findings</a><a>assets</a><a>recon</a>
+     <div class="cgrp">ENGINES</div>
+     <a>sqli</a><a>xss</a><a>fuzzer</a><a>nuclei</a>
+     <div class="cgrp">SYSTEM</div>
+     <a>agents</a><a>reports</a><a>config</a>
+   </aside>
+   <main class="cmain">
+     <div class="cline"><span class="g">snmk</span> v2.3.0 · session <span class="b">#a4f71c</span> · scope <span class="g">VERIFIED</span> · <span class="blink">_</span></div>
+     <div class="cline">target locked → <span class="a">target.example.com</span> (34.246.129.62, 79.125.84.16)</div>
+     <div class="cprompt"><span class="ps">snmk&gt;</span><input value="scan --target target.example.com --profile standard"><button class="run">RUN ⏎</button></div>
+
+     <div class="cgrid">
+       <div class="cstat"><div class="k">targets</div><div class="v b">1</div></div>
+       <div class="cstat"><div class="k">findings</div><div class="v a">6</div></div>
+       <div class="cstat"><div class="k">high+</div><div class="v r">1</div></div>
+       <div class="cstat"><div class="k">posture</div><div class="v g">B / 85</div></div>
+     </div>
+
+     <div class="cpanel">
+       <div class="hd">[ findings ] active scan output <span>6 rows · sorted by severity</span></div>
+       <div class="crow"><span class="sev sevH">HIGH</span><span class="desc">SQL Injection — boolean &amp; time-based confirmed</span><span class="loc">/search?q=</span><span class="cvss">8.6</span></div>
+       <div class="crow"><span class="sev sevM">MED</span><span class="desc">Reflected XSS — payload reflected unencoded</span><span class="loc">/feedback</span><span class="cvss">6.1</span></div>
+       <div class="crow"><span class="sev sevM">MED</span><span class="desc">Open Redirect — external host in next param</span><span class="loc">/login?next=</span><span class="cvss">5.4</span></div>
+       <div class="crow"><span class="sev sevL">LOW</span><span class="desc">Missing Content-Security-Policy header</span><span class="loc">/</span><span class="cvss">3.1</span></div>
+       <div class="crow"><span class="sev sevL">LOW</span><span class="desc">Missing Strict-Transport-Security (HSTS)</span><span class="loc">/</span><span class="cvss">3.1</span></div>
+       <div class="crow"><span class="sev sevL">LOW</span><span class="desc">Server banner discloses version</span><span class="loc">nginx/1.18.0</span><span class="cvss">2.4</span></div>
+     </div>
+
+     <div class="cpanel">
+       <div class="hd">[ engines ] live <span>4 running</span></div>
+       <div class="crow" style="grid-template-columns:120px 1fr 90px"><span class="desc g">● sqli_engine</span><span class="loc">boolean/time-based differential · 142 reqs</span><span class="cvss g">done</span></div>
+       <div class="crow" style="grid-template-columns:120px 1fr 90px"><span class="desc g">● injection_suite</span><span class="loc">xss + open-redirect reflection · 88 reqs</span><span class="cvss g">done</span></div>
+       <div class="crow" style="grid-template-columns:120px 1fr 90px"><span class="desc a">● fuzzer_agent</span><span class="loc">dir/path brute · wordlist 4.6k · 61%</span><span class="cvss a">run</span></div>
+       <div class="crow" style="grid-template-columns:120px 1fr 90px"><span class="desc b">● recon_agent</span><span class="loc">dns + tls + headers</span><span class="cvss g">done</span></div>
+     </div>
+   </main>
+  </div>
+ </div>
+</section>
+
+<!-- ================= 3 · ENTERPRISE SOC ================= -->
+<section class="concept" id="c-soc">
+ <div class="soc">
+  <aside class="sside">
+    <div class="slogo"><div class="mk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2L4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></div><div><b>SNMK</b><small>SOC CONSOLE</small></div></div>
+    <div class="sgrp">OVERVIEW</div>
+    <a class="sel"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/></svg>Assessments</a>
+    <div class="sgrp">FINDINGS</div>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>Vulnerabilities <span class="bdg">6</span></a>
+    <a><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>Assets</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M9 3v18M15 3v18M3 9h18M3 15h18"/></svg>Attack Paths</a>
+    <div class="sgrp">INTELLIGENCE</div>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/><circle cx="17" cy="9" r="2"/></svg>Agents</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M12 2a7 7 0 0 1 7 7c0 3-2 4-2 7H7c0-3-2-4-2-7a7 7 0 0 1 7-7z"/></svg>AI Lab</a>
+    <div class="sgrp">OUTPUT</div>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 12h6M9 16h6"/></svg>Reports</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg>Integrations</a>
+  </aside>
+  <main class="smain">
+    <div class="stop">
+      <h2>Security Dashboard</h2>
+      <div class="ctx">
+        <div class="it"><div class="k">AUTHORIZED TARGET</div><div class="v" style="color:#60a5fa">target.example.com</div></div>
+        <div class="it"><div class="k">ASSESSMENT</div><div class="v" style="color:#4ade80">COMPLETE</div></div>
+        <div class="it"><div class="k">POSTURE</div><div class="v" style="color:#fbbf24">B · 85</div></div>
+      </div>
+    </div>
+    <div class="sbody">
+      <div class="kpis">
+        <div class="kpi"><div class="top"><span class="t">Open Findings</span><div class="ic" style="background:rgba(244,63,94,.14)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fb7185" stroke-width="2"><path d="M12 2L4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></div></div>
+          <div class="num">6</div><div class="tags"><span class="tag tg-h">1 High</span><span class="tag tg-m">2 Med</span><span class="tag tg-l">3 Low</span></div>
+          <div class="bar"><i style="width:16%;background:#f97316"></i><i style="width:33%;background:#f59e0b"></i><i style="width:51%;background:#38bdf8"></i></div></div>
+        <div class="kpi"><div class="top"><span class="t">Assets Mapped</span><div class="ic" style="background:rgba(59,130,246,.14)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg></div></div>
+          <div class="num">3 <small>hosts</small></div><div class="tags"><span class="tag tg-l">2 IPs</span><span class="tag" style="background:rgba(34,197,94,.16);color:#4ade80">TLS OK</span></div>
+          <div class="bar"><i style="width:100%;background:#3b82f6"></i></div></div>
+        <div class="kpi"><div class="top"><span class="t">Agents</span><div class="ic" style="background:rgba(139,92,246,.14)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#a78bfa" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/></svg></div></div>
+          <div class="num">4 <small>active</small></div><div class="tags"><span class="tag" style="background:rgba(34,197,94,.16);color:#4ade80">3 done</span><span class="tag tg-m">1 running</span></div>
+          <div class="bar"><i style="width:75%;background:#22c55e"></i><i style="width:25%;background:#f59e0b"></i></div></div>
+        <div class="kpi"><div class="top"><span class="t">Posture Grade</span><div class="ic" style="background:rgba(245,158,11,.14)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4 1 6-5.5-3-5.5 3 1-6L3 9l6-1z"/></svg></div></div>
+          <div class="num">B <small>85/100</small></div><div class="tags"><span class="tag tg-l">+4 vs last</span></div>
+          <div class="bar"><i style="width:85%;background:#f59e0b"></i></div></div>
+      </div>
+
+      <div class="two">
+        <div class="panel">
+          <div class="ph"><h4>Latest Findings</h4><a>View all →</a></div>
+          <table>
+            <tr><th>Severity</th><th>Vulnerability</th><th>Location</th><th>CVSS</th></tr>
+            <tr><td><span class="sb tg-h">HIGH</span></td><td>SQL Injection (confirmed)</td><td class="mono">/search?q=</td><td class="mono">8.6</td></tr>
+            <tr><td><span class="sb tg-m">MED</span></td><td>Reflected XSS</td><td class="mono">/feedback</td><td class="mono">6.1</td></tr>
+            <tr><td><span class="sb tg-m">MED</span></td><td>Open Redirect</td><td class="mono">/login?next=</td><td class="mono">5.4</td></tr>
+            <tr><td><span class="sb tg-l">LOW</span></td><td>Missing CSP header</td><td class="mono">/</td><td class="mono">3.1</td></tr>
+            <tr><td><span class="sb tg-l">LOW</span></td><td>Missing HSTS header</td><td class="mono">/</td><td class="mono">3.1</td></tr>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="ph"><h4>Engine Activity</h4><a>Agents →</a></div>
+          <div class="ag"><span class="st"></span><div><div class="nm">SQLi Engine</div><div class="sub">142 requests · 1 confirmed</div></div></div>
+          <div class="ag"><span class="st"></span><div><div class="nm">Injection Suite</div><div class="sub">XSS + redirect · 2 found</div></div></div>
+          <div class="ag"><span class="st idle" style="background:#f59e0b;box-shadow:0 0 0 3px rgba(245,158,11,.18)"></span><div><div class="nm">Fuzzer Agent</div><div class="sub">dir brute · 61% complete</div></div></div>
+          <div class="ag"><span class="st"></span><div><div class="nm">Recon Agent</div><div class="sub">DNS · TLS · headers done</div></div></div>
+          <div class="ag"><span class="st idle"></span><div><div class="nm">Nuclei Adapter</div><div class="sub">not installed — native fallback</div></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+ </div>
+</section>
+
+<!-- ================= 4 · LIGHT & FRIENDLY ================= -->
+<section class="concept" id="c-friendly">
+ <div class="friendly">
+  <aside class="lside">
+    <div class="llogo"><div class="mk">S</div><b>SNMK</b></div>
+    <a class="sel"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Home</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Check a website</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M12 2L4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg>Problems found</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg>My websites</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/></svg>Reports</a>
+    <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>Settings</a>
+  </aside>
+  <main class="lmain">
+    <div class="lhead">
+      <div><h1>Welcome back, Hari 👋</h1><p>Here's how your websites are doing today.</p></div>
+      <button class="lbtn"><svg class="ico" viewBox="0 0 24 24" style="width:18px;height:18px"><path d="M12 5v14M5 12h14"/></svg>Check a website</button>
+    </div>
+
+    <div class="scanrow">
+      <div class="txt"><h3>Want to check a website now?</h3><p>Type the address — we'll look for security problems and explain each one in plain words.</p></div>
+      <div class="inp"><input value="target.example.com" placeholder="yourwebsite.com"><button class="lbtn" style="box-shadow:none">Check now</button></div>
+    </div>
+
+    <div class="cards">
+      <div class="fc"><div class="ic" style="background:#fef2f2"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M12 2L4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></div>
+        <div class="big">6</div><div class="lbl">Problems to look at</div><div class="note" style="color:#e11d48">1 needs attention soon</div></div>
+      <div class="fc"><div class="ic" style="background:#fffbeb"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M12 2l3 6 6 1-4.5 4 1 6L12 16l-5.5 3 1-6L3 9l6-1z"/></svg></div>
+        <div class="big">B</div><div class="lbl">Safety score</div><div class="note" style="color:#16a34a">Better than last week ↑</div></div>
+      <div class="fc"><div class="ic" style="background:#eff6ff"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg></div>
+        <div class="big">3</div><div class="lbl">Websites watched</div><div class="note" style="color:#2563eb">All checked today</div></div>
+    </div>
+
+    <div class="lbig">
+      <div class="h"><h3>Problems we found on target.example.com</h3><span style="font-size:13px;color:#64748b;font-weight:600">Sorted by how serious</span></div>
+      <div class="litem"><div class="ring fp-h">!</div><div><div class="ti">Your search box can be tricked (SQL Injection)</div><div class="de">Someone could read your database through the search box. This is the most important one to fix.</div></div><div class="sp"></div><span class="fpill fp-h">Serious</span><span class="fix">How to fix</span></div>
+      <div class="litem"><div class="ring fp-m">2</div><div><div class="ti">Feedback form can run unwanted code (XSS)</div><div class="de">A visitor could inject a script that runs in other people's browsers.</div></div><div class="sp"></div><span class="fpill fp-m">Medium</span><span class="fix">How to fix</span></div>
+      <div class="litem"><div class="ring fp-m">3</div><div><div class="ti">Login can send people to other sites (Open Redirect)</div><div class="de">The login link can be changed to send users to a fake website.</div></div><div class="sp"></div><span class="fpill fp-m">Medium</span><span class="fix">How to fix</span></div>
+      <div class="litem"><div class="ring fp-l">4</div><div><div class="ti">A safety header is missing (CSP)</div><div class="de">A small setting that adds extra protection isn't turned on yet.</div></div><div class="sp"></div><span class="fpill fp-l">Minor</span><span class="fix">How to fix</span></div>
+    </div>
+  </main>
+ </div>
+</section>
+
+<!-- ================= 5 · REPORT-CENTRIC ================= -->
+<section class="concept" id="c-report">
+ <div class="report">
+  <nav class="ricon">
+    <div class="mk">S</div>
+    <a class="sel" title="Findings"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></a>
+    <a title="Scan"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></a>
+    <a title="Assets"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1"/><rect x="3" y="14" width="18" height="6" rx="1"/></svg></a>
+    <a title="Agents"><svg class="ico" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M4 20a5 5 0 0 1 10 0"/></svg></a>
+    <a title="Export"><svg class="ico" viewBox="0 0 24 24"><path d="M12 3v12M8 11l4 4 4-4"/><path d="M4 21h16"/></svg></a>
+  </nav>
+  <div class="rlist">
+    <div class="rlh"><h3>Findings · target.example.com</h3><div class="sub">6 open · 1 high · last scan 4 min ago</div></div>
+    <div class="rfilt"><button class="on">All 6</button><button>High 1</button><button>Medium 2</button><button>Low 3</button></div>
+    <div class="ri sel"><div class="l1"><span class="sd sd-H"></span><span class="tt">SQL Injection in search parameter</span></div><div class="l2"><span class="rsev rs-H">HIGH</span><span class="mono">CWE-89</span><span class="mono">/search?q=</span></div></div>
+    <div class="ri"><div class="l1"><span class="sd sd-M"></span><span class="tt">Reflected Cross-Site Scripting</span></div><div class="l2"><span class="rsev rs-M">MEDIUM</span><span class="mono">CWE-79</span><span class="mono">/feedback</span></div></div>
+    <div class="ri"><div class="l1"><span class="sd sd-M"></span><span class="tt">Open Redirect via next parameter</span></div><div class="l2"><span class="rsev rs-M">MEDIUM</span><span class="mono">CWE-601</span><span class="mono">/login</span></div></div>
+    <div class="ri"><div class="l1"><span class="sd sd-L"></span><span class="tt">Missing Content-Security-Policy</span></div><div class="l2"><span class="rsev rs-L">LOW</span><span class="mono">CWE-693</span><span class="mono">/</span></div></div>
+    <div class="ri"><div class="l1"><span class="sd sd-L"></span><span class="tt">Missing HSTS header</span></div><div class="l2"><span class="rsev rs-L">LOW</span><span class="mono">CWE-319</span><span class="mono">/</span></div></div>
+    <div class="ri"><div class="l1"><span class="sd sd-L"></span><span class="tt">Server version disclosure</span></div><div class="l2"><span class="rsev rs-L">LOW</span><span class="mono">CWE-200</span><span class="mono">Server:</span></div></div>
+  </div>
+  <main class="rmain">
+    <div class="rdetail">
+      <div class="rbread">Findings <b>/</b> target.example.com <b>/</b> SNMK-2026-0001</div>
+      <div class="rtitle"><span class="sd sd-H" style="width:12px;height:12px;border-radius:3px;margin-top:9px"></span><h1>SQL Injection in search parameter</h1></div>
+      <div class="rtags">
+        <span class="rmeta">Severity <b style="color:#fb923c">High</b></span>
+        <span class="rmeta">CVSS <b>8.6</b></span>
+        <span class="rmeta">CWE-89</span>
+        <span class="rmeta">Confidence <b style="color:#4ade80">Confirmed</b></span>
+        <span class="rmeta" style="margin-left:auto">Status <b>Open</b></span>
+      </div>
+
+      <div class="rsec"><h4>Summary</h4><p>The <code style="font-family:'JetBrains Mono';background:#18181d;padding:2px 6px;border-radius:5px;font-size:13px">q</code> parameter on <b style="color:#e4e4e7">/search</b> is vulnerable to SQL injection. SNMK confirmed it two ways — a boolean-differential test and a time-based test — so this is not a guess. No data was extracted; the check is non-destructive.</p></div>
+
+      <div class="rsec"><h4>Proof of concept (reproduce)</h4><div class="rcode"><span class="cm"># boolean-differential — these two return different pages</span>
+<span class="fn">curl</span> <span class="st">"https://target.example.com/search?q=test' AND 1=1-- -"</span>   <span class="cm"># 200, results shown</span>
+<span class="fn">curl</span> <span class="st">"https://target.example.com/search?q=test' AND 1=2-- -"</span>   <span class="cm"># 200, no results</span>
+
+<span class="cm"># time-based — response delayed ~5s confirms injection</span>
+<span class="fn">curl</span> <span class="st">"https://target.example.com/search?q=test'; WAITFOR DELAY '0:0:5'-- -"</span></div></div>
+
+      <div class="rsec"><h4>Recommended fix</h4><div class="rfixbox"><div class="ft"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Use parameterized queries</div><p>Replace string-built SQL with a prepared statement / parameter binding so user input is never concatenated into the query. Add input validation on <code style="font-family:'JetBrains Mono';background:#0f2016;padding:1px 5px;border-radius:4px">q</code> and a least-privilege DB account as defense in depth.</p></div></div>
+    </div>
+  </main>
+ </div>
+</section>
+
+</div>
+
+<script>
+(function(){
+  const tabs=[...document.querySelectorAll('.sw-tab')];
+  const panes={focus:'c-focus',console:'c-console',soc:'c-soc',friendly:'c-friendly',report:'c-report'};
+  function go(name){
+    tabs.forEach(t=>t.classList.toggle('on',t.dataset.go===name));
+    Object.entries(panes).forEach(([k,id])=>document.getElementById(id).classList.toggle('on',k===name));
+    document.documentElement.setAttribute('data-concept',name);
+    window.scrollTo(0,0);
+  }
+  tabs.forEach(t=>t.addEventListener('click',()=>go(t.dataset.go)));
+  // keyboard 1-5
+  window.addEventListener('keydown',e=>{const n={'1':'focus','2':'console','3':'soc','4':'friendly','5':'report'}[e.key];if(n)go(n);});
+})();
+</script>
+</body>
+</html>

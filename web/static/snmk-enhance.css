@@ -1,0 +1,193 @@
+/* =====================================================================
+   SNMK v3.0 — Premium visual system
+   Depth, materials, staggered motion, refined cards & nav.
+   Additive layer loaded AFTER styles.css. No layout/logic changes.
+   ===================================================================== */
+
+/* --- Ambient depth: soft radial glow behind the app --- */
+body::before {
+    content: "";
+    position: fixed; inset: 0; z-index: 0; pointer-events: none;
+    background:
+        radial-gradient(900px 500px at 12% -5%, color-mix(in srgb, var(--brand) 16%, transparent), transparent 60%),
+        radial-gradient(800px 520px at 100% 0%, color-mix(in srgb, #38bdf8 12%, transparent), transparent 55%),
+        radial-gradient(700px 600px at 50% 120%, color-mix(in srgb, #a855f7 10%, transparent), transparent 60%);
+    opacity: .85;
+}
+.swa-app-layout, .app-container { position: relative; z-index: 1; }
+
+/* --- Sidebar: glass + inner edge --- */
+.swa-sidebar {
+    backdrop-filter: blur(10px);
+    box-shadow: inset -1px 0 0 var(--border), 10px 0 40px -30px rgba(0,0,0,.6);
+}
+.brand-icon-cyber {
+    box-shadow: 0 0 0 1px color-mix(in srgb, #38bdf8 40%, transparent), 0 6px 18px -8px rgba(56,189,248,.6);
+    transition: transform .3s cubic-bezier(.22,.61,.36,1);
+}
+.swa-sidebar-brand:hover .brand-icon-cyber { transform: rotate(-6deg) scale(1.06); }
+
+/* --- Topbar: deeper glass --- */
+.swa-topbar {
+    backdrop-filter: blur(18px) saturate(1.2);
+    box-shadow: 0 1px 0 var(--border), 0 10px 30px -24px rgba(0,0,0,.7);
+}
+
+/* --- Context bar strip --- */
+.swa-global-context-bar {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--bg-card) 70%, transparent), transparent);
+}
+.swa-global-context-bar .ctx-item { transition: transform .18s ease; }
+.swa-global-context-bar .ctx-item:hover { transform: translateY(-1px); }
+
+/* --- KPI cards: gradient surface, colored top accent, hover sheen --- */
+.soc-kpi-card {
+    position: relative;
+    background: linear-gradient(165deg, color-mix(in srgb, var(--bg-card) 94%, white 6%), var(--bg-card));
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 30px -20px rgba(0,0,0,.55);
+}
+.soc-kpi-card::before {
+    content: ""; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--brand), #38bdf8, #a855f7);
+    opacity: .9;
+}
+.soc-kpi-card::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 45%; left: -70%;
+    background: linear-gradient(100deg, transparent, color-mix(in srgb, white 12%, transparent), transparent);
+    transform: skewX(-18deg);
+    transition: left .65s cubic-bezier(.22,.61,.36,1);
+    pointer-events: none;
+}
+.soc-kpi-card:hover::after { left: 140%; }
+.soc-kpi-number {
+    background: linear-gradient(180deg, var(--text-title), color-mix(in srgb, var(--text-title) 70%, var(--brand)));
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+/* --- Panels / cards: cleaner frame --- */
+.soc-panel, .swa-card {
+    border-radius: 14px;
+    background: linear-gradient(180deg, color-mix(in srgb, var(--bg-card) 96%, white 4%), var(--bg-card));
+    box-shadow: 0 8px 26px -22px rgba(0,0,0,.6);
+}
+
+/* --- Progress bars: animated shimmer --- */
+.soc-kpi-bar-fill, .bar-fill {
+    position: relative; overflow: hidden;
+    transition: width .9s cubic-bezier(.22,.61,.36,1);
+}
+.soc-kpi-bar-fill::after, .bar-fill::after {
+    content: ""; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+    transform: translateX(-100%);
+    animation: snmkShimmer 2.4s ease-in-out infinite;
+}
+@keyframes snmkShimmer { to { transform: translateX(300%); } }
+
+/* --- Live status dots pulse --- */
+.swa-status-dot, .status-dot { position: relative; }
+.swa-status-dot::after, .status-dot::after {
+    content: ""; position: absolute; inset: -4px; border-radius: 50%;
+    border: 2px solid currentColor; opacity: .5;
+    animation: snmkPulse 1.8s ease-out infinite;
+}
+@keyframes snmkPulse {
+    0% { transform: scale(.7); opacity: .6; }
+    100% { transform: scale(1.9); opacity: 0; }
+}
+
+/* --- Staggered entrance for KPI grid, panels, rows --- */
+.swa-soc-kpi-grid > *, .soc-kpi-grid > * {
+    animation: snmkRise .5s cubic-bezier(.22,.61,.36,1) both;
+}
+.swa-soc-kpi-grid > *:nth-child(1), .soc-kpi-grid > *:nth-child(1) { animation-delay: .03s; }
+.swa-soc-kpi-grid > *:nth-child(2), .soc-kpi-grid > *:nth-child(2) { animation-delay: .09s; }
+.swa-soc-kpi-grid > *:nth-child(3), .soc-kpi-grid > *:nth-child(3) { animation-delay: .15s; }
+.swa-soc-kpi-grid > *:nth-child(4), .soc-kpi-grid > *:nth-child(4) { animation-delay: .21s; }
+.swa-view.active .soc-panel { animation: snmkRise .5s cubic-bezier(.22,.61,.36,1) both; animation-delay: .12s; }
+.swa-view.active tbody tr { animation: snmkFadeRow .45s ease both; }
+.swa-view.active tbody tr:nth-child(1) { animation-delay: .06s; }
+.swa-view.active tbody tr:nth-child(2) { animation-delay: .10s; }
+.swa-view.active tbody tr:nth-child(3) { animation-delay: .14s; }
+.swa-view.active tbody tr:nth-child(4) { animation-delay: .18s; }
+.swa-view.active tbody tr:nth-child(5) { animation-delay: .22s; }
+.swa-view.active tbody tr:nth-child(n+6) { animation-delay: .26s; }
+@keyframes snmkRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+@keyframes snmkFadeRow { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* --- Severity badges: crisper ring --- */
+.sev-tag, .sb, .severity-badge {
+    border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
+    border-radius: 999px;
+    font-weight: 700;
+    letter-spacing: .2px;
+}
+
+/* --- Primary action buttons: gradient + glow --- */
+.swa-action-btn.primary, .btn-primary, button.primary, .scan-launch-btn, #launchScanBtn {
+    background: linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 55%, #38bdf8)) !important;
+    border: none !important; color: #fff !important;
+    box-shadow: 0 10px 24px -10px color-mix(in srgb, var(--brand) 70%, transparent);
+}
+.swa-action-btn.primary:hover, .btn-primary:hover, button.primary:hover, #launchScanBtn:hover {
+    box-shadow: 0 14px 30px -10px color-mix(in srgb, var(--brand) 85%, transparent);
+    filter: brightness(1.06);
+}
+
+/* --- Inputs: soft focus ring --- */
+input:focus-visible, select:focus-visible, textarea:focus-visible, .cyber-search-input:focus {
+    outline: none;
+    border-color: var(--brand) !important;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 25%, transparent);
+}
+
+/* --- Text selection + focus rings --- */
+::selection { background: color-mix(in srgb, var(--brand) 35%, transparent); color: var(--text-title); }
+button:focus-visible, a:focus-visible, .swa-sidebar-link:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--brand) 60%, transparent);
+    outline-offset: 2px;
+}
+
+/* --- Avatar + profile --- */
+.cyber-user-profile { transition: background .2s ease, transform .2s ease; border-radius: 12px; }
+.cyber-user-profile:hover { background: var(--bg-subtle); transform: translateY(-1px); }
+.cyber-avatar-img { box-shadow: 0 0 0 2px color-mix(in srgb, var(--brand) 45%, transparent); }
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+    .soc-kpi-bar-fill::after, .bar-fill::after,
+    .swa-status-dot::after, .status-dot::after,
+    .swa-soc-kpi-grid > *, .soc-kpi-grid > *,
+    .swa-view.active .soc-panel, .swa-view.active tbody tr { animation: none !important; }
+    .soc-kpi-card::after { display: none; }
+}
+
+/* =====================================================================
+   App-shell layout fix (desktop): sidebar stays fixed, only the main
+   content scrolls. Fixes sidebar scrolling away with the page — the old
+   sticky broke because an ancestor used overflow-x:hidden.
+   ===================================================================== */
+@media (min-width: 1025px) {
+    html, body { height: 100%; overflow: hidden; }
+    .swa-app-layout {
+        height: 100vh;
+        overflow: hidden;
+    }
+    .swa-sidebar {
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        align-self: flex-start;
+        flex: 0 0 auto;
+    }
+    .swa-main-shell {
+        height: 100vh;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+    /* keep the top bar pinned while the content scrolls underneath it */
+    .swa-main-shell > .swa-topbar { position: sticky; top: 0; z-index: 90; }
+}

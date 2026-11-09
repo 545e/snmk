@@ -436,7 +436,7 @@ class AgentRegistry:
 
             ("antivirus_edr_manager", "Antivirus & EDR Telemetry Manager", "antivirus_edr_manager", "Autonomous Security Engines",
              "Inventories 15 enterprise AV/EDR products, provides live Windows Defender telemetry, and tracks malware status.",
-             "core.antivirus_edr_manager", "AntivirusEDRManager",
+             "core.antivirus_edr_manager", "AntivirusEdrManager",
              ["Live Windows Defender probe", "15-product AV evaluation matrix", "Real-time protection status"],
              ["Get-MpComputerStatus probe", "Malware scan history", "EDR API status"],
              ["powershell_runner", "mpcmdrun_prober"], False, 45),
@@ -506,7 +506,7 @@ class AgentRegistry:
 
             ("attack_surface_intel_engine", "Attack Surface Intelligence Engine", "attack_surface_intel_engine", "Autonomous Security Engines",
              "Builds asset graph relationships, tracks perimeter drift, and discovers shadow IT endpoints automatically.",
-             "core.attack_surface_intel", "AttackSurfaceIntelligenceEngine",
+             "core.attack_surface_intel", "AttackSurfaceIntelligence",
              ["Asset relationship graph", "Perimeter drift detection", "Technology change tracking"],
              ["Graph synthesis", "Drift event generation", "Asset classification"],
              ["graph_builder", "drift_detector"], False, 60),
@@ -534,7 +534,7 @@ class AgentRegistry:
 
             ("approval_gate_engine", "Human-in-the-Loop Approval Gate", "approval_gate_engine", "Autonomous Security Engines",
              "Enforces approval workflow before active exploitation, production testing, or destructive commands.",
-             "core.approval_engine", "ApprovalEngine",
+             "core.approval_engine", "ApprovalGateEngine",
              ["Pending approval tracking", "Decision auditing", "Role-based authorization checks"],
              ["Approval enforcement", "Rationale recording", "Audit logging"],
              ["approval_manager", "audit_logger"], False, 30),
@@ -555,7 +555,7 @@ class AgentRegistry:
 
             ("autonomous_background_daemon", "Continuous Autonomous Monitoring Daemon", "autonomous_background_daemon", "Autonomous Security Engines",
              "Runs background monitoring tasks, scheduled scans, and real-time security telemetry collection.",
-             "core.autonomous_daemon", "AutonomousCyberDaemon",
+             "core.autonomous_daemon", "AutonomousDaemon",
              ["Background scan execution", "Continuous asset polling", "Heartbeat monitoring"],
              ["Daemon lifecycle management", "Task dispatching"],
              ["daemon_runner", "task_scheduler"], False, 120),
@@ -583,7 +583,7 @@ class AgentRegistry:
 
             ("queue_event_bus", "Asynchronous Event & Task Queue Bus", "queue_event_bus", "Autonomous Security Engines",
              "Centralized asyncio event bus managing live SSE logs, scan progress broadcasting, and background tasks.",
-             "core.queue_manager", "QueueManager",
+             "core.queue_manager", "queue_manager",
              ["Live SSE log broadcasting", "Task queue management", "Progress percentage distribution"],
              ["Event multiplexing", "Client subscription handling"],
              ["event_broadcaster", "async_queue"], False, 30),
@@ -1005,22 +1005,8 @@ class AgentRegistry:
                     outputs["ai_note"] = str(ai_err)
 
             elif manifest.tier == "offensive_recon":
-                handled = True
-                if manifest.id == "amass_engine":
-                    try:
-                        from agents.amass_engine import AmassSubdomainEngine
-                        parsed_host = urlparse(target).hostname or target.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
-                        engine = AmassSubdomainEngine(scan_id=scan_id, base_domain=parsed_host, recursive=False, concurrency=5, timeout=3)
-                        subdomains, takeovers = await asyncio.wait_for(engine.run(), timeout=8.0)
-                        outputs["subdomains_count"] = len(subdomains)
-                        outputs["takeovers_count"] = len(takeovers)
-                        outputs["discovered_subdomains"] = [s.get("subdomain") for s in subdomains[:5]]
-                    except (asyncio.TimeoutError, Exception) as am_err:
-                        outputs["subdomains_count"] = 0
-                        outputs["takeovers_count"] = 0
-                        outputs["discovered_subdomains"] = []
-                        outputs["amass_note"] = str(am_err)
-                elif manifest.id == "attack_surface_agent":
+                if manifest.id == "attack_surface_agent":
+                    handled = True
                     try:
                         from agents.attack_surface_agent import AttackSurfaceAgent
                         agent_inst = AttackSurfaceAgent(scan_id=scan_id, base_url=target, max_depth=1, concurrency=3)
@@ -1028,25 +1014,8 @@ class AgentRegistry:
                         outputs["endpoints_discovered"] = len(eps) if eps else 0
                     except Exception as as_err:
                         outputs["recon_note"] = str(as_err)
-                elif manifest.id == "dependency_confusion_agent":
-                    try:
-                        from agents.dependency_confusion_agent import DependencyConfusionAgent
-                        dep_inst = DependencyConfusionAgent(scan_id=scan_id, js_urls=[], base_url=target)
-                        findings = await dep_inst.run()
-                        outputs["dependency_confusion_findings"] = len(findings) if findings else 0
-                    except Exception as dep_err:
-                        outputs["dependency_note"] = str(dep_err)
-                elif manifest.id == "exploit_validator_agent":
-                    try:
-                        from agents.exploit_validator_agent import ExploitValidatorAgent
-                        from core.llm_client import SWALLMClient
-                        llm = SWALLMClient()
-                        val_agent = ExploitValidatorAgent(scan_id=scan_id, llm_client=llm)
-                        validated = await val_agent.run(findings=inputs.get("findings") or [])
-                        outputs["validated_findings_count"] = len(validated)
-                    except Exception as ev_err:
-                        outputs["exploit_validator_note"] = str(ev_err)
                 elif manifest.id == "fuzzer_agent":
+                    handled = True
                     try:
                         from agents.fuzzer_agent import FuzzerAgent
                         fuzzer = FuzzerAgent(scan_id=scan_id, base_url=target, concurrency=5, timeout=3)
@@ -1054,173 +1023,15 @@ class AgentRegistry:
                         outputs["fuzz_findings"] = len(findings) if findings else 0
                     except Exception as fz_err:
                         outputs["fuzzer_note"] = str(fz_err)
-                elif manifest.id == "recon_agent":
+                elif manifest.id == "dependency_confusion_agent":
+                    handled = True
                     try:
-                        from agents.recon_agent import ReconAgent
-                        r_agent = ReconAgent(scan_id=scan_id, target_url=target, timeout=5)
-                        recon_res = await r_agent.run()
-                        outputs["recon_data"] = {
-                            "target": getattr(recon_res, "target", target),
-                            "ip_addresses": getattr(recon_res, "ip_addresses", []),
-                            "open_ports": getattr(recon_res, "open_ports", []),
-                            "tech_stack": getattr(recon_res, "tech_stack", [])
-                        }
-                    except Exception as rc_err:
-                        outputs["recon_note"] = str(rc_err)
-                elif manifest.id == "remediation_lifecycle_agent":
-                    try:
-                        from agents.remediation_agent import RemediationAgent
-                        from core.llm_client import SWALLMClient
-                        from core.models import ReconResult
-                        llm = SWALLMClient()
-                        recon_obj = ReconResult(target=target)
-                        rem_agent = RemediationAgent(scan_id=scan_id, llm_client=llm, recon=recon_obj)
-                        rem_res = await rem_agent.run(findings=inputs.get("findings") or [])
-                        outputs["remediations_generated"] = len(rem_res)
-                    except Exception as rem_err:
-                        outputs["remediation_note"] = str(rem_err)
-                elif manifest.id == "swa_orchestrator":
-                    try:
-                        from agents.orchestrator import SWAOrchestrator
-                        from core.models import ScanJob, ScanProfile, ScanConfig
-                        job = ScanJob(id=scan_id, target_url=target, profile=ScanProfile.LIGHT, config=ScanConfig(target_url=target, profile=ScanProfile.LIGHT))
-                        orch = SWAOrchestrator(job=job)
-                        outputs["orchestrator_phases"] = ["scope_validation", "reconnaissance", "vulnerability_hunting", "exploit_validation", "remediation", "reporting"]
-                        outputs["orchestrator_status"] = "READY"
-                    except Exception as orch_err:
-                        outputs["orchestrator_note"] = str(orch_err)
-                elif manifest.id == "vuln_hunter_agent":
-                    try:
-                        from agents.vuln_hunter_agent import VulnHunterAgent
-                        from core.models import DiscoveredEndpoint
-                        eps = inputs.get("endpoints") or [DiscoveredEndpoint(url=target, method="GET", path=urlparse(target).path or "/")]
-                        vh = VulnHunterAgent(scan_id=scan_id, endpoints=eps, concurrency=2)
-                        vh_findings = await vh.run(recon_data=inputs.get("recon_data"))
-                        outputs["vulnerabilities_found"] = len(vh_findings)
-                    except Exception as vh_err:
-                        outputs["vuln_hunter_note"] = str(vh_err)
-
-            elif manifest.tier == "core_engines":
-                handled = True
-                try:
-                    import importlib
-                    mod = importlib.import_module(manifest.module_path)
-                    cls = getattr(mod, manifest.class_name, None)
-                    if cls is None:
-                        cls = getattr(mod, manifest.id, None)
-
-                    if manifest.id == "ghostjs_ast_engine":
-                        analyzer = cls()
-                        res = analyzer.analyze_source("console.log('SNMK autonomous engine active');", url=f"{target}/app.js")
-                        outputs["ast_routes"] = len(res.get("routes", []))
-                        outputs["ast_secrets"] = len(res.get("secrets", []))
-                    elif manifest.id == "dfir_forensics_engine":
-                        engine = cls()
-                        outputs["forensics_status"] = "Active telemetry and log analysis ready"
-                        outputs["supported_formats"] = ["nginx", "apache", "iis", "syslog"]
-                    elif manifest.id == "blue_team_engine":
-                        engine = cls()
-                        rules = engine.generate_modsecurity_rules(attack_type="sqli")
-                        outputs["modsec_rules_count"] = len(rules) if isinstance(rules, list) else 1
-                    elif manifest.id == "waf_bypass_engine":
-                        engine = cls()
-                        det = await engine.detect_waf(target)
-                        outputs["waf_detected"] = det.get("waf_name") if isinstance(det, dict) else "None"
-                    elif manifest.id == "rea_disassembler_engine":
-                        engine = cls()
-                        outputs["rea_status"] = "Binary reverse engineering engine initialized"
-                        outputs["supported_architectures"] = ["x86", "x64", "arm64"]
-                    elif manifest.id == "bug_bounty_hub":
-                        engine = cls()
-                        progs = engine.get_all_programs() if hasattr(engine, "get_all_programs") else []
-                        outputs["cataloged_bounties"] = len(progs) if isinstance(progs, list) else 90
-                    elif manifest.id == "sqli_testing_engine":
-                        engine = cls()
-                        outputs["sqli_modes"] = ["error_based", "boolean_blind", "time_blind", "union_query"]
-                    elif manifest.id == "multi_injection_suite":
-                        engine = cls()
-                        outputs["injection_classes"] = 27
-                    elif manifest.id == "antivirus_edr_manager":
-                        engine = cls()
-                        outputs["av_edr_inventory"] = engine.get_quick_status() if hasattr(engine, "get_quick_status") else {"status": "ACTIVE"}
-                    elif manifest.id == "identity_access_auditor":
-                        engine = cls()
-                        outputs["identity_access_audit"] = {
-                            "jwt_checks": ["alg_none", "exp_validation", "tampering"],
-                            "cookie_checks": ["SameSite", "Secure", "HttpOnly"]
-                        }
-                    elif manifest.id == "llm_security_testing_engine":
-                        engine = cls()
-                        outputs["llm_security_testing"] = "OWASP LLM Top 10 red team benchmark ready"
-                    elif manifest.id == "ai_model_trainer":
-                        engine = cls()
-                        outputs["ai_compute_hardware"] = engine.hardware_info
-                    elif manifest.id == "ai_evaluation_engine":
-                        engine = cls()
-                        outputs["eval_metrics"] = ["accuracy", "precision", "recall", "f1_score", "latency_ms"]
-                    elif manifest.id == "data_management_engine":
-                        engine = cls()
-                        ds = engine.list_datasets() if hasattr(engine, "list_datasets") else []
-                        outputs["security_datasets"] = len(ds) if isinstance(ds, list) else 0
-                    elif manifest.id == "cyber_export_engine":
-                        engine = cls()
-                        outputs["export_formats"] = ["pdf", "sarif", "html", "csv", "json", "markdown"]
-                    elif manifest.id == "cyber_test_engine":
-                        engine = cls()
-                        outputs["cyber_test_profiles"] = ["smoke", "security", "infrastructure", "full"]
-                    elif manifest.id == "cyber_deploy_engine":
-                        engine = cls()
-                        outputs["deployment_stages"] = 15
-                    elif manifest.id == "post_deployment_acceptance_engine":
-                        engine = cls()
-                        outputs["acceptance_sections"] = 10
-                        outputs["acceptance_checks_total"] = 108
-                    elif manifest.id == "attack_surface_intel_engine":
-                        engine = cls()
-                        outputs["attack_surface_graph"] = {"state": "SYNCHRONIZED", "drift_monitoring": "ACTIVE"}
-                    elif manifest.id == "knowledge_graph_engine":
-                        engine = cls()
-                        outputs["knowledge_graph"] = {"nodes": 150, "edges": 320, "status": "ONLINE"}
-                    elif manifest.id == "remediation_ticket_engine":
-                        engine = cls()
-                        outputs["remediation_tickets"] = {"open_tickets": 0, "sla_tiers": ["P0", "P1", "P2", "P3", "P4"]}
-                    elif manifest.id == "risk_scoring_engine":
-                        engine = cls()
-                        posture = engine.compute_posture_score([]) if hasattr(engine, "compute_posture_score") else 100.0
-                        outputs["baseline_posture_score"] = posture
-                    elif manifest.id == "approval_gate_engine":
-                        engine = cls()
-                        outputs["approval_gate_policy"] = {"human_in_the_loop": True, "status": "ENFORCED"}
-                    elif manifest.id == "app_security_hardener":
-                        outputs["application_security_hardening"] = cls.audit_security_posture() if hasattr(cls, "audit_security_posture") else {"status": "HARDENED"}
-                    elif manifest.id == "scope_enforcement_policy":
-                        engine = cls()
-                        verdict = engine.validate_target(target)
-                        outputs["scope_verdict"] = "AUTHORIZED" if verdict.is_allowed else "REFUSED"
-                    elif manifest.id == "autonomous_background_daemon":
-                        engine = cls()
-                        outputs["daemon_state"] = engine.status if hasattr(engine, "status") else "IDLE"
-                    elif manifest.id == "scoped_recon_assistant":
-                        engine = cls(target_url=target)
-                        outputs["scoped_assistant"] = "READY"
-                    elif manifest.id == "enterprise_report_engine":
-                        engine = cls()
-                        outputs["supported_standards"] = ["ASVS", "NIST", "PCI-DSS", "OWASP"]
-                    elif manifest.id == "vulnerability_report_generator":
-                        engine = cls()
-                        outputs["report_templates"] = ["executive", "technical", "developer_remediation"]
-                    elif manifest.id == "queue_event_bus":
-                        outputs["queue_bus_status"] = "CONNECTED"
-                    elif manifest.id == "llm_inference_client":
-                        engine = cls()
-                        outputs["llm_gateway"] = engine.get_status()
-                    elif manifest.id == "security_notifier_engine":
-                        engine = cls()
-                        outputs["notification_channels"] = ["console", "audit_log", "webhook", "sse"]
-                    else:
-                        outputs["engine_status"] = "OPERATIONAL"
-                except Exception as eng_err:
-                    outputs["engine_note"] = str(eng_err)
+                        from agents.dependency_confusion_agent import DependencyConfusionAgent
+                        dep_inst = DependencyConfusionAgent(scan_id=scan_id, js_urls=[], base_url=target)
+                        findings = await dep_inst.run()
+                        outputs["dependency_confusion_findings"] = len(findings) if findings else 0
+                    except Exception as dep_err:
+                        outputs["dependency_note"] = str(dep_err)
 
             elif manifest.tier == "tool_adapters":
                 handled = True
@@ -1364,13 +1175,13 @@ class AgentRegistry:
                             title=f"Autonomous assessment: {agent.name}",
                             inputs={"target": target, "recon_data": recon_data, "endpoints": endpoints},
                         ),
-                        timeout=120.0,
+                        timeout=60.0,
                     )
                     if rec is None:
                         rec = {"status": "FAILED", "error_message": "Agent manifest resolved to None during dispatch."}
                     return agent, rec
                 except asyncio.TimeoutError:
-                    return agent, {"status": "FAILED", "error_message": "Dispatch timed out after 120s."}
+                    return agent, {"status": "FAILED", "error_message": "Dispatch timed out after 60s."}
                 except Exception as e:
                     return agent, {"status": "FAILED", "error_message": str(e)}
 

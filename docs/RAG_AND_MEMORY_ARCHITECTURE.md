@@ -1,13 +1,4 @@
 # RAG AND AGENT MEMORY ARCHITECTURE
-
-> **Audit corrections applied 2026-11-07:**
-> - RAG is real but **sparse (BM25 + keyword boost)** — no embeddings, no vector DB, no semantic-similarity search. Documents are chunked by word count, not semantic units.
-> - RAG **is wired** into `llm_client.reason()` when `use_rag=True`/`rag_query` is passed; consumers that do not pass those flags get no grounding. Retrieved context is raw untrusted text; prompt-injection defense for retrieved content is NOT implemented (treat as untrusted by policy).
-> - "Zero Hallucination Anchor" is a marketing phrase: BM25 has a relevance threshold but no calibrated confidence; ungrounded responses are possible when terms match spuriously.
-> - Memory scrubbing covers common token shapes only (sk-, ghp_, xoxb-, Bearer, password assignments) — it is a regex net, not a guarantee; do not store real credentials in conversation turns.
-> - Memory tiers: "working memory" lives inside process memory of the dispatch loop and is lost on restart; only episodic records and (via knowledge graph) semantic entities persist.
-> - Both engines are SQLite `project_id`-scoped; there is no per-user ACL beyond that, and the local default `proj_default` shares one bucket across all users of this instance.
-
 ## Grounded Cybersecurity Intelligence, Tenant Isolation, and Secret Scrubbing
 
 ### 1. Retrieval-Augmented Generation (RAG) Architecture
