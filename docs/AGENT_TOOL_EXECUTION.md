@@ -1,5 +1,14 @@
 # AGENT TOOL EXECUTION AND PARAMETER VALIDATION
-## Deterministic Tool Adapters, Sandboxed Execution, and Schema Enforcement
+
+> **Audit corrections applied 2026-11-07:**
+> - Tool execution in this codebase is **deterministic adapters**, not LLM-driven tool calling. There is no `tools` schema sent to any model, no `tool_calls` parsing, and no agent autonomously "chooses" a tool. The "Function Calling" column in provider docs does not apply here.
+> - **Schema validation** at the HTTP layer is real (Pydantic). `core/tool_registry.py` `ToolMetadata` is a *metadata catalog only* — its `backend_handler` strings were corrected on 2026-11-07 to point at real symbols, but nothing dynamically imports or dispatches them. Claims about "JSONSchema types before execution" and "sandboxed execution" are aspirational; there is no sandbox.
+> - **SSRF**: validation is real (`core/scope_policy.py` — DNS rebinding check, RFC 1918/metadata/loopback denial). Dynamic authorization is session-scoped and never persists to `targets.json`; strict mode exists via `SWA_ENFORCE_ALLOWLIST=1`.
+> - **Structured argv** is real for the binary adapters (`create_subprocess_exec`/`subprocess.run` with arg lists, no `shell=True`). Timeouts are enforced (3–60 s). The `run_nmap_safe` ports argument is now regex-validated (2026-11-07) to close nmap flag-injection.
+> - **Output parsing** for nmap (XML) is real; nuclei JSONL parsing is real but untested on this host (binary absent). sqlmap requires explicit lab mode.
+> - `/api/tools/{tool_id}/execute` executes a small set of handlers for real (`dns`, `headers`, `ssl`, `ports`, `whois`, `js-scan`, `waf`, …); unknown registered tools previously got a fake `OPERATIONAL` response — they now receive an explicit not-executed result.
+>
+> ## Deterministic Tool Adapters, Sandboxed Execution, and Schema Enforcement
 
 ### 1. Tool Execution Safety Model
 

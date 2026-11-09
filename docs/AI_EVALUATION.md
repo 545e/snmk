@@ -1,4 +1,7 @@
 # SWA AI — Autonomous Intelligence & Model Evaluation Specification
+
+> **Correction applied 2026-11-11:** read `docs/COMPLETE_AI_SYSTEM_INVENTORY.md` and `docs/IMPLEMENTATION_REPORT.md` first. In code, "model evaluation" evaluates a **regex signature classifier** (SQLi/XSS/CMDi/SSRF/traversal/SSTI/open-redirect) macro-averaged P/R/F1 with an optional latency benchmark of a live LLM when a key is configured. There is no neural classification under test, no OWASP Academy-grade benchmark runner, and no "Neural Classification" subsystem. Agent "roles" are manifests in `core/agent_registry.py` whose handlers mostly compute DB aggregates; only some dispatch real work (see the audit doc for exactly which). "v3.0.0-Enterprise" is a marketing version string, not a shipped architecture.
+
 **Subsystem:** AI Agent Workforce, Neural Classification & LLM Security  
 **Benchmark Suite:** OWASP Top 10, PortSwigger Web Security Academy Labs, CWE/SANS Top 25  
 **Version:** 3.0.0-Enterprise  

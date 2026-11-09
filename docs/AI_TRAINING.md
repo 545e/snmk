@@ -1,5 +1,15 @@
 # SWA AI — Model Training, Fine-Tuning & Evaluation Guide
 
+> **Correction applied 2026-11-11 (read first or stop here):** there is NO real ML training anywhere in this repository.
+> - `/api/ai/training/start` runs `core/ai_training.py`, an explicit **simulation**: the "loss" is `2.45 * e^-0.45·epoch + hash-noise`, accuracy is capped at 0.985, `time.sleep(1)` per epoch, and the "model" artifact (`swa_security_model.bin`) is a text file of metadata. No `torch`/`transformers`/`sklearn` is installed; no weights are computed; no GPU is used.
+> - No credential-leakage scanning of uploaded datasets exists as described below (dataset upload does have basic handling, but the leakage scanner is not ML-grade; treat this section as aspirational unless re-verified).
+> - `security-roberta-base` / `payload-anomaly-detector` / `cyber-distilbert-uncased` do not exist in this repo, and nothing downloads them.
+> - "Zero Data Leakage", "Reproducible 70/15/15 partitioning", and "epoch checkpointing" describe the simulation's bookkeeping, not real training dynamics.
+> - Model evaluation (`ai_evaluation.py`) is real code but evaluates a **regex signature classifier** against labeled data, plus latency timing of live LLM calls when a key is configured. There is no trained model under test.
+> - The honest capability matrix is in `docs/COMPLETE_AI_SYSTEM_INVENTORY.md`.
+>
+> The rest of this document describes the intended end-state design, kept for reference. It is NOT a description of working functionality.
+
 ## 1. Overview & Architectural Capabilities
 The SWA AI training and evaluation engine is built specifically for cybersecurity teams to develop, fine-tune, evaluate, and benchmark bespoke security classifiers, payload anomaly detectors, and LLM reasoning models.
 

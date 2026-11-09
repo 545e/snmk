@@ -1364,13 +1364,13 @@ class AgentRegistry:
                             title=f"Autonomous assessment: {agent.name}",
                             inputs={"target": target, "recon_data": recon_data, "endpoints": endpoints},
                         ),
-                        timeout=60.0,
+                        timeout=120.0,
                     )
                     if rec is None:
                         rec = {"status": "FAILED", "error_message": "Agent manifest resolved to None during dispatch."}
                     return agent, rec
                 except asyncio.TimeoutError:
-                    return agent, {"status": "FAILED", "error_message": "Dispatch timed out after 60s."}
+                    return agent, {"status": "FAILED", "error_message": "Dispatch timed out after 120s."}
                 except Exception as e:
                     return agent, {"status": "FAILED", "error_message": str(e)}
 

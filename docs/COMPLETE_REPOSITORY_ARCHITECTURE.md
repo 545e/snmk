@@ -21,15 +21,14 @@ C:\Users\krish\SWA (snmk)
 │   └── vuln_hunter_agent.py    # Multi-vector vulnerability scanner and proof-of-concept synthesis
 ├── benchmarks/                 # Polyglot performance benchmarks across query latency & memory
 ├── config/                     # Configuration definitions
-│   ├── 85_agents_matrix.json   # Definitive metadata registry for all 85 registered specialist agents
-│   ├── scan_profiles.json      # Assessment profile definitions (Passive, Standard, Deep, Red Team)
-│   └── targets.json            # Strict SSRF target scope authorization list
+│   ├── 85_agents_matrix.json   # ORPHANED (not referenced by code) - registry truth is core/agent_registry.py
+│   └── targets.json            # Scope allowlist (session-scoped dynamic authorization; strict mode via SWA_ENFORCE_ALLOWLIST=1)
 ├── core/                       # Core application domain & business logic
 │   ├── agent_memory.py         # Working, Episodic, and Semantic memory with secret scrubbing & token budgeting
 │   ├── agent_registry.py       # Central agent registry managing all 85 agents across 5 operational tiers
 │   ├── ai_evaluation.py        # Model benchmarking: precision, recall, F1, confusion matrices, token costs
-│   ├── ai_models.py            # Model registry: OpenAI, Anthropic, Gemini, OpenRouter, Azure, Ollama
-│   ├── ai_training.py          # Machine learning fine-tuning engine & checkpoint management
+│   ├── ai_models.py            # Model registry: OpenAI, Anthropic, Gemini, OpenRouter, Ollama (static catalogs)
+│   ├── ai_training.py          # TRAINING SIMULATION (synthetic loss curve; not real ML training)
 │   ├── credentials.py          # Cryptographic vault: Fernet AES-128 + PBKDF2HMAC key derivation
 │   ├── cyber_tools.py          # 23 internal cybersecurity tool adapters & probers
 │   ├── database.py             # Thread-safe SQLite engine with WAL mode and schema integrity
@@ -81,7 +80,7 @@ C:\Users\krish\SWA (snmk)
    - Asynchronous AJAX polling and event streams update executive scorecard, active agent counts, and live findings feed.
 
 3. **Autonomous Assessment Execution**:
-   - Target input is validated against `config/targets.json` and RFC 1918 / cloud metadata SSRF guardrails.
+   - Target input is validated by `core/scope_policy.py` (RFC 1918 / loopback / cloud metadata SSRF guardrails + allowlist). Dynamic authorization is session-scoped by default; `SWA_ENFORCE_ALLOWLIST=1` disables it.
    - Orchestrator delegates tasks to specialized agents (e.g. `ReconnaissanceAgent` → `PortScannerAgent` → `VulnHunterAgent` → `ExploitValidatorAgent`).
    - Evidence is captured with raw HTTP headers, payload parameters, and verified responses.
    - Findings are inserted into `swa_data.db` with CVSS v3.1 scoring, CVE/CWE tagging, and remediation status.
