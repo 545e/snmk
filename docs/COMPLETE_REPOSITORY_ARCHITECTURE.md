@@ -1,5 +1,8 @@
 # COMPLETE REPOSITORY ARCHITECTURE
 
+> **DSA pass 2026-11-11 (addendum):** see `docs/DSA_OPTIMIZATION_REPORT.md` for measured before/after results. Key changes: bounded TTL cache for host tool detection (`core/scanner_integrations.py`), signature-invalidating parse-cache for RAG chunk parsing (`core/rag_engine.py`), N+1 → single grouped query for integration credential masking (`core/integrations/registry.py`), adjacency-indexed knowledge-graph queries (`core/knowledge_graph.py`), compiled regexes in hot paths.
+
+
 > **AUDIT CORRECTION — 2026-11-11 (read first):** a concurrent `51116f4` bulk sync reverted the 2026-11-07 corrections to this document. This file still describes aspirational/design-intent behavior in places, NOT verified reality. Verified fact:
 > - No LLM round trip is verified anywhere (all providers `NOT_CONFIGURED`; mode = `heuristic_fallback`).
 > - RAG is BM25 (sparse), NOT embeddings/vector search. Memory is regex-scrubbed, not guaranteed.

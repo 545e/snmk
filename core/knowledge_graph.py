@@ -250,12 +250,16 @@ class SecurityKnowledgeGraphEngine:
         """Finds all assets with open network services or active findings."""
         graph = self.get_full_graph()
         exposed = []
+        # Adjacency index: node_id -> list of relationships (O(E) once)
+        adj: Dict[str, List[str]] = {}
+        for e in graph.edges:
+            adj.setdefault(e.source_id, []).append(e.relationship)
+            adj.setdefault(e.target_id, []).append(e.relationship)
         for node in graph.nodes:
             if node.type in (GraphNodeType.DOMAIN, GraphNodeType.APPLICATION, GraphNodeType.SUBDOMAIN):
-                # Count connected findings and services
-                connected_edges = [e for e in graph.edges if e.source_id == node.id or e.target_id == node.id]
-                findings_count = sum(1 for e in connected_edges if "FINDING" in e.relationship)
-                services_count = sum(1 for e in connected_edges if "SERVICE" in e.relationship)
+                connected = adj.get(node.id, [])
+                findings_count = sum(1 for rel in connected if "FINDING" in rel)
+                services_count = sum(1 for rel in connected if "SERVICE" in rel)
                 if findings_count > 0 or services_count > 0:
                     exposed.append({
                         "node_id": node.id,
@@ -272,14 +276,19 @@ class SecurityKnowledgeGraphEngine:
         """Identifies vulnerabilities or CWEs that affect multiple applications or endpoints."""
         graph = self.get_full_graph()
         vuln_nodes = [n for n in graph.nodes if n.type == GraphNodeType.VULNERABILITY]
+        # Edge histogram per target_id over CLASSIFIED_AS relationships (O(E) once)
+        classified_count: Dict[str, int] = {}
+        for e in graph.edges:
+            if e.relationship == "CLASSIFIED_AS":
+                classified_count[e.target_id] = classified_count.get(e.target_id, 0) + 1
         shared = []
         for vn in vuln_nodes:
-            edges = [e for e in graph.edges if e.target_id == vn.id and e.relationship == "CLASSIFIED_AS"]
-            if len(edges) > 1:
+            count = classified_count.get(vn.id, 0)
+            if count > 1:
                 shared.append({
                     "vulnerability_id": vn.id,
                     "label": vn.label,
-                    "affected_findings_count": len(edges),
+                    "affected_findings_count": count,
                     "properties": vn.properties
                 })
         return shared

@@ -38,6 +38,8 @@ GRADE_BANDS: List[Tuple[int, str, str, str]] = [
 
 _SEVERITIES = ("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO")
 
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
 
 def _severity_of(finding: Any) -> str:
     sev = getattr(finding, "severity", finding)
@@ -98,7 +100,7 @@ def normalize_endpoint(endpoint: Optional[str]) -> str:
 
 def canonical_finding_key(finding: Any) -> Tuple[str, str, str]:
     """Cross-source deduplication key: normalized title + endpoint + parameter."""
-    title = re.sub(r"[^a-z0-9]+", " ", str(getattr(finding, "title", "") or "").lower()).strip()
+    title = _NON_ALNUM_RE.sub(" ", str(getattr(finding, "title", "") or "").lower()).strip()
     parameter = str(getattr(finding, "parameter", "") or "").lower().strip()
     return title, normalize_endpoint(getattr(finding, "endpoint", "")), parameter
 
