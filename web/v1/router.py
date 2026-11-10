@@ -759,24 +759,25 @@ async def v1_enrich_threat_indicator(payload: V1ThreatEnrichPayload):
 
 @v1_router.get("/threat-intelligence/cisa-kev")
 async def v1_query_cisa_kev(cve: Optional[str] = None):
-    """Query CISA Known Exploited Vulnerabilities catalog."""
-    return v1_envelope(data={
-        "catalog": "CISA KEV",
-        "cve": cve or "CVE-2021-44228",
-        "known_exploited": True,
-        "due_date": "2021-12-24",
-        "notes": "Remote code execution in Apache Log4j",
-    })
+    """Query the live CISA Known Exploited Vulnerabilities catalog (cached 1h)."""
+    from core.threat_intel_live import get_cisa_kev, ThreatIntelUnavailable
+    try:
+        data = await get_cisa_kev(cve)
+    except ThreatIntelUnavailable as exc:
+        raise HTTPException(status_code=503, detail=f"CISA KEV feed unavailable: {exc}")
+    return v1_envelope(data=data)
 
 @v1_router.get("/threat-intelligence/first-epss")
-async def v1_query_first_epss(cve: Optional[str] = "CVE-2021-44228"):
-    """Query FIRST.org Exploit Prediction Scoring System (EPSS)."""
-    return v1_envelope(data={
-        "cve": cve,
-        "epss_score": 0.9752,
-        "percentile": 0.9998,
-        "model_version": "v2023.03.01",
-    })
+async def v1_query_first_epss(cve: Optional[str] = None):
+    """Query the live FIRST.org EPSS API for a CVE (cached 1h). Requires cve=CVE-YYYY-NNNN."""
+    if not cve:
+        raise HTTPException(status_code=400, detail="Query parameter cve is required, e.g. cve=CVE-2021-44228")
+    from core.threat_intel_live import get_first_epss, ThreatIntelUnavailable
+    try:
+        data = await get_first_epss(cve)
+    except ThreatIntelUnavailable as exc:
+        raise HTTPException(status_code=503, detail=f"FIRST EPSS API unavailable: {exc}")
+    return v1_envelope(data=data)
 
 
 # =====================================================================
@@ -798,19 +799,57 @@ async def v1_list_ai_models():
 
 @v1_router.get("/ai/models/status")
 async def v1_get_ai_models_status():
-    """Get active AI model health and connectivity status."""
-    return v1_envelope(data={"status": "CONNECTED", "default_provider": "gemini", "active_model": "gemini-2.0-flash"})
+    """Get active AI model health and connectivity status (real client state)."""
+    from core.llm_client import llm_client
+    from core.ai_models import ai_model_manager
+    st = llm_client.get_status()
+    default_model = ai_model_manager.get_default_model() or {}
+    return v1_envelope(data={
+        "status": "CONNECTED" if st.get("mode") == "llm_assisted" else "HEURISTIC_FALLBACK",
+        "provider": st.get("provider"),
+        "mode": st.get("mode"),
+        "credential_source": st.get("credential_source"),
+        "active_model": st.get("model"),
+        "default_model": default_model.get("model_id"),
+        "default_provider": default_model.get("provider"),
+    })
 
 @v1_router.post("/ai/models/test")
 async def v1_test_ai_model(payload: V1AIModelTestPayload):
-    """Test AI model completion and latency."""
+    """Run a real connectivity probe for the given provider via its adapter.
+
+    This does NOT burn tokens: it performs the same free reachability/auth
+    check the integrations subsystem performs (e.g. GET /models for OpenAI).
+    """
+    from core.integrations.registry import integration_registry
+    adapter = integration_registry.get_adapter(payload.provider)
+    if not adapter:
+        raise HTTPException(status_code=400, detail=f"No adapter registered for provider '{payload.provider}'")
+    integs = [i for i in integration_registry.list_configured_integrations() if i.get("provider_id") == payload.provider]
+    creds = {}
+    endpoint = None
+    if integs:
+        creds = integration_registry._get_decrypted_credentials(integs[0]["id"])
+        endpoint = integs[0].get("endpoint_url")
+    if not creds and payload.provider != "ollama":
+        return v1_envelope(data={
+            "provider": payload.provider,
+            "model": payload.model,
+            "status": "NOT_CONFIGURED",
+            "success": False,
+            "message": "No credentials configured for this provider. Configure via Settings -> API Keys & Integrations.",
+        }, message="Provider not configured")
+    res = await adapter.test_connection(creds, endpoint_url=endpoint)
+    res = dict(res)
+    res.setdefault("latency_ms", None)
     return v1_envelope(data={
         "provider": payload.provider,
         "model": payload.model,
-        "status": "OPERATIONAL",
-        "latency_ms": 320,
-        "response": "PING_OK: Model responded within acceptable operational latency.",
-    })
+        "status": res.get("status", "UNKNOWN"),
+        "success": bool(res.get("success")),
+        "message": res.get("message"),
+        "latency_ms": res.get("latency_ms"),
+    }, message="Provider probe finished")
 
 @v1_router.get("/ai/agents")
 async def v1_list_ai_agents():
@@ -844,7 +883,6 @@ async def v1_ai_collaborate(target: Optional[str] = "127.0.0.1:8000"):
 
 @v1_router.get("/ai/automation/rules")
 async def v1_list_automation_rules():
-    """List autonomous event-driven security rules."""
     """List autonomous automation rules seeded in the workflow engine."""
     try:
         from core.automation_engine import automation_engine

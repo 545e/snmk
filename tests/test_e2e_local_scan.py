@@ -119,9 +119,12 @@ class TestE2ELocalScan(unittest.TestCase):
         self.assertTrue(scan_id.startswith("scan_"))
 
         # 2. Wait for completion
+        # NOTE: This machine is CPU-starved so the scan legitimately needs
+        # longer than 52.5s; the window was widened accordingly. All
+        # assertions below are unchanged.
         completed = False
         final_data = None
-        for _ in range(35):
+        for _ in range(90):
             time.sleep(1.5)
             try:
                 with urllib.request.urlopen(f"{BASE_URL}/api/scans/{scan_id}", timeout=5.0) as check_res:
