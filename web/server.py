@@ -300,7 +300,7 @@ async def add_security_headers(request: Request, call_next):
 
     response.headers["Content-Security-Policy"] = (
 
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com data: blob: ws: wss:; "
+        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://*.tile.openstreetmap.org data: blob: ws: wss:; "
 
         "frame-ancestors 'self'; "
 
@@ -6112,6 +6112,10 @@ app.include_router(v1_router, prefix="/api/v1")
 # Include Cyber Kill Chain Intelligence & Attack Lifecycle Analyzer Router
 from web.kill_chain_router import kill_chain_router
 app.include_router(kill_chain_router)
+
+# Include MAP — Enterprise AI-Powered Network Intelligence & Forensics Router
+from web.network_api import router as network_router
+app.include_router(network_router)
 
 
 

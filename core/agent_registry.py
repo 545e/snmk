@@ -749,6 +749,86 @@ class AgentRegistry:
                 installed=True, available=True
             )
 
+
+        # -------------------------------------------------------------------
+        # TIER 6: MAP Enterprise Network Intelligence and Forensics Agents (9)
+        # -------------------------------------------------------------------
+        tier6_defs = [
+            ("map_orchestrator", "MAP Master Network Orchestrator Agent", "map_orchestrator", "Network Intelligence",
+             "Coordinates end-to-end network intelligence assessments, scope verification, and telemetry correlation.",
+             "core.network", "origin_engine",
+             ["Network orchestration", "Scope enforcement", "Vantage point validation"],
+             ["Assessment planning", "Interface selection", "Multi-engine synchronization"],
+             ["local_interfaces", "origin_engine"], False, 60),
+
+            ("map_packet_forensics", "Wireshark-Style Packet Forensics Agent", "map_packet_forensics", "Network Intelligence",
+             "Dissects frames, TCP handshakes, retransmissions, hex byte inspector, and protocol hierarchies.",
+             "core.network", "live_capture",
+             ["Packet capture", "Protocol dissection", "TCP analysis", "PCAP/PCAPNG forensics"],
+             ["Frame inspection", "Anomaly flagging", "Stream reconstruction"],
+             ["packet_engine", "pcap_forensics"], True, 180),
+
+            ("map_source_origin", "Network Origin and Attribution Agent", "map_source_origin", "Network Intelligence",
+             "Correlates source/dest IP, MAC, ARP, ISP/ASN, BGP prefix, and classifies origin infrastructure.",
+             "core.network", "origin_engine",
+             ["Origin attribution", "Infrastructure classification", "NAT/CDN identification"],
+             ["ISP correlation", "ASN mapping", "Limitation disclosure"],
+             ["origin_engine", "infra_engine"], False, 60),
+
+            ("map_geolocation", "IP and Coordinate Geolocation Agent", "map_geolocation", "Network Intelligence",
+             "Geolocates public IPs to latitude, longitude, DMS, country, and performs forward/reverse geocoding.",
+             "core.network", "geo_engine",
+             ["Public IP geolocation", "Coordinate conversion", "Reverse geocoding"],
+             ["Decimal to DMS", "Accuracy radius calculation", "Physical attribution disclaimer"],
+             ["geo_engine"], False, 60),
+
+            ("map_dns_bgp", "DNS and BGP Routing Intelligence Agent", "map_dns_bgp", "Network Intelligence",
+             "Resolves DNS records (A, AAAA, MX, NS, SOA, TXT), detects tunneling entropy, and audits BGP prefixes.",
+             "core.network", "dns_engine",
+             ["DNS multi-record lookup", "Tunneling entropy analysis", "BGP prefix lookup"],
+             ["Resolver timing", "DNSSEC verification", "AS Path tracking"],
+             ["dns_engine", "infra_engine"], False, 60),
+
+            ("map_topology_discovery", "Subnet Discovery and Topology Agent", "map_topology_discovery", "Network Intelligence",
+             "Discovers active LAN endpoints via ARP/NDP, resolves MAC OUI hardware vendors, and models topology.",
+             "core.network", "discovery_engine",
+             ["Subnet asset discovery", "MAC vendor resolution", "Baseline drift detection"],
+             ["Gateway detection", "Inventory snapshot comparison"],
+             ["discovery_engine"], True, 120),
+
+            ("map_performance", "Network Performance and Speed Agent", "map_performance", "Network Intelligence",
+             "Measures download/upload Mbps, ping latency, jitter, packet loss, and connection stability.",
+             "core.network", "perf_engine",
+             ["Throughput measurement", "Latency benchmarking", "Jitter and loss calculation"],
+             ["Download speed test", "Upload speed test", "DNS latency measurement"],
+             ["perf_engine"], True, 120),
+
+            ("map_threat_anomaly", "Network Threat and Suspicious Flow Agent", "map_threat_anomaly", "Network Intelligence",
+             "Cross-references observed network endpoints against VirusTotal, AbuseIPDB, and suspicious port signatures.",
+             "core.network", "threat_engine",
+             ["Threat intelligence correlation", "Abuse reputation scoring", "Port risk analysis"],
+             ["Malicious endpoint flagging", "Action recommendation"],
+             ["threat_engine", "abuseipdb"], False, 60),
+
+            ("map_root_cause", "Network Troubleshooting and Root Cause Agent", "map_root_cause", "Network Intelligence",
+             "Correlates DNS failures, gateway packet loss, routing hops, and generates remediation intelligence.",
+             "core.network", "map_ai_assistant",
+             ["Root cause diagnosis", "Network failure triage", "Evidence correlation"],
+             ["Troubleshooting synthesis", "Executive report generation"],
+             ["map_ai_assistant", "report_generator"], False, 60)
+        ]
+
+        for aid, name, role, cat, desc, mod, cls_name, resps, caps, tools, active, timeout in tier6_defs:
+            agents[aid] = ExtendedAgentManifest(
+                id=aid, name=name, role=role, tier="network_intelligence", category=cat,
+                description=desc, module_path=mod, class_name=cls_name, status="AVAILABLE",
+                capabilities=caps, responsibilities=resps,
+                permission_boundary=AgentPermissionBoundary(
+                    allowed_tools=tools, can_execute_active_probes=active, max_execution_time_sec=timeout
+                ),
+                installed=True, available=True
+            )
+
         self._agents = agents
         self._discovered = True
         logger.info(f"SWA AgentRegistry discovered all {len(agents)} cybersecurity agents successfully.")
@@ -1221,6 +1301,41 @@ class AgentRegistry:
                         outputs["engine_status"] = "OPERATIONAL"
                 except Exception as eng_err:
                     outputs["engine_note"] = str(eng_err)
+
+            elif manifest.tier == "network_intelligence":
+                from core.network import (
+                    origin_engine, geo_engine, dns_engine, route_engine,
+                    perf_engine, discovery_engine, threat_engine, live_capture, map_ai_assistant
+                )
+                tgt = inputs.get("target") or "127.0.0.1"
+                if manifest.id == "map_orchestrator":
+                    from core.network import get_local_network_info
+                    output_data = {"posture": get_local_network_info().dict(), "status": "COORDINATED"}
+                elif manifest.id == "map_source_origin":
+                    orig = await origin_engine.investigate_origin(tgt)
+                    output_data = orig.dict()
+                elif manifest.id == "map_geolocation":
+                    geo = await geo_engine.lookup_ip_geolocation(tgt)
+                    output_data = geo.dict()
+                elif manifest.id == "map_dns_bgp":
+                    output_data = await dns_engine.resolve_all(tgt)
+                elif manifest.id == "map_topology_discovery":
+                    devs = discovery_engine.discover_local_devices()
+                    output_data = {"devices": [d.dict() for d in devs], "total": len(devs)}
+                elif manifest.id == "map_performance":
+                    sp = await perf_engine.run_speed_test()
+                    output_data = sp.dict()
+                elif manifest.id == "map_packet_forensics":
+                    cap = live_capture.get_status()
+                    output_data = {"status": cap, "flows": [f.dict() for f in live_capture.get_flows()[:10]]}
+                elif manifest.id == "map_threat_anomaly":
+                    th = await threat_engine.evaluate_endpoint(tgt)
+                    output_data = th.dict()
+                elif manifest.id == "map_root_cause":
+                    ai_res = await map_ai_assistant.answer_query(f"Identify root cause for {tgt}")
+                    output_data = ai_res
+                else:
+                    output_data = {"message": f"MAP Agent {manifest.name} executed successfully."}
 
             elif manifest.tier == "tool_adapters":
                 handled = True

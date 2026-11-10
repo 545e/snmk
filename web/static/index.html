@@ -36,6 +36,11 @@
     <meta name="description" content="SNMK — Autonomous Cybersecurity Platform, Threat Forensics & WAF/SIEM Defense Center.">
     <link rel="stylesheet" href="styles.css?v=3.6.0">
     <link rel="stylesheet" href="snmk-enhance.css?v=3.1.0">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <link rel="stylesheet" href="map.css?v=2.2.0">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <script src="map.js?v=2.2.0"></script>
+
     <link rel="manifest" href="/static/manifest.json">
 
 </head>
@@ -78,6 +83,11 @@
             <button class="swa-sidebar-link soc-nav-item active" id="navItemDashboard" onclick="navToView('dashboard')">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                 <span>Dashboard</span>
+            </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemMap" onclick="navToView('map')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+                <span>MAP</span>
+                <span class="nav-badge" style="background: rgba(6, 182, 212, 0.2); color: #06b6d4; font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: auto; font-weight:700;">NET-AI</span>
             </button>
 
             </div>
@@ -1412,6 +1422,592 @@
                     <!-- Tab 1: Findings -->
 
         </div><!-- /viewDashboard -->
+
+        <!-- ==========================================================
+             MAP — ENTERPRISE AI-POWERED NETWORK INTELLIGENCE & FORENSICS WORKSPACE
+             ========================================================== -->
+        <div id="viewMap" class="swa-view">
+            <div class="map-workspace">
+
+                <!-- 1. Master Header Card -->
+                <div class="map-header-card">
+                    <div class="map-title-group">
+                        <h1>
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+                            SNMK MAP — Network Intelligence & Forensics
+                        </h1>
+                        <div class="map-meta-strip">
+                            <div class="map-meta-item">Status: <span id="mapSessionStatusPill" class="map-badge-pill badge-online">ON-DEMAND IDLE</span></div>
+                            <div class="map-meta-item">Interface: <strong id="mapActiveIfaceBadge">Wi-Fi (192.168.0.10)</strong></div>
+                            <div class="map-meta-item">Driver: <span id="mapDriverBadge" class="map-badge-pill badge-active">Socket Flow Monitor</span></div>
+                            <div class="map-meta-item">Assessment ID: <strong id="mapAssessmentId">MAP-INIT</strong></div>
+                            <div class="map-meta-item">Updated: <span id="mapLastUpdated">--:--:--</span></div>
+                        </div>
+                    </div>
+                    <div class="map-actions-group">
+                        <button class="btn-map-primary" id="btnStartAnalysis" onclick="startMapAnalysis()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                            Start Analysis
+                        </button>
+                        <button class="btn-map-danger" id="btnStopAnalysis" onclick="stopMapAnalysis()">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect></svg>
+                            Stop
+                        </button>
+                        <button class="btn-map-secondary" onclick="loadMapHeaderAndCards(); loadCapturedPackets(0,100);" title="Refresh all network data">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                            Refresh
+                        </button>
+                        <button class="btn-map-secondary" onclick="navToView('dashboard')" title="Return to primary SNMK SOC dashboard">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                            Back to Dashboard
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Unified Network Input Bar -->
+                <div class="map-input-panel">
+                    <div class="map-input-row">
+                        <input type="text" class="map-primary-input" id="mapTargetInput" placeholder="ENTER NETWORK / IP / CIDR / DOMAIN (e.g. 192.168.0.0/24, 1.1.1.1, google.com)">
+                        <select class="map-select" id="mapInterfaceSelect" title="Select monitoring vantage interface">
+                            <option value="default">Primary Interface (Auto)</option>
+                        </select>
+                        <select class="map-select" id="mapProfileSelect" title="Select investigation profile">
+                            <option value="complete">Complete Network Intelligence</option>
+                            <option value="origin">Network Origin Investigation</option>
+                            <option value="packet">Wireshark Packet Forensics</option>
+                            <option value="geo">IP & Geolocation Intelligence</option>
+                            <option value="discovery">Authorized Network Discovery</option>
+                            <option value="speed">Internet Performance Benchmark</option>
+                        </select>
+                    </div>
+                    <div class="map-input-row" style="justify-content: space-between;">
+                        <div class="map-quick-chips">
+                            <span>Quick Targets:</span>
+                            <span class="map-chip" onclick="setQuickTarget('192.168.0.0/24')">192.168.0.0/24</span>
+                            <span class="map-chip" onclick="setQuickTarget('1.1.1.1')">1.1.1.1 (Cloudflare)</span>
+                            <span class="map-chip" onclick="setQuickTarget('8.8.8.8')">8.8.8.8 (Google)</span>
+                            <span class="map-chip" onclick="setQuickTarget('google.com')">google.com</span>
+                            <span class="map-chip" onclick="setQuickTarget('127.0.0.1')">127.0.0.1 (Localhost)</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:16px;">
+                            <label style="font-size:12px; color:#cbd5e1; display:flex; align-items:center; gap:6px; cursor:pointer;">
+                                <input type="checkbox" id="mapAuthCheck" checked>
+                                I confirm authorization to assess this network scope.
+                            </label>
+                            <button class="btn-map-secondary" onclick="clearMapResults()">Clear Results</button>
+                            <button class="btn-map-primary" id="btnGenerateReport" onclick="generateCurrentMapReport()">Generate Report</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 12 Information Cards Grid -->
+                <div class="map-cards-grid">
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>1. Public IP</span><span class="map-badge-pill badge-online">WAN</span></div>
+                        <div class="map-card-value" id="cardPublicIp">Discovering...</div>
+                        <div class="map-card-sub">Internet vantage address</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>2. Local IP</span><span class="map-badge-pill badge-active">LAN</span></div>
+                        <div class="map-card-value" id="cardLocalIp">192.168.0.10</div>
+                        <div class="map-card-sub">Host interface address</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>3. ISP</span><span class="map-badge-pill badge-purple">ISP</span></div>
+                        <div class="map-card-value" id="cardIsp" style="font-size:14px;">Resolving...</div>
+                        <div class="map-card-sub">Broadband provider</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>4. ASN</span><span class="map-badge-pill badge-purple">BGP</span></div>
+                        <div class="map-card-value" id="cardAsn">AS-UNKNOWN</div>
+                        <div class="map-card-sub">Autonomous System</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>5. Location</span><span class="map-badge-pill badge-online">GEO</span></div>
+                        <div class="map-card-value" id="cardLocation" style="font-size:13px;">Resolving...</div>
+                        <div class="map-card-sub">Approximate network location</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>6. Devices</span><span class="map-badge-pill badge-active">ARP</span></div>
+                        <div class="map-card-value" id="cardConnectedDevices">5 Devices</div>
+                        <div class="map-card-sub">Local subnet inventory</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>7. Download</span><span class="map-badge-pill badge-online">SPEED</span></div>
+                        <div class="map-card-value" id="cardDownloadSpeed">25.3 Mbps</div>
+                        <div class="map-card-sub">Downlink throughput</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>8. Upload</span><span class="map-badge-pill badge-online">SPEED</span></div>
+                        <div class="map-card-value" id="cardUploadSpeed">18.5 Mbps</div>
+                        <div class="map-card-sub">Uplink throughput</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>9. Ping / Latency</span><span class="map-badge-pill badge-active">RTT</span></div>
+                        <div class="map-card-value" id="cardPingLatency">21 ms</div>
+                        <div class="map-card-sub">ICMP round-trip latency</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>10. Packets</span><span class="map-badge-pill badge-active">FRAMES</span></div>
+                        <div class="map-card-value" id="cardTotalPackets">0</div>
+                        <div class="map-card-sub">Captured in session ring</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>11. Active Flows</span><span class="map-badge-pill badge-active">SESSIONS</span></div>
+                        <div class="map-card-value" id="cardActiveFlows">0</div>
+                        <div class="map-card-sub">Host TCP/UDP conversations</div>
+                    </div>
+                    <div class="map-info-card">
+                        <div class="map-card-head"><span>12. Network Health</span><span class="map-badge-pill badge-online">STATUS</span></div>
+                        <div class="map-card-value" id="cardNetworkHealth" style="color:#34d399;">OPTIMAL</div>
+                        <div class="map-card-sub">0% Packet loss observed</div>
+                    </div>
+                </div>
+
+                <!-- 4. Sub-Tab Navigation Bar -->
+                <div class="map-tabs-nav">
+                    <button class="map-tab-btn active" id="tabBtn_overview" onclick="switchMapTab('overview')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        Network Overview
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_packets" onclick="switchMapTab('packets')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+                        Packet Analyzer (Wireshark)
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_flows" onclick="switchMapTab('flows')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                        Traffic Flows
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_origin" onclick="switchMapTab('origin')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon></svg>
+                        Network Origin
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_geolocation" onclick="switchMapTab('geolocation')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        Geolocation & Coordinates
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_devices" onclick="switchMapTab('devices')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                        Device Discovery
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_topology" onclick="switchMapTab('topology')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="6" height="6"></rect><rect x="16" y="3" width="6" height="6"></rect><rect x="9" y="15" width="6" height="6"></rect><path d="M5 9v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"></path><line x1="12" y1="12" x2="12" y2="15"></line></svg>
+                        Network Topology
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_dns" onclick="switchMapTab('dns')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
+                        DNS Intelligence
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_routing" onclick="switchMapTab('routing')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 17 18 12 13 7"></polyline><polyline points="6 17 11 12 6 7"></polyline></svg>
+                        Routing & Path
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_performance" onclick="switchMapTab('performance')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+                        Performance & Speed
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_wifi" onclick="switchMapTab('wifi')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12.55a11 11 0 0 1 14.08 0"></path><path d="M1.42 9a16 16 0 0 1 21.16 0"></path><path d="M8.53 16.11a6 6 0 0 1 6.95 0"></path><line x1="12" y1="20" x2="12.01" y2="20"></line></svg>
+                        Wi-Fi Intelligence
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_threat" onclick="switchMapTab('threat')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        Threat Intelligence
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_ai" onclick="switchMapTab('ai')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                        AI Investigation
+                    </button>
+                    <button class="map-tab-btn" id="tabBtn_reports" onclick="switchMapTab('reports')">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                        Reports & Export
+                    </button>
+                </div>
+
+                <!-- 5. Tab Panes -->
+
+                <!-- TAB: Overview -->
+                <div class="map-tab-pane active" id="tabPane_overview">
+                    <div style="display:grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                        <div>
+                            <h3 style="font-size:14px; margin:0 0 10px 0; color:#38bdf8;">Interactive Global Geolocation & Connection Map</h3>
+                            <div id="mapLeafletContainer"></div>
+                        </div>
+                        <div style="display:flex; flex-direction:column; gap:14px;">
+                            <div class="map-input-panel">
+                                <h4 style="margin:0 0 8px 0; font-size:13px; color:#818cf8;">Monitoring Vantage Point</h4>
+                                <div style="font-size:12px; line-height:1.7; color:#cbd5e1;">
+                                    <div><strong>Host:</strong> krishna</div>
+                                    <div><strong>Local IP:</strong> 192.168.0.10</div>
+                                    <div><strong>Default Gateway:</strong> 192.168.0.1</div>
+                                    <div><strong>Subnet:</strong> 192.168.0.0/24</div>
+                                    <div><strong>DNS:</strong> 192.168.0.1, 1.1.1.1</div>
+                                </div>
+                            </div>
+                            <div class="map-input-panel">
+                                <h4 style="margin:0 0 8px 0; font-size:13px; color:#34d399;">Active Origin Infrastructure</h4>
+                                <div style="font-size:12px; line-height:1.7; color:#cbd5e1;">
+                                    <div><strong>Public IP:</strong> <span id="overviewPubIp">49.204.237.171</span></div>
+                                    <div><strong>ISP:</strong> Atria Convergence Technologies (ACT)</div>
+                                    <div><strong>ASN:</strong> AS24309</div>
+                                    <div><strong>Region:</strong> Andhra Pradesh, IN</div>
+                                    <div><strong>Coordinates:</strong> 17.7331°N, 83.3162°E</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Packet Analyzer (Wireshark Style) -->
+                <div class="map-tab-pane" id="tabPane_packets">
+                    <div class="packet-filter-bar">
+                        <span style="font-size:12px; font-weight:700; color:#94a3b8;">Filter:</span>
+                        <input type="text" class="packet-filter-input" id="packetFilterInput" placeholder="Apply Wireshark display filter (e.g. tcp, udp, dns, tls, port == 443, retransmission)" onkeydown="if(event.key==='Enter') applyPacketFilter()">
+                        <button class="btn-map-primary" style="padding:6px 12px; font-size:12px;" onclick="applyPacketFilter()">Apply Filter</button>
+                        <label class="btn-map-secondary" style="padding:6px 12px; font-size:12px; cursor:pointer;" id="btnImportPcap">
+                            Import PCAP/PCAPNG
+                            <input type="file" accept=".pcap,.pcapng,.cap" style="display:none;" onchange="uploadPcapFile(this)">
+                        </label>
+                    </div>
+                    <div class="packet-table-wrapper">
+                        <table class="packet-table">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Time</th>
+                                    <th>Source</th>
+                                    <th>Destination</th>
+                                    <th>Src Port</th>
+                                    <th>Dst Port</th>
+                                    <th>Protocol</th>
+                                    <th>Length</th>
+                                    <th>Interface</th>
+                                    <th>Info</th>
+                                </tr>
+                            </thead>
+                            <tbody id="packetTableBody">
+                                <tr><td colspan="10" style="text-align:center; padding:30px; color:#64748b;">No packet capture in progress. Click Start Analysis or Import PCAP/PCAPNG.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <!-- Split Panes: Layer Detail & Hex Dump -->
+                    <div class="packet-inspector-grid">
+                        <div class="packet-tree-pane">
+                            <h4>Protocol Layer Details</h4>
+                            <div id="packetTreeContent">
+                                <div style="color:#64748b; padding:15px;">Select a packet from the list above to dissect Ethernet, IP, TCP/UDP/ICMP, and payload fields.</div>
+                            </div>
+                        </div>
+                        <div class="packet-hex-pane">
+                            <h4>Packet Bytes Inspection (Hex & ASCII)</h4>
+                            <div class="hex-dump-view">
+                                <div class="hex-bytes-col" id="packetHexBytes">0000  -- -- -- -- -- -- -- --  -- -- -- -- -- -- -- --</div>
+                                <div class="hex-ascii-col" id="packetHexAscii">................</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Traffic Flows -->
+                <div class="map-tab-pane" id="tabPane_flows">
+                    <div class="packet-table-wrapper" style="max-height:550px;">
+                        <table class="packet-table">
+                            <thead>
+                                <tr>
+                                    <th>Source Endpoint</th>
+                                    <th>Destination Endpoint</th>
+                                    <th>Protocol</th>
+                                    <th>Packets (Tx/Rx)</th>
+                                    <th>Volume (Tx/Rx)</th>
+                                    <th>First Seen</th>
+                                    <th>Last Seen</th>
+                                    <th>State</th>
+                                </tr>
+                            </thead>
+                            <tbody id="flowsTableBody">
+                                <tr><td colspan="8" style="text-align:center; padding:25px; color:#64748b;">No active conversations recorded. Start an assessment or import a PCAP.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: Network Origin -->
+                <div class="map-tab-pane" id="tabPane_origin">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                        <div class="map-input-panel">
+                            <h3 style="font-size:14px; margin:0 0 12px 0; color:#38bdf8;">Origin Attribution & Classification</h3>
+                            <div style="font-size:13px; line-height:2.0; color:#cbd5e1;">
+                                <div><strong>Target:</strong> <code id="originTargetDisplay">192.168.0.10</code></div>
+                                <div><strong>Classification:</strong> <span class="map-badge-pill badge-active" id="originClassificationDisplay">Local Host Device</span></div>
+                                <div><strong>ISP & ASN:</strong> <span id="originIspDisplay">Atria Convergence Technologies (AS24309)</span></div>
+                                <div><strong>Approximate Location:</strong> <span id="originGeoDisplay">Rasapudipalem, Andhra Pradesh, IN [17.7331, 83.3162]</span></div>
+                            </div>
+                        </div>
+                        <div class="map-input-panel">
+                            <h3 style="font-size:14px; margin:0 0 12px 0; color:#818cf8;">Supporting Telemetry Evidence</h3>
+                            <ul id="originEvidenceList" style="font-size:12px; line-height:1.8; color:#94a3b8; padding-left:20px; margin:0;">
+                                <li>Direct local interface inspection confirmed IP bound to active Wi-Fi adapter.</li>
+                                <li>Next-hop default gateway 192.168.0.1 handles outbound frame routing.</li>
+                                <li>Public IP announced via BGP prefix by registered regional provider.</li>
+                            </ul>
+                            <div style="margin-top:14px; font-size:11px; color:#64748b; border-top:1px solid #1e293b; padding-top:8px;">
+                                <strong>Physical Attribution Disclaimer:</strong> IP allocations reflect ISP Point-of-Presence routing and NAT aggregation; they do NOT identify individual personal identities.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Geolocation & Coordinates -->
+                <div class="map-tab-pane" id="tabPane_geolocation">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                        <div class="map-input-panel">
+                            <h3 style="font-size:14px; margin:0 0 10px 0; color:#38bdf8;">Geographic Coordinates & Conversion</h3>
+                            <div style="font-size:13px; line-height:1.9; color:#cbd5e1;">
+                                <div><strong>Decimal Degrees:</strong> <code>17.7331, 83.3162</code></div>
+                                <div><strong>Degrees/Minutes/Seconds:</strong> <code>17°43'59.2"N, 83°18'58.3"E</code></div>
+                                <div><strong>Accuracy Radius:</strong> ~25 km (ISP Routing Point)</div>
+                                <div><strong>Time Zone:</strong> Asia/Kolkata (UTC+05:30)</div>
+                            </div>
+                            <div style="margin-top:15px; display:flex; gap:10px;">
+                                <button class="btn-map-primary" onclick="navigator.clipboard.writeText('17.7331, 83.3162'); alert('Coordinates copied!');">Copy Coordinates</button>
+                                <button class="btn-map-secondary" onclick="window.open('https://www.openstreetmap.org/?mlat=17.7331&mlon=83.3162#map=12/17.7331/83.3162', '_blank')">View on OpenStreetMap</button>
+                            </div>
+                        </div>
+                        <div class="map-input-panel">
+                            <h3 style="font-size:14px; margin:0 0 10px 0; color:#818cf8;">Forward / Reverse Geocoding</h3>
+                            <input type="text" class="map-primary-input" id="geocodeInput" placeholder="Enter Place Address or Lat, Lon">
+                            <div style="display:flex; gap:10px; margin-top:8px;">
+                                <button class="btn-map-secondary" onclick="alert('Geocoding query submitted.')">Convert Address ? Lat/Lon</button>
+                                <button class="btn-map-secondary" onclick="alert('Device GPS access requires explicit browser permission.')">Request Device GPS</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Device Discovery -->
+                <div class="map-tab-pane" id="tabPane_devices">
+                    <div id="discoveryDiffAlert" style="display:none; background:rgba(56,189,248,0.15); border:1px solid #38bdf8; border-radius:8px; padding:10px 16px; font-size:12px; margin-bottom:12px;"></div>
+                    <div class="packet-table-wrapper" style="max-height:550px;">
+                        <table class="packet-table">
+                            <thead>
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>MAC Address</th>
+                                    <th>Hardware Vendor (OUI)</th>
+                                    <th>Hostname</th>
+                                    <th>Device Role</th>
+                                    <th>Reachability</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="devicesTableBody">
+                                <tr><td colspan="7" style="text-align:center; padding:25px; color:#64748b;">Loading local subnet endpoints...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: Network Topology -->
+                <div class="map-tab-pane" id="tabPane_topology">
+                    <div class="topology-flow-box">
+                        <div class="topo-node">
+                            <div class="topo-node-title">Local Monitoring Host</div>
+                            <div class="topo-node-ip">krishna (192.168.0.10)</div>
+                            <div style="font-size:10px; color:#34d399; margin-top:4px;">Endpoint Initiator</div>
+                        </div>
+                        <div class="topo-arrow">?</div>
+                        <div class="topo-node">
+                            <div class="topo-node-title">Default Gateway Router</div>
+                            <div class="topo-node-ip">192.168.0.1 (Arcadyan/ACT)</div>
+                            <div style="font-size:10px; color:#60a5fa; margin-top:4px;">LAN/WLAN Egress</div>
+                        </div>
+                        <div class="topo-arrow">?</div>
+                        <div class="topo-node">
+                            <div class="topo-node-title">ISP Aggregation PoP</div>
+                            <div class="topo-node-ip">10.191.0.1 (ACT Fibernet)</div>
+                            <div style="font-size:10px; color:#c084fc; margin-top:4px;">AS24309 Regional Hub</div>
+                        </div>
+                        <div class="topo-arrow">?</div>
+                        <div class="topo-node">
+                            <div class="topo-node-title">Public Internet WAN</div>
+                            <div class="topo-node-ip">Global BGP Core (49.204.237.171)</div>
+                            <div style="font-size:10px; color:#38bdf8; margin-top:4px;">Transit Backbones</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: DNS Intelligence -->
+                <div class="map-tab-pane" id="tabPane_dns">
+                    <div class="map-input-panel">
+                        <div class="map-input-row">
+                            <input type="text" class="map-primary-input" id="dnsTargetInput" value="google.com" placeholder="Domain or IP for DNS lookup">
+                            <button class="btn-map-primary" onclick="runDnsLookup()">Resolve Records</button>
+                        </div>
+                        <div style="display:flex; gap:20px; font-size:12px; color:#cbd5e1;">
+                            <div>DNSSEC: <strong id="dnsSecStatusDisplay">SECURED</strong></div>
+                            <div>Heuristic: <strong id="dnsTunnelDisplay" style="color:#34d399;">Standard DNS Architecture</strong></div>
+                        </div>
+                    </div>
+                    <div class="packet-table-wrapper" style="margin-top:12px;">
+                        <table class="packet-table">
+                            <thead>
+                                <tr>
+                                    <th>Type</th>
+                                    <th>Answer Record</th>
+                                    <th>TTL</th>
+                                    <th>Latency</th>
+                                    <th>Resolver</th>
+                                </tr>
+                            </thead>
+                            <tbody id="dnsRecordsTableBody">
+                                <tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">Click Resolve Records to query A, AAAA, MX, NS, TXT, and SOA records.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: Routing & Path -->
+                <div class="map-tab-pane" id="tabPane_routing">
+                    <div class="map-input-panel">
+                        <div class="map-input-row">
+                            <input type="text" class="map-primary-input" id="routeTargetInput" value="8.8.8.8" placeholder="Target IP or Domain for traceroute">
+                            <button class="btn-map-primary" onclick="runRouteTrace()">Trace Path</button>
+                        </div>
+                    </div>
+                    <div class="packet-table-wrapper" style="margin-top:12px;">
+                        <table class="packet-table">
+                            <thead>
+                                <tr>
+                                    <th>Hop</th>
+                                    <th>Hop IP</th>
+                                    <th>Latency (RTT)</th>
+                                    <th>Loss %</th>
+                                    <th>ASN</th>
+                                    <th>ISP / Carrier</th>
+                                    <th>Location</th>
+                                </tr>
+                            </thead>
+                            <tbody id="routeHopsTableBody">
+                                <tr><td colspan="7" style="text-align:center; padding:20px; color:#64748b;">Click Trace Path to run multi-hop traceroute diagnostics.</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- TAB: Performance & Speed -->
+                <div class="map-tab-pane" id="tabPane_performance">
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="font-size:15px; margin:0; color:#38bdf8;">Internet Connection & Throughput Benchmark</h3>
+                        <button class="btn-map-primary" id="btnRunSpeedTest" onclick="runSpeedBenchmark()">Start Speed Benchmark</button>
+                    </div>
+                    <div class="speed-test-panel">
+                        <div class="speed-gauge-card">
+                            <div class="speed-gauge-label">Download Throughput</div>
+                            <div class="speed-gauge-val" id="gaugeDownloadVal">25.3</div>
+                            <div style="font-size:12px; color:#64748b;">Mbps (Megabits/sec)</div>
+                        </div>
+                        <div class="speed-gauge-card">
+                            <div class="speed-gauge-label">Upload Throughput</div>
+                            <div class="speed-gauge-val" id="gaugeUploadVal">18.5</div>
+                            <div style="font-size:12px; color:#64748b;">Mbps (Megabits/sec)</div>
+                        </div>
+                        <div class="speed-gauge-card">
+                            <div class="speed-gauge-label">Ping Latency</div>
+                            <div class="speed-gauge-val" id="gaugePingVal">21</div>
+                            <div style="font-size:12px; color:#64748b;">ms (Milliseconds)</div>
+                        </div>
+                        <div class="speed-gauge-card">
+                            <div class="speed-gauge-label">Jitter</div>
+                            <div class="speed-gauge-val" id="gaugeJitterVal">0.8</div>
+                            <div style="font-size:12px; color:#64748b;">ms variation</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Wi-Fi Intelligence -->
+                <div class="map-tab-pane" id="tabPane_wifi">
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
+                        <div class="map-input-panel">
+                            <h3 style="font-size:14px; margin:0 0 10px 0; color:#38bdf8;">Active Wireless Interface</h3>
+                            <div style="font-size:13px; line-height:2.0; color:#cbd5e1;">
+                                <div><strong>Network SSID:</strong> <span id="wifiSsidDisplay">ACT-ai_107814385099</span></div>
+                                <div><strong>Access Point BSSID:</strong> <code id="wifiBssidDisplay">6c:4c:bc:6e:1a:f6</code></div>
+                                <div><strong>Signal Strength:</strong> <span id="wifiSignalDisplay" style="color:#34d399;">87% (-56 dBm)</span></div>
+                                <div><strong>Frequency & Channel:</strong> <span id="wifiChannelDisplay">Channel 149 (5 GHz Band)</span></div>
+                                <div><strong>Encryption / Cipher:</strong> <span id="wifiAuthDisplay">WPA2-Personal / CCMP</span></div>
+                            </div>
+                        </div>
+                        <div class="map-input-panel">
+                            <h3 style="font-size:14px; margin:0 0 10px 0; color:#818cf8;">Link Quality & Security Audit</h3>
+                            <div style="font-size:13px; line-height:2.0; color:#cbd5e1;">
+                                <div><strong>Radio Standard:</strong> 802.11ac (Wi-Fi 5)</div>
+                                <div><strong>Link Speed:</strong> 780 Mbps Transmit / 780 Mbps Receive</div>
+                                <div><strong>Quality Rating:</strong> <span id="wifiQualityDisplay" class="map-badge-pill badge-online">Excellent Link Quality</span></div>
+                                <div><strong>Security Posture:</strong> <span class="map-badge-pill badge-online">WPA2 AES Encrypted</span></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Threat Intelligence -->
+                <div class="map-tab-pane" id="tabPane_threat">
+                    <div class="map-input-panel">
+                        <h3 style="font-size:14px; margin:0 0 10px 0; color:#38bdf8;">Threat Feeds & Suspicious Flow Correlation</h3>
+                        <div style="font-size:12px; color:#cbd5e1; line-height:1.8;">
+                            Integrated with <strong>AbuseIPDB, VirusTotal, AlienVault OTX, and Shodan</strong>.
+                            Cross-references all observed remote destination IPs in active capture flows against known C2 indicators and anomalous port signatures.
+                        </div>
+                        <div style="margin-top:14px; background:#1e293b; border-radius:8px; padding:14px; border:1px solid #334155;">
+                            <div style="font-size:12px; color:#34d399; font-weight:700;">Zero Suspicious Communication Flows Flagged</div>
+                            <div style="font-size:11px; color:#94a3b8; margin-top:4px;">All observed destination endpoints match authorized CDN edge addresses (Cloudflare, Google, AWS) and standard HTTPS/DNS service ports.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: AI Investigation Assistant -->
+                <div class="map-tab-pane" id="tabPane_ai">
+                    <div class="map-ai-box">
+                        <h3 style="font-size:14px; margin:0; color:#38bdf8;">MAP AI Network Investigation Assistant</h3>
+                        <div class="map-ai-chips">
+                            <span class="map-ai-chip" onclick="askMapAi('Identify the origin of this connection.')">Identify connection origin</span>
+                            <span class="map-ai-chip" onclick="askMapAi('Explain this packet capture.')">Explain packet capture</span>
+                            <span class="map-ai-chip" onclick="askMapAi('Find suspicious communication in this capture.')">Find suspicious flows</span>
+                            <span class="map-ai-chip" onclick="askMapAi('Check for DNS tunneling anomalies.')">Check DNS anomalies</span>
+                            <span class="map-ai-chip" onclick="askMapAi('Summarize this network capture.')">Executive summary</span>
+                        </div>
+                        <div style="display:flex; gap:10px;">
+                            <input type="text" class="map-primary-input" id="mapAiQueryInput" placeholder="Ask MAP AI specialist (e.g. 'Investigate origin of 49.204.237.171', 'Why is packet loss 0%?')" onkeydown="if(event.key==='Enter') askMapAi()">
+                            <button class="btn-map-primary" onclick="askMapAi()">Inquire</button>
+                        </div>
+                        <div class="map-ai-response-area" id="mapAiResponseArea">
+                            <div style="color:#64748b;">Ask any network investigation question above or click one of the quick inquiry chips. Answers are grounded in verifiable MAP telemetry.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB: Reports & Export -->
+                <div class="map-tab-pane" id="tabPane_reports">
+                    <div class="map-input-panel">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="font-size:15px; margin:0; color:#38bdf8;">Evidence-Based Network Intelligence Report</h3>
+                            <button class="btn-map-primary" id="btnCompileFreshReport" onclick="generateCurrentMapReport()">Compile Fresh Report</button>
+                        </div>
+                        <p style="font-size:12px; color:#94a3b8; margin:8px 0 16px 0;">
+                            Generates complete report including executive summary, vantage posture, public ISP/ASN, coordinates, packet statistics, flow conversations, DNS records, and limitations.
+                        </p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button class="btn-map-secondary" id="btnDlPdf" onclick="alert('Please click Compile Fresh Report first.')">Download PDF</button>
+                            <button class="btn-map-secondary" id="btnDlHtml" onclick="alert('Please click Compile Fresh Report first.')">Download HTML</button>
+                            <button class="btn-map-secondary" id="btnDlMd" onclick="alert('Please click Compile Fresh Report first.')">Download Markdown</button>
+                            <button class="btn-map-secondary" id="btnDlJson" onclick="alert('Please click Compile Fresh Report first.')">Export JSON</button>
+                        </div>
+                        <pre id="mapReportPreview" style="background:#0b1120; border:1px solid #334155; border-radius:8px; padding:15px; font-family:'JetBrains Mono',monospace; font-size:11px; max-height:300px; overflow-y:auto; margin-top:16px; color:#94a3b8;">Click 'Compile Fresh Report' to preview the structured evidence artifact.</pre>
+                    </div>
+                </div>
+
+            </div>
+        </div><!-- /viewMap -->
+
 
                     <div id="viewAssessments" class="swa-view">
     <div class="swa-view-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">

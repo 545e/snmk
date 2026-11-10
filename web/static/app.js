@@ -1450,6 +1450,7 @@ const VIEW_CONTAINER_MAP = {
     'kill_chain': 'viewKillChain',
     'cyber_kill_chain': 'viewKillChain',
     'killchain': 'viewKillChain',
+    'map': 'viewMap',
 
     'graph': 'viewInvestigation',
     'remediation': 'viewRemediation',
@@ -1576,7 +1577,9 @@ function navToView(view, updateHash = true) {
     }
 
     // 6. Trigger live data loaders for the active view
-    if (targetContainerId === 'viewDashboard') {
+    if (targetContainerId === 'viewMap') {
+        if (typeof initMapView === 'function') initMapView();
+    } else if (targetContainerId === 'viewDashboard') {
         loadScans();
         loadRecentActivity();
         loadToolsHealth();
