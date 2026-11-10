@@ -1,4 +1,7 @@
 # SECURITY TOOL INVENTORY & INTEGRATION MATRIX
+
+> **AUDIT CORRECTION — 2026-11-11:** the "VERIFIED" labels below mean "native code exists and is exercised by pytest on this machine" for the Python-native engines, and "binary absent — detection only" for everything external. On this host `shutil.which()` finds **no** nmap/nuclei/zap/sqlmap/nikto/tshark/semgrep/bandit/trivy/gitleaks/clamav/wazuh/amass/rea binaries. The only detections truthful here: `swa_native` (always) and Microsoft Defender (PowerShell MP cmdlets). External-tool rows are adapters + install guides, not evidence of a scan.
+
 ## Comprehensive Audit of 23 Security Engines and Adapters
 
 | Tool / Engine | Module Location | Adapter Type | Supported Target Protocols | Output Format | Status |

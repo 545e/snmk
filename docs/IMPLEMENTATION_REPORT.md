@@ -1,4 +1,13 @@
 # SNMK / SWA AI — Master Implementation & Handover Report
+
+> **AUDIT CORRECTION — 2026-11-11 (read first):** this document, as rewritten by a concurrent author, over-claims. Verified facts from an executed audit:
+> - **Tests:** 239 collected; full suite re-run **239 passed, 0 failed** after our fixes (see `docs/TESTING_AND_VERIFICATION.md`). Earlier "100% / 206 / 235" badges were not all backed by comparable measurement.
+> - **GitHub Actions CI:** NOT re-verified from an operator machine this cycle; last known workflow is `pytest tests/ -v`. Docker build: Docker is NOT available on this audit machine. CodeQL: NOT executed here. Do not cite any of these as verified.
+> - **"All systems operate as one integrated platform":** false in several specifics — LLM round trips are unverified (no valid provider key anywhere; mode is `heuristic_fallback`), no embeddings/vector store exists, tool calling does not exist, many agents return DB summaries or static capability dicts, and the `51116f4` sync briefly reverted security hardening (since re-applied in this tree).
+> - **Preservation:** `swa_data.db` backed up to `backups/swa_data_preaudit_20261106.db` (18,862,080 B) before any change; no tables dropped; legacy plaintext `ai_api_key` migrated to encrypted storage lazily.
+> - **Secrets hygiene:** `.env`, `swa_data.db`, `.swa_master.key` are git-ignored and untracked (verified). The credential vault, SSRF scope engine, canonical posture scoring, RAG (BM25), and agent memory are the strongest parts of this codebase.
+> - See `docs/COMPLETE_AI_SYSTEM_INVENTORY.md` for the component-by-component truth and `docs/TESTING_AND_VERIFICATION.md` for measured results.
+
 **Date**: November 6, 2026  
 **Scope**: Full Platform Modernization, Complete AI Systems Architecture, 85 Autonomous Cybersecurity Agents, API Integrations, RAG Knowledge Engine, Agent Memory Store, and 100% Verified CI Pipeline.  
 **Official Repository**: `https://github.com/545e/snmk.git`  

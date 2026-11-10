@@ -850,7 +850,8 @@ async function renderManageAgentsDashboard() {
             if (totEl) totEl.textContent = usage.total_configured_agents || configuredAiAgents.length;
             if (connEl) connEl.textContent = usage.connected_agents || 0;
             if (provEl) provEl.textContent = usage.providers_active?.length || 1;
-            if (tokEl) tokEl.textContent = `${Math.round((usage.usage_summary?.estimated_tokens_consumed || 48200) / 1000)}k`;
+            const tokens = usage.usage_summary?.estimated_tokens_consumed;
+            if (tokEl) tokEl.textContent = (typeof tokens === "number") ? `${Math.round(tokens / 1000)}k` : "—";
         }
 
         list.replaceChildren();

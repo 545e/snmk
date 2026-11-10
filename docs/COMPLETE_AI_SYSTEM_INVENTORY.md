@@ -1,6 +1,16 @@
 # COMPLETE AI SYSTEM INVENTORY & CAPABILITY MATRIX
 ## SNMK / SWA AI Platform Intelligence Architecture
 
+> **AUDIT CORRECTION — 2026-11-11:** this table was restored by a concurrent author to its pre-audit marketing form during the `51116f4` sync. The word "YES" next to a component means "code exists", **NOT** "works as described". Verified reality (full detail in `docs/IMPLEMENTATION_REPORT.md` and `docs/TESTING_AND_VERIFICATION.md`):
+> - **Azure OpenAI: NOT IMPLEMENTED. Multimodal AI: NOT IMPLEMENTED. Embeddings/vector DB/semantic retrieval: NOT IMPLEMENTED (RAG is BM25 keyword only). Tool calling / function calling / streaming / MCP: NOT IMPLEMENTED.**
+> - **`ai_training.py` is a simulation** (synthetic loss curve, fake `.bin` artifact) — no model is trained or fine-tuned.
+> - **Tier-4 agent handlers largely return static capability dicts** (e.g. `{"nodes":150,"edges":320}` literals); dispatch completeness (`test_all_85_agents`, 85/85 COMPLETED) ≠ meaningful agent work.
+> - **Live provider round trips are UNVERIFIED** (every provider `NOT_CONFIGURED`; `.env` ships a placeholder; mode = `heuristic_fallback`).
+> - **Written outputs (CISA KEV/EPSS) are real live feeds** with 1 h cache (added 2026-11-07, re-applied 2026-11-11 after the `51116f4` revert).
+> - Trust code + tests + executed probes, never this matrix.
+
+
+
 | AI Component | Exists | Implementation | Integration | Test Status | Required Action / Status |
 |---|---|---|---|---|---|
 | **LLM Providers** | YES | OpenAI, Anthropic, Gemini, OpenRouter, Azure OpenAI, Ollama (`core/llm_client.py`) | Database Vault + Fallback | PASS | IMPLEMENTED AND VERIFIED |

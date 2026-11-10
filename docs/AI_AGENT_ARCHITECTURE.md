@@ -1,4 +1,7 @@
 # AI AGENT ARCHITECTURE & 85-SPECIALIST WORKFORCE
+
+> **AUDIT CORRECTION — 2026-11-11:** restored by a concurrent `51116f4` sync to descriptive-marketing form. Verified facts: agents are pydantic manifests with timeouts; dispatch is real but scope varies by tier — Tier 1 computes DB aggregates, Tier 2 executes (8–240 s timeouts), Tier 3 runs plugin probes + optional LLM, **Tier 4 handlers return mostly static capability dicts (e.g. `{"nodes":150,"edges":320}` literals), not measurements**, Tier 5 reports inventory status. `test_all_85_agents` asserts 85/85 COMPLETED — dispatch completeness ≠ capability. No LLM round trip occurs without a configured key (`heuristic_fallback` mode). Lifecycle vocabulary in code: `AVAILABLE/ACTIVE/RUNNING/COMPLETED/FAILED/REGISTERED/NOT_EXECUTABLE`.
+
 ## SNMK / SWA Autonomous Multi-Agent Hierarchy
 
 The platform registers, coordinates, and executes 85 specialist agents organized across five operational tiers.
