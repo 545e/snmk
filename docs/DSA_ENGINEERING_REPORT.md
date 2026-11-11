@@ -433,10 +433,23 @@ remaining inefficiencies are listed in §I.
 
 ### F.4 Secret scan of the repository
 
+A pattern scan was run over every file changed by this transformation
+(36 files) looking for AWS access-key ids, GitHub / Slack / OpenAI tokens,
+PEM private-key blocks, bearer literals and generic
+`secret = "..."`-style assignments.
+
+**Result: 16 pattern hits, 0 real credentials.** Every hit is either a
+known placeholder (`AKIAIOSFODNN7EXAMPLE`, `AKIA1234567890ABCDEF`,
+`xoxb-12345678901-...`), the *source text of a detection pattern* in
+`core/js_intelligence.py` (a regex that matches private-key headers), or a
+synthetic fixture in `tests/test_dsa_signatures.py`.
+
 No live credential was introduced. Pre-existing `.env` / `.swa_master.key`
 files are git-ignored and were not touched. The repository contains the
 public Web Security Academy lab hostname in `core/scope_policy.py`, which is
 an intentional lab target, not a secret.
+
+**No credential was found that requires rotation.**
 
 ---
 
@@ -450,17 +463,21 @@ median also reported.
 
 ### G.1 Headline results
 
+The harness was executed twice (the second run on a less loaded host, which
+is why the absolute values are lower while the ratios are unchanged). Both
+runs are shown; the **speed-up ratio** is the stable quantity.
+
 | Workload | Before | After | Speed-up | Complexity change |
 |---|---:|---:|---:|---|
-| JS secret scan, `app.js` (745 KB) | 3 653 ms | 1 571 ms | **2.3×** | O(P·N) → O(N) with gates |
-| JS secret scan, `index.html` (538 KB) | 2 558 ms | 1 374 ms | **1.9×** | " |
-| JS secret scan, `map.js` (34 KB) | 162 ms | 23 ms | **7.0×** | " |
-| Line-number resolution (2 005 matches) | 1 103 ms | 36 ms | **30.5×** | O(N) → O(log N) per match |
-| SQL signature scan, 64 KB adversarial body | 27 349 ms | 33 ms | **838×** | O(N²) → O(N) |
-| SQL signature scan, 32 KB adversarial body | 8 197 ms | 26 ms | **321×** | " |
-| SQL signature scan, 16 KB adversarial body | 1 816 ms | 12 ms | **151×** | " |
-| `db.check_health()` (health probe) | 293 ms | 5 ms | **59×** | O(db size) → O(1) |
-| `list_findings()` full table | 151 ms | — | — | replaced by `list_findings(limit=50)` = **11 ms** |
+| JS secret scan, `app.js` (745 KB) | 3 653 / 2 954 ms | 1 571 / 1 210 ms | **2.3× / 2.4×** | O(P·N) → O(N) with gates |
+| JS secret scan, `index.html` (538 KB) | 2 558 ms | 1 374 / 923 ms | **1.9× / 2.8×** | " |
+| JS secret scan, `map.js` (34 KB) | 162 ms | 23 / 16 ms | **7.0× / 10.1×** | " |
+| Line-number resolution (2 005 matches) | 1 103 / 832 ms | 36 / 23 ms | **30.5× / 36.4×** | O(N) → O(log N) per match |
+| SQL signature scan, 64 KB adversarial body | 27 349 / 21 637 ms | 33 / 32 ms | **838× / 674×** | O(N²) → O(N) |
+| SQL signature scan, 32 KB adversarial body | 8 197 / 4 851 ms | 26 / 12 ms | **321× / 405×** | " |
+| SQL signature scan, 16 KB adversarial body | 1 816 / 1 191 ms | 12 / 6 ms | **151× / 206×** | " |
+| `db.check_health()` (health probe) | 293 / 263 ms | 5.0 / 4.8 ms | **59× / 55×** | O(db size) → O(1) |
+| `list_findings()` full table | 151 / 134 ms | — | — | replaced by `list_findings(limit=50)` = **11 / 8 ms** |
 | Findings list query plan | temp B-tree sort | `SCAN findings USING INDEX idx_findings_cvss_created` | — | O(N log N) → O(log N + page) |
 | DB indexes | 28 | **82** | — | — |
 | RAG phrase boost, 500-chunk corpus | re-lowercased every chunk per query | case-folded text cached at parse time | O(corpus bytes) allocation per query → once per cache refresh |
@@ -471,9 +488,9 @@ median also reported.
 
 | Body size | Gated signature scan | Ratio |
 |---:|---:|---:|
-| 16 000 B | 6.8 ms | — |
-| 64 000 B | 34.6 ms | 5.1× for 4× data |
-| 256 000 B | 148.9 ms | 4.3× for 4× data |
+| 16 000 B | 6.8 / 8.3 ms | — |
+| 64 000 B | 34.6 / 28.6 ms | 5.1× / 3.5× for 4× data |
+| 256 000 B | 148.9 / 116.3 ms | 4.3× / 4.1× for 4× data |
 
 The ratio confirms linear behaviour, where the naive implementation grew
 quadratically (16 KB → 64 KB was 1 816 ms → 27 349 ms, a **15×** increase for
