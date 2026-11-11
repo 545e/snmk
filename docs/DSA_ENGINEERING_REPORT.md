@@ -223,6 +223,7 @@ fixed:
 | `core/pattern_gating.py` | Conservative derivation of required literals from regex sources; `GateFilter` |
 | `core/signature_matching.py` | Localised, semantics-preserving matching of a regex corpus against a body |
 | `tests/test_dsa_signatures.py` | 43 tests covering gate derivation, signature matching and the JS scanner |
+| `tests/test_security_regressions.py` | 25 tests pinning the confirmed security defects: the lab-target approval-gate bypass, LLM-transmission scrubbing, memory-metadata scrubbing, heuristic-verification honesty and the ReDoS prefilter |
 | `benchmarks/dsa_transformation_bench.py` | Reproducible measurement harness for every figure in §G |
 
 ### D.2 Files modified (executable changes)
@@ -586,7 +587,17 @@ attributable to the health-probe, index, pagination and RAG work in §G.
 
 ### H.3 New tests
 
-`tests/test_dsa_signatures.py` — 43 tests:
+**`tests/test_security_regressions.py` - 25 tests.** One per confirmed
+security defect, so that the defect cannot silently return:
+
+| Test group | Covers |
+|---|---|
+| `TestLabTargetDetection` | 13 cases: loopback / localhost are lab targets; a remote URL that *mentions* `localhost` or `127.0.0.1` is **not**; `notlocalhost.com` and `127.0.0.1.evil.example` are not |
+| `TestSecretScrubbing` | the known secret shapes are redacted; the LLM prompt / history / system instruction are scrubbed **before transmission**; the memory metadata blob is scrubbed before persistence |
+| `TestHeuristicHonesty` | the heuristic fallback returns `verified=False`, `source="heuristic"`, `evidence_observed=False` and no "validated through active probe" text, while the severity mapping is unchanged |
+| `TestSignatureMatchingSafety` | a 32 KB quadratic body is rejected in under a second, and detection is unchanged |
+
+**`tests/test_dsa_signatures.py` - 43 tests:**
 
 * gate derivation (literal, alternation intersection, optional element,
   lookahead, negative lookahead, character class, unknown construct, short
