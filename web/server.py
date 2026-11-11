@@ -5688,7 +5688,13 @@ async def api_rag_ingest(req: RAGIngestRequest):
 async def api_rag_query(req: RAGQueryRequest):
     """Performs hybrid BM25 / keyword retrieval and generates cited grounding context."""
     results = rag_engine.retrieve(query=req.query, project_id=req.project_id, top_k=req.top_k)
-    grounded = rag_engine.assemble_grounded_context(query=req.query, project_id=req.project_id, top_k=req.top_k)
+    # The retrieval results are reused: assemble_grounded_context() used
+    # to call retrieve() again, which scored the whole corpus twice per
+    # request.
+    grounded = rag_engine.assemble_grounded_context(
+        query=req.query, project_id=req.project_id, top_k=req.top_k,
+        retrievals=results,
+    )
     return {
         "query": req.query,
         "project_id": req.project_id,

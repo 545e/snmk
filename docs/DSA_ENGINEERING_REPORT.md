@@ -70,6 +70,23 @@ remaining finding is listed in §I with an explicit classification.
   instead of reporting a swallowed exception as success.
 * **3 commits** on a dedicated branch (no history rewrite, no force-push).
 
+### A.3.1 Second optimisation pass
+
+After the first verification run, a second pass addressed the remaining
+high-value findings that the audits surfaced:
+
+* RAG: the phrase boost re-lowercased the entire corpus on every query and
+  the API endpoint scored the corpus twice per request.
+* The CISA KEV catalog was scanned linearly (with a string allocation per
+  entry) on every lookup.
+* `scope_policy` rebuilt its lab-host and cloud-metadata lookup tables on
+  every validation call.
+* The WebSocket subscriber queues were unbounded (a stalled client grew its
+  queue without limit) and the log payload was serialised once per
+  subscriber.
+
+The suite wall-clock fell from 471 s to **358 s** as a result.
+
 ### A.4 Verification status
 
 | Area | Status |
@@ -227,6 +244,10 @@ fixed:
 | `core/agent_memory.py` | broadened secret patterns; metadata scrubbing |
 | `agents/exploit_validator_agent.py` | verification honours the analysis verdict |
 | `core/cyber_export.py` | real column names; OWASP category from the persisted column |
+| `core/rag_engine.py` | case-folded chunk text cached at parse time (the phrase boost re-lowercased the whole corpus per query); the query is folded once; `assemble_grounded_context()` accepts pre-computed retrievals so the corpus is scored once per request instead of twice |
+| `core/threat_intel_live.py` | CISA KEV catalog indexed by CVE id (O(n) scan + n string allocations per lookup → O(1)) |
+| `core/scope_policy.py` | lab-host and cloud-metadata lookup tables computed once at import instead of per validation call |
+| `core/queue_manager.py` | subscriber queues bounded (oldest event evicted when full); the log payload is serialised once instead of once per subscriber |
 | `web/static/app.js` | `renderFindings()` defined; bounded dashboard/SOC fetches; debounced search; cached search blob; `Set` dedup; poll overlap guard; duplicate loader removed |
 | `web/static/index.html` | search inputs point at the debounced wrappers |
 | `tests/test_all_85_agents.py` | agent count derived from the registry |
@@ -442,6 +463,9 @@ median also reported.
 | `list_findings()` full table | 151 ms | — | — | replaced by `list_findings(limit=50)` = **11 ms** |
 | Findings list query plan | temp B-tree sort | `SCAN findings USING INDEX idx_findings_cvss_created` | — | O(N log N) → O(log N + page) |
 | DB indexes | 28 | **82** | — | — |
+| RAG phrase boost, 500-chunk corpus | re-lowercased every chunk per query | case-folded text cached at parse time | O(corpus bytes) allocation per query → once per cache refresh |
+| RAG `/api/ai/rag/query` | corpus scored twice per request (retrieve + assemble) | scored once, results reused | 2× → 1× |
+| CISA KEV lookup | O(n) scan, n string allocations | O(1) dict lookup | O(n) → O(1) |
 
 ### G.2 Scaling verification (the gate must be linear)
 
@@ -471,9 +495,9 @@ becomes material; §I lists the mitigation.
 | Run | Tests | Duration |
 |---|---:|---:|
 | Baseline (before the transformation) | 255 | 841 s |
-| After the transformation | 299 | 471 s |
+| After the transformation | 299 | **358 s** |
 
-A 44 % reduction with 44 % more tests. The dominant contributors are the
+A **57 % reduction** with 44 % more tests. The dominant contributors are the
 health-probe change (§G.1), the findings index (§G.4) and the SQL-side
 filtering in the v1 router.
 
@@ -524,6 +548,8 @@ $ pytest -q
 297 passed, 2 failed, 1 warning in 470.75s (0:07:50)
 ```
 
+(Intermediate run, before the two stale assertions were corrected.)
+
 The two remaining failures were **stale assertions**, not regressions:
 
 | Failing test | Cause | Resolution |
@@ -531,15 +557,15 @@ The two remaining failures were **stale assertions**, not regressions:
 | `test_v1_dashboard_metrics` | asserted `active_agents == 85` while the endpoint now reports the registry-derived count (94) | assertion corrected to derive the count |
 | `test_all_registered_agents_execute_and_complete` | 11 agents failed because their handlers referenced a non-existent method or an incompatible constructor signature | the handlers were **fixed** (see §E.3) rather than the assertion relaxed |
 
-Final run after both corrections:
+Final run after both corrections and the remaining optimisation pass:
 
 ```
 $ pytest -q
-299 passed, 0 failed, 1 warning
+299 passed, 0 failed, 1 warning in 357.74s (0:05:57)
 ```
 
-**Suite wall-clock: 841 s -> 471 s (a 44 % reduction)** with 48 more tests,
-attributable to the health-probe, index and pagination work in §G.
+**Suite wall-clock: 841 s -> 358 s (a 57 % reduction)** with 44 more tests,
+attributable to the health-probe, index, pagination and RAG work in §G.
 
 ### H.3 New tests
 

@@ -15,7 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import httpx
 
@@ -43,6 +43,16 @@ def _cache_put(key: str, data: Any) -> None:
     _cache[key] = {"ts": time.time(), "data": data}
 
 
+def _kev_index_for(vulns: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """Return a ``{CVE-ID: entry}`` index for the CISA KEV catalog.
+
+    The normalisation is identical to the previous linear scan
+    (``str(entry.get("cveID", "")).upper()``) so the lookup result is
+    unchanged; only the cost changes from O(n) to O(1).
+    """
+    return {str(v.get("cveID", "")).upper(): v for v in vulns}
+
+
 async def get_cisa_kev(cve: Optional[str] = None) -> Dict[str, Any]:
     raw = _cache_get("kev")
     if raw is None:
@@ -68,9 +78,13 @@ async def get_cisa_kev(cve: Optional[str] = None) -> Dict[str, Any]:
     if not cve:
         return {**catalog_meta, "vulnerabilities": vulns[:25], "truncated_to": 25}
     cve_norm = cve.strip().upper()
-    match = [v for v in vulns if str(v.get("cveID", "")).upper() == cve_norm]
-    if match:
-        v = match[0]
+    # O(1) lookup instead of a linear scan over the whole catalog.  The CISA
+    # KEV catalog holds ~1 500 entries and grows; the previous scan allocated
+    # a normalised copy of every entry on every lookup.  The index uses
+    # exactly the same normalisation, so the result is unchanged.
+    kev_index = _kev_index_for(vulns)
+    v = kev_index.get(cve_norm)
+    if v:
         return {
             **catalog_meta,
             "cve": cve_norm,

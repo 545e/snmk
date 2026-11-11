@@ -188,7 +188,7 @@ class ScopePolicy:
                 if is_restr:
                     return True, f"IPv4-mapped restricted address ({reason})"
 
-            if ip_str in CLOUD_METADATA_IPS or str(ip_obj) in CLOUD_METADATA_IPS:
+            if ip_str in _CLOUD_METADATA_IP_SET or str(ip_obj) in _CLOUD_METADATA_IP_SET:
                 return True, "Cloud Metadata Service (IMDS) blocked"
             if ip_obj.is_loopback:
                 return True, "Loopback address (127.0.0.0/8 or ::1)"
@@ -256,9 +256,9 @@ class ScopePolicy:
                 pass
 
         is_lab = (
-            hostname in DEFAULT_ALLOWED_LAB_TARGETS
+            hostname in _LAB_HOST_SET
             or is_loopback
-            or any(hostname.endswith(f".{lt}") for lt in DEFAULT_ALLOWED_LAB_TARGETS if not self.is_ip_address(lt))
+            or any(hostname.endswith(sfx) for sfx in _LAB_HOST_SUFFIXES)
         )
 
         # Check explicit lab authorization
@@ -405,15 +405,14 @@ def _is_builtin_lab_host(hostname: str) -> bool:
     clean = (hostname or "").strip().lower()
     if not clean:
         return False
-    if clean in {h.lower() for h in DEFAULT_ALLOWED_LAB_TARGETS}:
+    if clean in _LAB_HOST_SET:
         return True
     try:
         if ipaddress.ip_address(clean).is_loopback:
             return True
     except ValueError:
         pass
-    return any(clean.endswith(f".{lt.lower()}") for lt in DEFAULT_ALLOWED_LAB_TARGETS
-               if not _looks_like_ip(lt))
+    return any(clean.endswith(sfx) for sfx in _LAB_HOST_SUFFIXES)
 
 
 _DOMAIN_RE = re.compile(
@@ -427,6 +426,18 @@ def _looks_like_ip(value: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+# --- derived lookup tables -------------------------------------------
+# These were rebuilt on every validation call: a set comprehension plus
+# one ``ipaddress.ip_address()`` parse per list element, per call.  They
+# are constants, so they are computed once at import time.
+_LAB_HOST_SET = frozenset(h.lower() for h in DEFAULT_ALLOWED_LAB_TARGETS)
+_LAB_HOST_SUFFIXES = tuple(
+    "." + h.lower() for h in DEFAULT_ALLOWED_LAB_TARGETS
+    if not _looks_like_ip(h)
+)
+_CLOUD_METADATA_IP_SET = frozenset(CLOUD_METADATA_IPS)
 
 
 def validate_tool_target(target: str, *, tool_id: str) -> ScopeValidationResult:

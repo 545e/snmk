@@ -4,18 +4,28 @@ Handles concurrent background scan jobs and real-time WebSocket subscriber dispa
 """
 
 import asyncio
-from typing import Dict, Set, Callable, Awaitable, Optional, Any
+from typing import Dict, Set, Callable, Awaitable, Optional, Any, List
 from core.models import ScanJob, LogEvent, VulnerabilityFinding, ScanStatus
 from core.database import db
 
+
 class QueueManager:
+    # Maximum number of buffered events per subscriber. The queues were
+    # unbounded, so a WebSocket client that stopped reading grew its
+    # queue without limit - an unbounded-memory vector reachable from any
+    # connected client. When the buffer is full the *oldest* event is
+    # dropped, because the live feed is a best-effort view (the UI also
+    # polls the REST API for authoritative state).
+    MAX_QUEUE_SIZE = 1000
+
     def __init__(self):
         self.active_tasks: Dict[str, asyncio.Task] = {}
         self.subscribers: Set[asyncio.Queue] = set()
-        self.log_subscribers: Dict[str, Set[asyncio.Queue]] = {} # scan_id -> queues
+        self.log_subscribers: Dict[str, Set[asyncio.Queue]] = {}  # scan_id -> queues
+        self.dropped_events = 0
 
     def register_client(self) -> asyncio.Queue:
-        q = asyncio.Queue()
+        q = asyncio.Queue(maxsize=self.MAX_QUEUE_SIZE)
         self.subscribers.add(q)
         return q
 
@@ -25,7 +35,7 @@ class QueueManager:
     def register_scan_log_client(self, scan_id: str) -> asyncio.Queue:
         if scan_id not in self.log_subscribers:
             self.log_subscribers[scan_id] = set()
-        q = asyncio.Queue()
+        q = asyncio.Queue(maxsize=self.MAX_QUEUE_SIZE)
         self.log_subscribers[scan_id].add(q)
         return q
 
@@ -39,26 +49,36 @@ class QueueManager:
         payload = {"type": event_type, "data": data}
         dead_queues = []
         for q in self.subscribers:
+            self._offer(q, payload, dead_queues)
+        for dq in dead_queues:
+            self.subscribers.discard(dq)
+
+    @staticmethod
+    def _offer(q: asyncio.Queue, payload: Dict[str, Any], dead_queues: List[asyncio.Queue]) -> None:
+        """Enqueue an event, dropping the oldest one when the buffer is full."""
+        try:
+            q.put_nowait(payload)
+        except asyncio.QueueFull:
             try:
+                q.get_nowait()
                 q.put_nowait(payload)
             except Exception:
                 dead_queues.append(q)
-        for dq in dead_queues:
-            self.subscribers.discard(dq)
+        except Exception:
+            dead_queues.append(q)
 
     async def emit_log(self, event: LogEvent):
         db.add_log(event)
         # Broadcast to specific scan listeners
         if event.scan_id in self.log_subscribers:
             dead_queues = []
+            # Serialise the payload ONCE instead of once per subscriber.
+            log_payload = {"type": "LOG_EVENT", "data": event.model_dump()}
             for q in self.log_subscribers[event.scan_id]:
-                try:
-                    q.put_nowait({"type": "LOG_EVENT", "data": event.model_dump()})
-                except Exception:
-                    dead_queues.append(q)
+                self._offer(q, log_payload, dead_queues)
             for dq in dead_queues:
                 self.log_subscribers[event.scan_id].discard(dq)
-        
+
         # Also broadcast light event to general subscribers
         await self.broadcast_event("LOG_EVENT", {
             "scan_id": event.scan_id,
@@ -99,5 +119,6 @@ class QueueManager:
 
     def is_scan_running(self, scan_id: str) -> bool:
         return scan_id in self.active_tasks and not self.active_tasks[scan_id].done()
+
 
 queue_manager = QueueManager()

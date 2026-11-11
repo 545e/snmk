@@ -151,6 +151,12 @@ class RAGKnowledgeEngine:
                 "doc_id": r["doc_id"],
                 "chunk_index": r["chunk_index"],
                 "text": r["text"],
+                # Case-folded copy, computed once when the chunk is
+                # parsed.  The phrase boost used to call
+                # ``c["text"].lower()`` for *every chunk on every
+                # query*, i.e. it re-allocated the whole corpus per
+                # query (O(corpus bytes) of allocation per request).
+                "text_lower": (r["text"] or "").lower(),
                 "tf": tf_data,
                 "token_count": r["token_count"] or 1,
                 "title": r["title"],
@@ -278,6 +284,8 @@ class RAGKnowledgeEngine:
                     df[term] = df.get(term, 0) + 1
 
         avg_dl = sum(c["token_count"] for c in parsed_chunks) / max(1, total_docs)
+        # The query is folded once, not once per chunk.
+        query_lower = query.lower()
         k1 = 1.2
         b = 0.75
 
@@ -296,7 +304,7 @@ class RAGKnowledgeEngine:
                     score += idf * (numerator / max(0.001, denominator))
 
             # Phrase boost if exact query is in text
-            if query.lower() in c["text"].lower():
+            if query_lower in c.get("text_lower", c["text"].lower()):
                 score += 2.5
 
             if score >= min_relevance:
@@ -317,9 +325,16 @@ class RAGKnowledgeEngine:
             ))
         return results
 
-    def assemble_grounded_context(self, query: str, project_id: str = "proj_default", top_k: int = 3) -> Dict[str, Any]:
-        """Assembles context with explicit citations and confidence scores."""
-        retrievals = self.retrieve(query, project_id=project_id, top_k=top_k)
+    def assemble_grounded_context(self, query: str, project_id: str = "proj_default", top_k: int = 3,
+                                retrievals: Optional[List[RetrievalResult]] = None) -> Dict[str, Any]:
+        """Assembles context with explicit citations and confidence scores.
+
+        ``retrievals`` may be supplied by a caller that has already
+        retrieved the results, so the corpus is not scored twice per
+        request (the /api/ai/rag/query endpoint used to do exactly that).
+        """
+        if retrievals is None:
+            retrievals = self.retrieve(query, project_id=project_id, top_k=top_k)
         if not retrievals:
             return {
                 "grounded": False,
