@@ -656,7 +656,7 @@ the `check_health` change are portable; the JS changes are browser-agnostic;
 | DSA-CYB-03 | `update_tool` invalidates the shared tool-inventory cache from inside a 16-worker pool → up to 225 subprocess spawns instead of 15 | Move the invalidation to `update_all_tools` and let workers read the refreshed cache. |
 | DSA-BE-25 | Synchronous SQLite inside `async def` handlers blocks the event loop | Convert the DB-only handlers to `def` (Starlette then runs them in the threadpool). |
 | DSA-BE-48 | WebSocket subscriber queues are unbounded — a stalled client grows its queue without limit | `asyncio.Queue(maxsize=N)` with oldest-item eviction. |
-| DSA-BE-06/07 | RAG does two full-corpus passes and re-lowercases the whole corpus per query | Build an inverted index at ingest time; store a case-folded text column. Changes retrieval internals — the current scoring must be preserved bit-for-bit (golden test). |
+| DSA-BE-06 | RAG still performs two full-corpus passes per query (a document-frequency pass and a scoring pass). The per-query allocations and the double scoring are fixed; what remains is the structural change. | Build an inverted index at ingest time. The scoring must be preserved bit-for-bit (golden test against the current implementation). |
 | DSA-BE-43 | 14 list endpoints still return whole tables | Adopt the `/api/assets` `{items,total,limit,offset}` envelope. |
 | DSA-BE-17/18 | Kill-chain overview performs ~28 passes over the findings list and correlates twice per request | One bucketing pass + `Counter`; pass pre-loaded data into the overview. |
 | DSA-BE-36 | `/api/enterprise/agents` runs `model_dump()` on all 94 manifests before slicing | Slice first, then dump. |
@@ -711,7 +711,7 @@ the `check_health` change are portable; the JS changes are browser-agnostic;
 | Optimise agent orchestration | **NOT IMPLEMENTED** — no dependency graph, no topological sort, no duplicate-task prevention (§I.4) |
 | Optimise security engines without losing detection coverage | **IMPLEMENTED AND VERIFIED** — the ReDoS fix is proven equivalent over a 434-entry corpus; the remaining security changes are listed as not implemented because they would alter coverage |
 | Verify knowledge graph and Kill Chain operations | **IMPLEMENTED BUT NOT FULLY VERIFIED** — graph traversal is counting-only (no BFS/DFS needed by any current query); the Kill Chain truncation defect is recorded, not fixed |
-| Optimise RAG and memory processing | **IMPLEMENTED AND VERIFIED** (scrubbing + provenance) — the retrieval core is **NOT IMPLEMENTED** (§I.1) |
+| Optimise RAG and memory processing | **PARTIALLY IMPLEMENTED AND VERIFIED** - the phrase-boost corpus-wide re-lowercase, the double scoring per request and the memory scrubbing gaps are fixed and tested; the **inverted index** (the remaining structural change) is **NOT IMPLEMENTED** (section I.1) |
 | Check backend and API performance | **IMPLEMENTED AND VERIFIED** — §G |
 | Check database query efficiency | **IMPLEMENTED AND VERIFIED** — §G.4 |
 | Check frontend performance | **IMPLEMENTED AND VERIFIED** for the identified hotspots — the deeper refactor (virtualisation, code splitting) is **NOT IMPLEMENTED** |
