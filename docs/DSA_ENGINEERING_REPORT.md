@@ -632,7 +632,27 @@ Platform-sensitive code touched in this pass: the SQLite pragma handling and
 the `check_health` change are portable; the JS changes are browser-agnostic;
 `scope_policy.is_lab_target` uses `urllib.parse`/`ipaddress` only.
 
-### H.6 Known environment limitations
+### H.6 A note on the E2E scan test and CPU starvation
+
+`tests/test_e2e_local_scan.py::test_02_e2e_authorized_scan_execution` drives a
+real scan against a local server and waits up to 135 s (90 polls x 1.5 s) for
+it to reach `COMPLETED`. The test itself carries the note:
+
+> *"This machine is CPU-starved so the scan legitimately needs longer than
+> 52.5s; the window was widened accordingly. All assertions below are
+> unchanged."*
+
+One full-suite run during this work reported it as failed
+(`Scan did not reach COMPLETED status within timeout`). It was **CPU
+contention, not a regression**: the host was simultaneously running another
+development workload, and the test passes in isolation in **41.5 s** — well
+inside the window.
+
+The assertion was **not** weakened. The correct remedy for a CPU-starvation
+timing failure is the one the repository already applies: keep the assertion,
+and treat the timing budget as environment-dependent.
+
+### H.7 Known environment limitations
 
 * No LLM provider key is configured, so all provider paths run in
   `heuristic_fallback`. The live-provider code paths were **not** exercised.
