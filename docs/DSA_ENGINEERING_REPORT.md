@@ -92,7 +92,7 @@ The suite wall-clock fell from 471 s to **358 s** as a result.
 | Area | Status |
 |---|---|
 | New DSA test module | 43/43 passing |
-| Full repository suite | **299 passed, 0 failed** (baseline was 251 passed / 4 failed) |
+| Full repository suite | **324 passed, 0 failed** (baseline was 251 passed / 4 failed) |
 | Agent fleet dispatch | 94/94 agents execute, 0 failed, tier buckets sum to the total |
 | Differential equivalence proofs | 3 harnesses, 0 violations |
 | Benchmarks | reproducible, committed (`benchmarks/dsa_transformation_bench.py`) |
@@ -510,12 +510,13 @@ becomes material; §I lists the mitigation.
 
 ### G.4 Full-suite wall-clock
 
-| Run | Tests | Duration |
-|---|---:|---:|
-| Baseline (before the transformation) | 255 | 841 s |
-| After the transformation | 299 | **358 s** |
+| Run | Collected | Duration | Result |
+|---|---:|---:|---|
+| Baseline (before the transformation) | 255 | 841 s | 251 passed, 4 failed |
+| After the transformation | 299 | 358 s | 299 passed, 0 failed |
+| Final (with the security-regression suite) | **324** | **248 s** | **324 passed, 0 failed** |
 
-A **57 % reduction** with 44 % more tests. The dominant contributors are the
+A **71 % reduction** in wall-clock with **69 more tests**, all green. The dominant contributors are the
 health-probe change (§G.1), the findings index (§G.4) and the SQL-side
 filtering in the v1 router.
 
@@ -575,14 +576,15 @@ The two remaining failures were **stale assertions**, not regressions:
 | `test_v1_dashboard_metrics` | asserted `active_agents == 85` while the endpoint now reports the registry-derived count (94) | assertion corrected to derive the count |
 | `test_all_registered_agents_execute_and_complete` | 11 agents failed because their handlers referenced a non-existent method or an incompatible constructor signature | the handlers were **fixed** (see §E.3) rather than the assertion relaxed |
 
-Final run after both corrections and the remaining optimisation pass:
+Final run after both corrections, the remaining optimisation pass and the
+security-regression suite (on an idle host):
 
 ```
 $ pytest -q
-299 passed, 0 failed, 1 warning in 357.74s (0:05:57)
+324 passed, 0 failed, 1 warning in 247.68s (0:04:07)
 ```
 
-**Suite wall-clock: 841 s -> 358 s (a 57 % reduction)** with 44 more tests,
+**Suite wall-clock: 841 s -> 248 s (a 71 % reduction)** with 69 more tests,
 attributable to the health-probe, index, pagination and RAG work in §G.
 
 ### H.3 New tests
