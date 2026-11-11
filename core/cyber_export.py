@@ -154,10 +154,10 @@ class CyberExportEngine:
                     query += f" AND UPPER(severity) IN ({placeholders})"
                     params.extend([s.upper() for s in severity_filter])
                 if category_filter:
-                    query += " AND (category LIKE ? OR title LIKE ?)"
+                    query += " AND (owasp_category LIKE ? OR title LIKE ?)"
                     params.extend([f"%{category_filter}%", f"%{category_filter}%"])
                 if asset_filter:
-                    query += " AND (target_url LIKE ? OR endpoint LIKE ?)"
+                    query += " AND (affected_asset LIKE ? OR endpoint LIKE ?)"
                     params.extend([f"%{asset_filter}%", f"%{asset_filter}%"])
 
                 query += " ORDER BY CASE UPPER(severity) WHEN 'CRITICAL' THEN 1 WHEN 'HIGH' THEN 2 WHEN 'MEDIUM' THEN 3 WHEN 'LOW' THEN 4 ELSE 5 END, created_at DESC"
@@ -222,7 +222,9 @@ class CyberExportEngine:
                     "A10:2021-Server-Side Request Forgery (SSRF)": 0,
                 }
                 for f in findings:
-                    cat = (f.get("category") or "").upper()
+                    # Prefer the persisted OWASP category; fall back to the
+                    # historical title heuristic when it is not populated.
+                    cat = (f.get("owasp_category") or f.get("category") or "").upper()
                     title = (f.get("title") or "").upper()
                     if "INJECTION" in cat or "SQL" in title or "COMMAND" in title:
                         owasp_matrix["A03:2021-Injection"] += 1

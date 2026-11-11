@@ -375,9 +375,20 @@ async def v1_launch_assessment(payload: V1AssessmentLaunchPayload):
     db.save_scan(job)
 
     # Launch background scan
-    from web.server import run_scan_background
+    # NOTE: the previous implementation imported a non-existent
+    # ``web.server.run_scan_background`` symbol, so every launch raised
+    # ImportError (HTTP 500) and the assessment never started.  The v1 router
+    # now uses exactly the same orchestrator + task-registration pattern as
+    # the main server so that the scan is also cancellable via
+    # ``queue_manager.cancel_scan``.
     import asyncio
-    asyncio.create_task(run_scan_background(job.id, target, config))
+
+    from agents.orchestrator import SWAOrchestrator
+    from core.queue_manager import queue_manager
+
+    orchestrator = SWAOrchestrator(job)
+    task = asyncio.create_task(orchestrator.execute())
+    queue_manager.active_tasks[job.id] = task
 
     return v1_envelope(data=job, message=f"Assessment {job.id} started for {target}")
 

@@ -19,11 +19,44 @@ import json
 import math
 import os
 import re
+from bisect import bisect_right
 from typing import Dict, List, Any, Optional, Set, Tuple
 from urllib.parse import urlparse, urljoin
 import httpx
 
 from core.models import VulnerabilityFinding, Severity
+from core.pattern_gating import GateFilter
+
+
+# =====================================================================
+# 0. Line index helpers
+# =====================================================================
+# Matches exactly the line boundaries recognised by str.splitlines(), so the
+# index is semantically equivalent to the previous ``text.splitlines()`` based
+# snippet extraction while allowing O(log N) line-number resolution.
+_LINE_BREAK_RE = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
+
+
+def _build_line_offsets(text: str) -> List[int]:
+    """Return the character offset of the first character of every line.
+
+    Building the index is O(len(text)); resolving a line number from an
+    offset is then a binary search instead of a full prefix scan.
+    """
+    offsets = [0]
+    for m in _LINE_BREAK_RE.finditer(text):
+        offsets.append(m.end())
+    return offsets
+
+
+def _extract_line(text: str, line_offsets: List[int], line_idx: int) -> str:
+    """Return the stripped content of line ``line_idx`` using a line index."""
+    start = line_offsets[line_idx]
+    if line_idx + 1 < len(line_offsets):
+        end = line_offsets[line_idx + 1]
+    else:
+        end = len(text)
+    return text[start:end].strip()
 
 # =====================================================================
 # 1. Shannon Entropy & False-Positive Filter
@@ -1778,39 +1811,91 @@ GHOSTJS_RAW_PATTERNS = [
 # 4. JavaScript Secret Scanner Engine
 # =====================================================================
 class JavaScriptSecretScanner:
-    def __init__(self):
-        self.compiled_patterns = []
-        for p in GHOSTJS_RAW_PATTERNS:
-            try:
-                # Unescape Java string escape sequences to raw regex
-                raw_re = p["regex"].encode().decode("unicode_escape")
-                flags = 0
-                if "i" in p["flags"]:
-                    flags |= re.IGNORECASE
-                if "s" in p["flags"]:
-                    flags |= re.DOTALL
-                if "m" in p["flags"]:
-                    flags |= re.MULTILINE
+    """Multi-pattern secret scanner.
 
-                compiled = re.compile(raw_re, flags)
-                self.compiled_patterns.append({
-                    "meta": p,
-                    "compiled": compiled,
-                    "needs_entropy": p["confidence"] < 85
-                })
-            except Exception as e:
-                pass
+    The compiled signature table is a process-wide immutable resource: the 150
+    regexes are expensive to build (~ms) but read-only once built.  Compiling
+    them per instance meant every ``GhostJsAnalyzer()`` construction (which
+    happens on *every* HTTP request in ``web/server.py``) recompiled the whole
+    table.  The table is therefore compiled once and shared.
+
+    Scan cost is O(P * N) in the number of patterns P and text length N.
+    """
+
+    # Process-wide cache of the compiled signature table (immutable after build).
+    _compiled_patterns: Optional[List[Dict[str, Any]]] = None
+    _gate_filter: Optional["GateFilter"] = None
+
+    @classmethod
+    def _get_compiled_patterns(cls) -> List[Dict[str, Any]]:
+        compiled_table = cls._compiled_patterns
+        if compiled_table is None:
+            compiled_table = []
+            sources: List[str] = []
+            for p in GHOSTJS_RAW_PATTERNS:
+                try:
+                    # Unescape Java string escape sequences to raw regex
+                    raw_re = p["regex"].encode().decode("unicode_escape")
+                    flags = 0
+                    if "i" in p["flags"]:
+                        flags |= re.IGNORECASE
+                    if "s" in p["flags"]:
+                        flags |= re.DOTALL
+                    if "m" in p["flags"]:
+                        flags |= re.MULTILINE
+
+                    compiled = re.compile(raw_re, flags)
+                    compiled_table.append({
+                        "meta": p,
+                        "compiled": compiled,
+                        "needs_entropy": p["confidence"] < 85
+                    })
+                    # The gate must be derived from the *effective* pattern
+                    # source (the one that is actually compiled), otherwise the
+                    # literal could contain escape artefacts such as "\/".
+                    sources.append(raw_re)
+                except Exception:
+                    continue
+            # Required-literal gates: a pattern is only executed when a literal
+            # that must occur in every match is present in the input.  This
+            # turns P full backtracking scans into P cheap literal searches
+            # plus full scans only for the patterns whose gate is present.
+            cls._gate_filter = GateFilter(sources)
+            cls._compiled_patterns = compiled_table
+        return compiled_table
+
+    def __init__(self):
+        self.compiled_patterns = self._get_compiled_patterns()
+        self.gate_filter = JavaScriptSecretScanner._gate_filter
 
     def scan(self, text: str, source_url: str = "") -> List[Dict[str, Any]]:
-        """Scans input string against 150+ patterns with Shannon entropy suppression."""
+        """Scans input string against 150+ patterns with Shannon entropy suppression.
+
+        Complexity: O(N) to build the line index once, then O(log N) per match to
+        resolve the line number (previously O(N) per match via ``str.count``,
+        which was O(N * matches) overall).
+        """
         findings = []
         if not text:
             return findings
 
-        lines = text.splitlines()
+        # Line index: offsets of the first character of every line.  Built once
+        # per scan in O(N) and queried with bisect in O(log N).
+        line_offsets = _build_line_offsets(text)
         seen_matches = set()
+        gate_filter = self.gate_filter
 
-        for pat in self.compiled_patterns:
+        # Case-folded copy used by the required-literal gate.  Folding once
+        # per scan keeps the gate check a plain substring search.
+        lowered = text.lower()
+        for pat_idx, pat in enumerate(self.compiled_patterns):
+            # Required-literal gate: skip the pattern entirely when a literal
+            # that must be present in every match is absent from the input.
+            # This cannot remove a real detection (the gate is a necessary
+            # condition), it only avoids scanning for signatures that cannot
+            # possibly match.
+            if gate_filter is not None and not gate_filter.should_run(pat_idx, text, lowered):
+                continue
             meta = pat["meta"]
             compiled = pat["compiled"]
             needs_entropy = pat["needs_entropy"]
@@ -1835,11 +1920,13 @@ class JavaScriptSecretScanner:
 
                     seen_matches.add(key)
 
-                    # Compute approximate line number and snippet
+                    # Resolve line number via the prebuilt line index.
                     start_pos = match.start()
-                    line_num = text.count("\n", 0, start_pos) + 1
-                    line_text = lines[line_num - 1] if line_num - 1 < len(lines) else ""
-                    snippet = line_text.strip()[:180]
+                    line_idx = bisect_right(line_offsets, start_pos) - 1
+                    if line_idx < 0:
+                        line_idx = 0
+                    line_num = line_idx + 1
+                    snippet = _extract_line(text, line_offsets, line_idx)[:180]
 
                     # Mask sensitive value for display
                     if len(val) > 8:

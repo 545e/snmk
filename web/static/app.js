@@ -1816,6 +1816,43 @@ function updateVulnMetricsUI(m) {
     }
 }
 
+/**
+ * Legacy findings renderer.
+ *
+ * The authoritative findings table is rendered by renderVulnTable() into
+ * #vfTableBody.  This function only refreshes the legacy summary container
+ * (#findingsContainer) that some views still mirror into.
+ *
+ * It is deliberately defensive: when the container is absent this is a no-op.
+ * Previously both call sites invoked an undefined `renderFindings`, which
+ * raised a ReferenceError that was swallowed by the surrounding try/catch and
+ * replaced the whole findings table with a "Telemetry offline" message.
+ *
+ * @param {Array<Object>} items findings to render
+ */
+function renderFindings(items) {
+    const container = document.getElementById('findingsContainer');
+    if (!container) return;
+
+    const list = Array.isArray(items) ? items : [];
+    if (!list.length) {
+        container.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 12px;">No findings match the current filters.</div>';
+        return;
+    }
+
+    container.innerHTML = list.map(f => {
+        const sev = (typeof f.severity === 'object' && f.severity ? f.severity.value : f.severity) || 'UNCLASSIFIED';
+        const sevLower = String(sev).toLowerCase();
+        const score = typeof f.cvss_score === 'number' ? f.cvss_score.toFixed(1) : '';
+        return `
+            <div class="finding-item" data-finding-id="${escapeHtml(f.id || '')}">
+                <span class="sev-badge sev-${escapeHtml(sevLower)}">${escapeHtml(sev)}${score ? ' ' + escapeHtml(score) : ''}</span>
+                <span class="finding-title">${escapeHtml(f.title || 'Untitled')}</span>
+                <span class="finding-endpoint">${escapeHtml(f.endpoint || '')}</span>
+            </div>`;
+    }).join('');
+}
+
 function renderVulnTable(items) {
     const tbody = document.getElementById('vfTableBody');
     if (!tbody) return;
@@ -13287,8 +13324,25 @@ let currentAllToolsFindings = [];
 async function initAllToolsView() {
     const targetInput = document.getElementById('allToolsTargetInput');
     const mainTargetInput = document.getElementById('targetInput');
-    if (targetInput && mainTargetInput && (!targetInput.value || targetInput.value === '127.0.0.1:8000')) {
-        targetInput.value = mainTargetInput.value || '127.0.0.1:8000';
+    if (targetInput && (!targetInput.value || targetInput.value === '127.0.0.1:8000')) {
+        if (mainTargetInput && mainTargetInput.value && mainTargetInput.value !== '127.0.0.1:8000') {
+            targetInput.value = mainTargetInput.value;
+        } else {
+            try {
+                const scRes = await fetch('/api/scope/targets');
+                if (scRes.ok) {
+                    const scData = await scRes.json();
+                    const allowed = scData.targets || scData.allowed_domains || [];
+                    const candidate = allowed.find(d => {
+                        const str = typeof d === 'string' ? d : (d.domain || '');
+                        return str && !str.includes('127.0.0.1') && !str.includes('example.com') && !str.includes('localhost');
+                    });
+                    if (candidate) {
+                        targetInput.value = typeof candidate === 'string' ? candidate : candidate.domain;
+                    }
+                }
+            } catch (_) {}
+        }
     }
     await loadAllToolsInventory();
 }
@@ -13356,7 +13410,7 @@ async function executeAllToolsAudit() {
     const targetInput = document.getElementById('allToolsTargetInput') || document.getElementById('targetInput');
     let target = targetInput ? targetInput.value.trim() : '';
     if (!target) {
-        alert('Please enter a target domain, URL, or IP address (e.g. starasia.org or 127.0.0.1:8000)');
+        alert('Please enter a target domain, URL, or IP address (e.g. shmtechnologies.com or 127.0.0.1:8000)');
         return;
     }
 
@@ -13371,7 +13425,10 @@ async function executeAllToolsAudit() {
         btn.innerHTML = `<span class="spin-anim" style="display:inline-block; margin-right: 6px;">⚙️</span><span>Executing All-Tools Unified Pipeline...</span>`;
     }
     if (statusBox) statusBox.style.display = 'block';
-    if (progressBar) progressBar.style.width = '15%';
+    if (progressBar) {
+        progressBar.style.width = '15%';
+        progressBar.style.background = 'linear-gradient(90deg, #6366f1, #38bdf8)';
+    }
     if (stageDesc) stageDesc.textContent = 'Stage 1/5: Target Validation & Network Discovery (DNS, Ports, Whois)...';
     if (stagePct) stagePct.textContent = 'Stage 1/5 (20%)';
 
@@ -13395,11 +13452,16 @@ async function executeAllToolsAudit() {
 
     try {
         const isLab = target.includes('127.0.0.1') || target.includes('localhost');
-        const res = await fetch('/api/tools/run-all', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ target: target, lab_mode: isLab })
-        });
+        let res;
+        try {
+            res = await fetch('/api/tools/run-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ target: target, lab_mode: isLab })
+            });
+        } catch (fetchErr) {
+            throw new Error(`Unable to connect to SWA server (Network Error: ${fetchErr.message}). Ensure the backend server is running on http://127.0.0.1:8000.`);
+        }
 
         clearInterval(timer);
 
@@ -13414,19 +13476,29 @@ async function executeAllToolsAudit() {
                     body: JSON.stringify({ domain: cleanDomain, description: 'Operator authorized assessment target' })
                 }).catch(() => null);
 
-                const retryRes = await fetch('/api/tools/run-all', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: target, lab_mode: isLab })
-                });
+                try {
+                    const retryRes = await fetch('/api/tools/run-all', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ target: target, lab_mode: isLab })
+                    });
 
-                if (retryRes.ok) {
-                    const data = await retryRes.json();
-                    if (progressBar) progressBar.style.width = '100%';
-                    if (stageDesc) stageDesc.textContent = 'Stage 5/5: Report Generation Completed!';
-                    if (stagePct) stagePct.textContent = 'Complete (100%)';
-                    handleAllToolsAuditSuccess(data);
-                    return;
+                    if (retryRes.ok) {
+                        const data = await retryRes.json();
+                        if (progressBar) progressBar.style.width = '100%';
+                        if (stageDesc) stageDesc.textContent = 'Stage 5/5: Report Generation Completed!';
+                        if (stagePct) stagePct.textContent = 'Complete (100%)';
+                        handleAllToolsAuditSuccess(data);
+                        return;
+                    } else {
+                        const retryErr = await retryRes.json().catch(() => ({}));
+                        throw new Error(retryErr.detail || err.detail || `Server returned HTTP ${retryRes.status}`);
+                    }
+                } catch (retryFetchErr) {
+                    if (retryFetchErr.message.includes('HTTP') || retryFetchErr.message.includes('Unable') || retryFetchErr.message.includes('Scope')) {
+                        throw retryFetchErr;
+                    }
+                    throw new Error(`Unable to complete assessment request: ${retryFetchErr.message}`);
                 }
             }
             throw new Error(err.detail || `Server returned HTTP ${res.status}`);
@@ -13439,8 +13511,12 @@ async function executeAllToolsAudit() {
         handleAllToolsAuditSuccess(data);
     } catch (e) {
         clearInterval(timer);
-        if (progressBar) progressBar.style.width = '100%';
-        if (stageDesc) stageDesc.innerHTML = `<span style="color: var(--crit);">Execution Error: ${escapeHtml(e.message)}</span>`;
+        if (progressBar) {
+            progressBar.style.width = '100%';
+            progressBar.style.background = 'var(--crit, #ef4444)';
+        }
+        if (stageDesc) stageDesc.innerHTML = `<span style="color: var(--crit, #ef4444);">Assessment Error: ${escapeHtml(e.message)}</span>`;
+        if (stagePct) stagePct.textContent = 'Failed';
         alert(`Assessment Notice: ${e.message}`);
     } finally {
         if (btn) {

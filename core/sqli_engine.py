@@ -22,6 +22,7 @@ from typing import Dict, List, Any, Optional, Tuple
 import httpx
 
 from core.models import VulnerabilityFinding, Severity
+from core.signature_matching import SignatureMatcher
 
 # Detailed database error signatures mapped to vendor engines
 DB_ENGINE_SIGNATURES: Dict[str, List[str]] = {
@@ -65,6 +66,19 @@ DB_ENGINE_SIGNATURES: Dict[str, List[str]] = {
         r"unrecognized token:"
     ]
 }
+
+# Flattened view of the signature corpus, preserving the engine attribution
+# order.  The matcher applies a required-literal prefilter and localises the
+# scan to the lines that can contain a match, which removes the quadratic
+# backtracking of patterns such as ``Warning.*mysql_.*`` on attacker
+# controlled response bodies (see core.signature_matching).
+_SQLI_SIGNATURE_PATTERNS: List[str] = [
+    p for pats in DB_ENGINE_SIGNATURES.values() for p in pats
+]
+_SQLI_SIGNATURE_ENGINES: List[str] = [
+    engine for engine, pats in DB_ENGINE_SIGNATURES.items() for _ in pats
+]
+_SQLI_SIGNATURE_MATCHER = SignatureMatcher(_SQLI_SIGNATURE_PATTERNS)
 
 # Safe test probes by category
 SQLI_PROBES = {
@@ -115,11 +129,10 @@ class SQLiEngine:
 
     def detect_db_engine(self, response_text: str) -> Optional[str]:
         """Identifies specific database management system from response text error signatures."""
-        for engine, patterns in DB_ENGINE_SIGNATURES.items():
-            for p in patterns:
-                if re.search(p, response_text, re.IGNORECASE):
-                    return engine
-        return None
+        idx = _SQLI_SIGNATURE_MATCHER.search_index(response_text)
+        if idx is None:
+            return None
+        return _SQLI_SIGNATURE_ENGINES[idx]
 
     async def audit_url_parameter(
         self,

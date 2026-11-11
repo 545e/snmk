@@ -21,6 +21,7 @@ from bs4 import BeautifulSoup
 from typing import List, Dict, Any, Optional
 
 from core.models import DiscoveredEndpoint, VulnerabilityFinding, Severity
+from core.signature_matching import SignatureMatcher
 from plugins.base_plugin import BaseSecurityPlugin
 
 # --- SQL Errors & Signatures ---
