@@ -1,5 +1,7 @@
 # SWA AI — Complete API Inventory
 
+> **AGENT-COUNT CORRECTION (2026-11-11):** this document refers to "85 agents across 5 operational tiers". The registry actually contains **94 agents across 6 tiers** - the Network Intelligence (MAP) tier was added without updating the documented totals, the tier summary or the CI assertions. The authoritative count is `agent_registry.get_summary()["total_discovered"]`, and `get_summary()["tiers"]` is now derived from the registry so the tier breakdown always adds up to the total. See `docs/DSA_ENGINEERING_REPORT.md` (section E) for the full reconciliation and for the capability-verification audit that accompanies it.
+
 > **AUDIT CORRECTION — 2026-11-11 (read first):** a concurrent `51116f4` bulk sync reverted the 2026-11-07 corrections to this document. This file still describes aspirational/design-intent behavior in places, NOT verified reality. Verified fact:
 > - No LLM round trip is verified anywhere (all providers `NOT_CONFIGURED`; mode = `heuristic_fallback`).
 > - RAG is BM25 (sparse), NOT embeddings/vector search. Memory is regex-scrubbed, not guaranteed.

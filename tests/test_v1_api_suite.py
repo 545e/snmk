@@ -106,7 +106,7 @@ def test_v1_dashboard_metrics():
     data = res.json()["data"]
     assert "posture_score" in data
     assert "posture_grade" in data
-    assert data["active_agents"] == 85
+    assert data["active_agents"] == _EXPECTED_AGENT_COUNT
     assert data["connected_integrations"] >= 21
 
 

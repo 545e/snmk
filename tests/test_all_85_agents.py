@@ -27,8 +27,13 @@ def test_all_registered_agents_execute_and_complete():
     assert res["successful_agents"] + res["failed_agents"] == expected
     assert res["not_executable_agents"] == 0
     assert res["failed_agents"] == 0, (
-        f"agents reported as failed: "
-        f"{[a for a in res.get('agent_results', []) if a.get('status') == 'FAILED']}"
+        "agents reported as failed: "
+        + str([
+            (a.get("id"), a.get("status"), a.get("detail"))
+            for tier in res.get("tiers", {}).values()
+            for a in tier.get("agents", [])
+            if a.get("status") == "FAILED"
+        ])
     )
     assert res["status"] == "COMPLETED"
 

@@ -60,8 +60,9 @@ class ThreatIntelligenceEngine:
         # 1. Check if AbuseIPDB adapter is configured in SNMK
         abuse_adapter = integration_registry.get_adapter("abuseipdb")
         if abuse_adapter:
-            creds = integration_registry.get_decrypted_credentials("abuseipdb")
-            api_key = creds.get("api_key")
+            getter = getattr(integration_registry, "get_active_credential", None) or getattr(integration_registry, "get_decrypted_credentials", None)
+            creds = getter("abuseipdb") if getter else None
+            api_key = creds.get("api_key") if creds else None
             if api_key:
                 try:
                     import httpx

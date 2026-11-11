@@ -1,5 +1,7 @@
 # COMPLETE REPOSITORY ARCHITECTURE
 
+> **AGENT-COUNT CORRECTION (2026-11-11):** this document refers to "85 agents across 5 operational tiers". The registry actually contains **94 agents across 6 tiers** - the Network Intelligence (MAP) tier was added without updating the documented totals, the tier summary or the CI assertions. The authoritative count is `agent_registry.get_summary()["total_discovered"]`, and `get_summary()["tiers"]` is now derived from the registry so the tier breakdown always adds up to the total. See `docs/DSA_ENGINEERING_REPORT.md` (section E) for the full reconciliation and for the capability-verification audit that accompanies it.
+
 > **DSA pass 2026-11-11 (addendum):** see `docs/DSA_OPTIMIZATION_REPORT.md` for measured before/after results. Key changes: bounded TTL cache for host tool detection (`core/scanner_integrations.py`), signature-invalidating parse-cache for RAG chunk parsing (`core/rag_engine.py`), N+1 → single grouped query for integration credential masking (`core/integrations/registry.py`), adjacency-indexed knowledge-graph queries (`core/knowledge_graph.py`), compiled regexes in hot paths.
 
 

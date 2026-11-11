@@ -351,6 +351,9 @@ class IntegrationRegistry:
             
             return self._get_decrypted_credentials(chosen_id)
 
+    # Alias for backwards compatibility
+    get_decrypted_credentials = get_active_credential
+
     def get_default_ai_provider(self) -> Optional[Dict[str, Any]]:
         """Finds the designated or first active AI provider with decrypted credentials and configuration."""
         with db.get_connection() as conn:

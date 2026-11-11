@@ -1,4 +1,6 @@
 # COMPLETE AI SYSTEM INVENTORY & CAPABILITY MATRIX
+> **AGENT-COUNT CORRECTION (2026-11-11):** this document refers to "85 agents across 5 operational tiers". The registry actually contains **94 agents across 6 tiers** - the Network Intelligence (MAP) tier was added without updating the documented totals, the tier summary or the CI assertions. The authoritative count is `agent_registry.get_summary()["total_discovered"]`, and `get_summary()["tiers"]` is now derived from the registry so the tier breakdown always adds up to the total. See `docs/DSA_ENGINEERING_REPORT.md` (section E) for the full reconciliation and for the capability-verification audit that accompanies it.
+
 ## SNMK / SWA AI Platform Intelligence Architecture
 
 > **AUDIT CORRECTION — 2026-11-11:** this table was restored by a concurrent author to its pre-audit marketing form during the `51116f4` sync. The word "YES" next to a component means "code exists", **NOT** "works as described". Verified reality (full detail in `docs/IMPLEMENTATION_REPORT.md` and `docs/TESTING_AND_VERIFICATION.md`):

@@ -14,6 +14,7 @@ import shutil
 import socket
 import subprocess
 import sys
+import time
 from typing import Dict, List, Optional, Tuple
 
 import psutil
@@ -21,6 +22,10 @@ import psutil
 from core.network.models import LocalNetworkInfo, NetworkInterfaceInfo
 
 logger = logging.getLogger("snmk.map.interfaces")
+
+
+_cached_network_info: Optional[Tuple[float, LocalNetworkInfo]] = None
+_NETWORK_CACHE_TTL_SEC: float = 60.0
 
 
 def check_capture_drivers() -> Tuple[bool, str]:
@@ -67,44 +72,54 @@ def get_default_gateway_and_dns() -> Tuple[Optional[str], Optional[str], List[st
     dns_servers = []
 
     if sys.platform.startswith("win"):
+        # Fast path 1: parse route print (takes <100ms vs 5s PowerShell)
         try:
-            cmd = ["powershell", "-NoProfile", "-Command",
-                   "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 NextHop, InterfaceAlias | ConvertTo-Json"]
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if proc.returncode == 0 and proc.stdout.strip():
-                import json
-                data = json.loads(proc.stdout)
-                gateway_ip = data.get("NextHop")
-                iface_alias = data.get("InterfaceAlias")
+            proc = subprocess.run(["route", "print", "0.0.0.0"], capture_output=True, text=True, timeout=3)
+            for line in proc.stdout.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 5 and parts[0] == "0.0.0.0" and parts[1] == "0.0.0.0":
+                    gateway_ip = parts[2]
+                    break
         except Exception as e:
-            logger.debug(f"Failed to get gateway via Get-NetRoute: {e}")
+            logger.debug(f"Fast route print gateway lookup failed: {e}")
 
-        # Fallback to route print
-        if not gateway_ip:
-            try:
-                proc = subprocess.run(["route", "print", "0.0.0.0"], capture_output=True, text=True, timeout=5)
-                for line in proc.stdout.splitlines():
-                    parts = line.strip().split()
-                    if len(parts) >= 5 and parts[0] == "0.0.0.0" and parts[1] == "0.0.0.0":
-                        gateway_ip = parts[2]
-                        break
-            except Exception:
-                pass
-
-        # Query DNS servers via Get-DnsClientServerAddress
+        # Fast path 2: query DNS nameservers using dnspython
         try:
-            cmd = ["powershell", "-NoProfile", "-Command",
-                   "Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses | ConvertTo-Json"]
-            proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-            if proc.returncode == 0 and proc.stdout.strip():
-                import json
-                servers = json.loads(proc.stdout)
-                if isinstance(servers, list):
-                    dns_servers = [s for s in servers if s]
-                elif isinstance(servers, str) and servers:
-                    dns_servers = [servers]
+            import dns.resolver
+            res = dns.resolver.Resolver()
+            if res.nameservers:
+                dns_servers = list(res.nameservers)
         except Exception:
             pass
+
+        # Optional slow fallback if gateway was not detected
+        if not gateway_ip:
+            try:
+                cmd = ["powershell", "-NoProfile", "-Command",
+                       "Get-NetRoute -DestinationPrefix '0.0.0.0/0' | Select-Object -First 1 NextHop, InterfaceAlias | ConvertTo-Json"]
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                if proc.returncode == 0 and proc.stdout.strip():
+                    import json
+                    data = json.loads(proc.stdout)
+                    gateway_ip = data.get("NextHop")
+                    iface_alias = data.get("InterfaceAlias")
+            except Exception as e:
+                logger.debug(f"Failed to get gateway via Get-NetRoute: {e}")
+
+        if not dns_servers:
+            try:
+                cmd = ["powershell", "-NoProfile", "-Command",
+                       "Get-DnsClientServerAddress -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses | ConvertTo-Json"]
+                proc = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                if proc.returncode == 0 and proc.stdout.strip():
+                    import json
+                    servers = json.loads(proc.stdout)
+                    if isinstance(servers, list):
+                        dns_servers = [s for s in servers if s]
+                    elif isinstance(servers, str) and servers:
+                        dns_servers = [servers]
+            except Exception:
+                pass
     else:
         # Linux / Unix / macOS
         try:
@@ -200,8 +215,15 @@ def get_network_interfaces() -> List[NetworkInterfaceInfo]:
     return results
 
 
-def get_local_network_info() -> LocalNetworkInfo:
+def get_local_network_info(force_refresh: bool = False) -> LocalNetworkInfo:
     """Compiles complete local network posture for MAP dashboard."""
+    global _cached_network_info
+    now = time.time()
+    if not force_refresh and _cached_network_info is not None:
+        cached_time, cached_val = _cached_network_info
+        if (now - cached_time) < _NETWORK_CACHE_TTL_SEC:
+            return cached_val
+
     hostname = socket.gethostname()
     interfaces = get_network_interfaces()
     gateway_ip, gateway_iface, dns_servers = get_default_gateway_and_dns()
@@ -251,7 +273,7 @@ def get_local_network_info() -> LocalNetworkInfo:
             except Exception:
                 subnet_cidr = f"{local_ip}/24"
 
-    return LocalNetworkInfo(
+    res = LocalNetworkInfo(
         hostname=hostname,
         primary_interface=primary_iface.name if primary_iface else "Ethernet",
         local_ipv4=local_ip,
@@ -265,3 +287,5 @@ def get_local_network_info() -> LocalNetworkInfo:
         capture_driver_installed=capture_ok,
         capture_driver_type=driver_type
     )
+    _cached_network_info = (now, res)
+    return res

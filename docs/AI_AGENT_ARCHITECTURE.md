@@ -1,5 +1,7 @@
 # AI AGENT ARCHITECTURE & 85-SPECIALIST WORKFORCE
 
+> **AGENT-COUNT CORRECTION (2026-11-11):** this document refers to "85 agents across 5 operational tiers". The registry actually contains **94 agents across 6 tiers** - the Network Intelligence (MAP) tier was added without updating the documented totals, the tier summary or the CI assertions. The authoritative count is `agent_registry.get_summary()["total_discovered"]`, and `get_summary()["tiers"]` is now derived from the registry so the tier breakdown always adds up to the total. See `docs/DSA_ENGINEERING_REPORT.md` (section E) for the full reconciliation and for the capability-verification audit that accompanies it.
+
 > **AUDIT CORRECTION — 2026-11-11:** restored by a concurrent `51116f4` sync to descriptive-marketing form. Verified facts: agents are pydantic manifests with timeouts; dispatch is real but scope varies by tier — Tier 1 computes DB aggregates, Tier 2 executes (8–240 s timeouts), Tier 3 runs plugin probes + optional LLM, **Tier 4 handlers return mostly static capability dicts (e.g. `{"nodes":150,"edges":320}` literals), not measurements**, Tier 5 reports inventory status. `test_all_85_agents` asserts 85/85 COMPLETED — dispatch completeness ≠ capability. No LLM round trip occurs without a configured key (`heuristic_fallback` mode). Lifecycle vocabulary in code: `AVAILABLE/ACTIVE/RUNNING/COMPLETED/FAILED/REGISTERED/NOT_EXECUTABLE`.
 
 ## SNMK / SWA Autonomous Multi-Agent Hierarchy

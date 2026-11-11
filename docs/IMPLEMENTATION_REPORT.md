@@ -1,4 +1,6 @@
 # SNMK / SWA AI — Master Implementation & Handover Report
+> **2026-11-11 DSA transformation:** see `docs/DSA_ENGINEERING_REPORT.md` for the repository-wide data structures and algorithms engineering pass (required-literal gating, localised signature matching, database indexing and pagination, frontend optimisation), the corrected agent inventory (94 agents / 6 tiers) and the honest capability-verification audit.
+
 
 > **AUDIT CORRECTION — 2026-11-11 (read first):** this document, as rewritten by a concurrent author, over-claims. Verified facts from an executed audit:
 > - **Tests:** 239 collected; full suite re-run **239 passed, 0 failed** after our fixes (see `docs/TESTING_AND_VERIFICATION.md`). Earlier "100% / 206 / 235" badges were not all backed by comparable measurement.

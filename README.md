@@ -57,7 +57,7 @@ Operating across Windows, Linux, and macOS, SNMK coordinates an autonomous workf
 
 ## 2. Key Features
 
-- **Autonomous Multi-Agent Workforce (85 Agents)**: 5 operational tiers (Specialist Workforce, Offensive Recon, OWASP Plugins, Core Cybersecurity Engines, Tool Adapters).
+- **Autonomous Multi-Agent Workforce (94 Agents)**: 6 operational tiers (Specialist Workforce, Offensive Recon, OWASP Plugins, Core Cybersecurity Engines, Tool Adapters, Network Intelligence). The count is derived from the agent registry at runtime, not hard-coded.
 - **Secure Encrypted API Key Management**: AES-256 / Fernet encryption at rest for external integrations with master keys stored strictly outside the database.
 - **Threat Intelligence & SIEM Integrations**: Native adapters for VirusTotal, AbuseIPDB, Shodan, Censys, AlienVault OTX, URLhaus, Wazuh, Splunk, Elastic, Sentinel, CrowdStrike, and DefectDojo.
 - **AI Model Management**: Central model registry supporting OpenAI, Anthropic Claude, Google Gemini, OpenRouter, and Local/Ollama models with availability probes and fallback routing.
@@ -327,7 +327,7 @@ SNMK integrates 14 primary navigation views:
 3. **Assets**: Live asset inventory with IP mappings, HTTP status, TLS certificates, and parent domains.
 4. **Vulnerabilities**: Finding explorer with severity badges, CVE references, verifiable cURL PoCs, and CVSS scores.
 5. **Security Tools**: Real-time inventory of detected tools (Nmap, Nuclei, Nikto, SQLmap, Amass, REA) and native engines.
-6. **AI Agents**: Central multi-agent workforce registry managing 85 agents across 5 operational tiers with task dispatching.
+6. **AI Agents**: Central multi-agent workforce registry managing 94 agents across 6 operational tiers with task dispatching. The registry is the single source of truth for the agent count and the tier breakdown.
 7. **Investigation**: Attack path knowledge graph correlating assets, exposed ports, and shared vulnerabilities.
 8. **Remediation**: Ticket management tracking findings through triage, assignment, approval, and automated retest.
 9. **Reports**: Historical report archive and export manager.
