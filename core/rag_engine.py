@@ -20,13 +20,16 @@ from core.database import db
 logger = logging.getLogger("snmk.rag_engine")
 
 
+_TOKEN_RE = re.compile(r"\b[a-zA-Z0-9_\-\.]{2,}\b")
+
+
 def _utc_now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
 def _tokenize(text: str) -> List[str]:
     """Tokenize and normalize text into alphanumeric terms."""
-    return re.findall(r"\b[a-zA-Z0-9_\-\.]{2,}\b", text.lower())
+    return _TOKEN_RE.findall(text.lower())
 
 
 def init_rag_schema() -> None:
@@ -103,6 +106,63 @@ class RAGKnowledgeEngine:
 
     def __init__(self):
         init_rag_schema()
+        self._chunk_cache: Dict[str, Dict[str, Any]] = {}
+        self._cache_max_projects = 16
+
+    def _load_project_chunks(self, project_id: str) -> List[Dict[str, Any]]:
+        """Load and parse project chunks with signature-based caching.
+
+        Cache key: (chunk_count, MAX(created_at)) of rag_chunks for the project.
+        Any ingest/delete changes the signature and refreshes the cache.
+        """
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            sig_row = cursor.execute(
+                "SELECT COUNT(*) AS c, MAX(created_at) AS m FROM rag_chunks WHERE project_id = ?",
+                (project_id,)
+            ).fetchone()
+        if sig_row:
+            signature = (sig_row["c"] or 0, sig_row["m"] or "")
+        else:
+            signature = (0, "")
+
+        cached = self._chunk_cache.get(project_id)
+        if cached and cached["sig"] == signature:
+            return cached["chunks"]
+
+        with db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            SELECT c.id, c.doc_id, c.chunk_index, c.text, c.tf_json, c.token_count, d.title, d.source_type
+            FROM rag_chunks c
+            JOIN rag_documents d ON c.doc_id = d.id
+            WHERE c.project_id = ?
+            """, (project_id,))
+            rows = cursor.fetchall()
+
+        parsed_chunks = []
+        for r in rows:
+            try:
+                tf_data = json.loads(r["tf_json"] or "{}")
+            except Exception:
+                tf_data = {}
+            parsed_chunks.append({
+                "id": r["id"],
+                "doc_id": r["doc_id"],
+                "chunk_index": r["chunk_index"],
+                "text": r["text"],
+                "tf": tf_data,
+                "token_count": r["token_count"] or 1,
+                "title": r["title"],
+                "source_type": r["source_type"]
+            })
+
+        # Bounded cache: evict oldest-inserted projects
+        if len(self._chunk_cache) >= self._cache_max_projects:
+            oldest = next(iter(self._chunk_cache))
+            self._chunk_cache.pop(oldest, None)
+        self._chunk_cache[project_id] = {"sig": signature, "chunks": parsed_chunks}
+        return parsed_chunks
 
     def chunk_text(self, text: str, chunk_size_words: int = 250, overlap_words: int = 40) -> List[str]:
         """Splits document text into overlapping semantic passages."""
@@ -203,38 +263,19 @@ class RAGKnowledgeEngine:
         if not query_terms:
             return []
 
-        with db.get_connection() as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-            SELECT c.id, c.doc_id, c.chunk_index, c.text, c.tf_json, c.token_count, d.title, d.source_type
-            FROM rag_chunks c
-            JOIN rag_documents d ON c.doc_id = d.id
-            WHERE c.project_id = ?
-            """, (project_id,))
-            rows = cursor.fetchall()
+        parsed_chunks = self._load_project_chunks(project_id)
 
-        if not rows:
+        if not parsed_chunks:
             return []
 
-        total_docs = len(rows)
+        total_docs = len(parsed_chunks)
         # Calculate Term Document Frequencies
         df: Dict[str, int] = {}
-        parsed_chunks = []
-        for r in rows:
-            tf_data = json.loads(r["tf_json"] or "{}")
+        for c in parsed_chunks:
+            tf_data = c["tf"]
             for term in query_terms:
                 if term in tf_data:
                     df[term] = df.get(term, 0) + 1
-            parsed_chunks.append({
-                "id": r["id"],
-                "doc_id": r["doc_id"],
-                "chunk_index": r["chunk_index"],
-                "text": r["text"],
-                "tf": tf_data,
-                "token_count": r["token_count"] or 1,
-                "title": r["title"],
-                "source_type": r["source_type"]
-            })
 
         avg_dl = sum(c["token_count"] for c in parsed_chunks) / max(1, total_docs)
         k1 = 1.2
@@ -331,9 +372,12 @@ class RAGKnowledgeEngine:
         """Deletes a document and its cascading chunks."""
         with db.get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute("DELETE FROM rag_chunks WHERE doc_id = ? AND project_id = ?", (doc_id, project_id))
             cursor.execute("DELETE FROM rag_documents WHERE id = ? AND project_id = ?", (doc_id, project_id))
             affected = cursor.rowcount > 0
             conn.commit()
+        # Invalidate any cached parsed chunks for this project
+        self._chunk_cache.pop(project_id, None)
         return affected
 
 

@@ -34,6 +34,25 @@ from core.models import VulnerabilityFinding, Severity
 class ScannerIntegrations:
     """Manages external cybersecurity tool discovery, execution, health checks, and output normalization."""
 
+    # Bounded TTL memoization for tool inventory detection. Detection shells out
+    # to ~15 binaries via shutil.which/subprocess; callers (API endpoints, the
+    # agent dispatch path) can invoke it dozens of times per operation.
+    _INVENTORY_TTL_SEC = 60.0
+    _inventory_cache: Dict[str, Any] = {}
+    _inventory_cache_ts: float = 0.0
+
+    @classmethod
+    def invalidate_inventory_cache(cls) -> None:
+        cls._inventory_cache = {}
+        cls._inventory_cache_ts = 0.0
+
+    @staticmethod
+    def _inventory_cache_valid() -> bool:
+        if not ScannerIntegrations._inventory_cache:
+            return False
+        age = time.time() - ScannerIntegrations._inventory_cache_ts
+        return age < ScannerIntegrations._INVENTORY_TTL_SEC
+
     @staticmethod
     def _find_binary(name: str, extra_paths: Optional[List[str]] = None) -> Optional[str]:
         p = shutil.which(name)
@@ -57,7 +76,22 @@ class ScannerIntegrations:
 
     @staticmethod
     def get_tool_inventory() -> Dict[str, Dict[str, Any]]:
-        """Inspects host system for security tool binaries and versions."""
+        """Cached wrapper: inspects host for security tool binaries and versions.
+
+        Detection shells out to ~15 binaries; results are memoized for
+        `_INVENTORY_TTL_SEC` seconds. Callers can force a refresh with
+        `invalidate_inventory_cache()`.
+        """
+        if ScannerIntegrations._inventory_cache_valid():
+            return {k: dict(v) for k, v in ScannerIntegrations._inventory_cache.items()}
+        inventory = ScannerIntegrations._detect_tool_inventory()
+        ScannerIntegrations._inventory_cache = inventory
+        ScannerIntegrations._inventory_cache_ts = time.time()
+        return {k: dict(v) for k, v in inventory.items()}
+
+    @staticmethod
+    def _detect_tool_inventory() -> Dict[str, Dict[str, Any]]:
+        """Inspects host system for security tool binaries and versions (uncached)."""
         inventory = {}
 
         # 1. Nmap
@@ -393,6 +427,7 @@ class ScannerIntegrations:
     @staticmethod
     def update_tool(tool_id: str) -> Dict[str, Any]:
         """Updates a specific cybersecurity tool, template database, or signature baseline."""
+        ScannerIntegrations.invalidate_inventory_cache()
         import datetime
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         t_id = tool_id.lower().strip()
@@ -470,6 +505,7 @@ class ScannerIntegrations:
     @staticmethod
     def update_all_tools() -> Dict[str, Any]:
         """Updates all external cybersecurity tools, templates, rules, and native engines in parallel."""
+        ScannerIntegrations.invalidate_inventory_cache()
         import datetime
         import concurrent.futures
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()

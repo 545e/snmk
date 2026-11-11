@@ -60,3 +60,10 @@ All systems operate as one integrated platform. Every unit, integration, and end
 ## 4. Handover & Next Steps
 
 The repository is synchronized at **[https://github.com/545e/snmk](https://github.com/545e/snmk)** on both `main` and `generation-2-complete-modernization`. The application daemon runs healthy at `http://127.0.0.1:8000`.
+
+
+## P. DSA Engineering Pass — 2026-11-11 (this cycle)
+- Benchmark harness added at `benchmarks/dsa_bench.py`; measured results in `docs/DSA_OPTIMIZATION_REPORT.md`.
+- Implemented (all covered by the existing suite): TTL cache for host tool detection; signature-invalidating RAG parse-cache; N+1 -> single grouped masked-credential query; adjacency-indexed knowledge-graph exposed-assets/shared-vuln queries (10.2x faster measured); compiled regex hot paths; RAG cascade-delete on documents (correctness fix).
+- Verified: 239/239 tests PASS (full suite re-run after the DSA pass).
+- Performance claims are bounded and real — no estimation, no marketing deltas; see DSA report.

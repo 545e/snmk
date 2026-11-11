@@ -154,16 +154,17 @@ class IntegrationRegistry:
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM integrations ORDER BY category, display_name").fetchall()
+            # Single grouped lookup instead of N+1 per-integration credential queries
+            cred_rows = conn.execute(
+                "SELECT integration_id, field_key, masked_value FROM encrypted_credentials"
+            ).fetchall()
+            cred_index: Dict[str, Dict[str, str]] = {}
+            for c in cred_rows:
+                cred_index.setdefault(c["integration_id"], {})[c["field_key"]] = c["masked_value"]
             results = []
             for r in rows:
                 row_dict = dict(r)
-                # Fetch masked credentials
-                cred_rows = conn.execute(
-                    "SELECT field_key, masked_value FROM encrypted_credentials WHERE integration_id = ?",
-                    (row_dict["id"],)
-                ).fetchall()
-                creds_masked = {c["field_key"]: c["masked_value"] for c in cred_rows}
-                row_dict["masked_credentials"] = creds_masked
+                row_dict["masked_credentials"] = cred_index.get(row_dict["id"], {})
                 try:
                     row_dict["config"] = json.loads(row_dict.get("config_json") or "{}")
                 except Exception:
