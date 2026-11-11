@@ -145,7 +145,14 @@ Return ONLY valid JSON with keys:
                 res_text = res_text.split("```json")[1].split("```")[0].strip()
             elif "```" in res_text:
                 res_text = res_text.split("```")[1].split("```")[0].strip()
-            return json.loads(res_text)
+            parsed = json.loads(res_text)
+            if isinstance(parsed, dict):
+                # Provenance marker so a consumer can tell a real model
+                # response apart from a heuristic classification.
+                parsed.setdefault("source", "llm")
+                parsed.setdefault("provider", self.provider)
+                parsed.setdefault("model", self.model)
+            return parsed
         except Exception:
             return self._heuristic_poc_analysis(finding_title, endpoint, request_data, response_data)
 
@@ -207,6 +214,24 @@ Return ONLY valid JSON with:
                 history = [{"role": m.role, "content": m.content} for m in mem_msgs]
             except Exception as e:
                 logger.debug("Session memory lookup skipped: %s", e)
+
+        # Scrub credentials before anything leaves the process.  The prompt,
+        # the retrieved session history and the RAG grounding context are all
+        # forwarded verbatim to a third-party LLM provider, so a pasted API
+        # key would otherwise be exfiltrated.  Agent memory is already
+        # scrubbed on persistence; this closes the transmission path.
+        try:
+            from core.agent_memory import redact_secrets_from_text
+
+            prompt = redact_secrets_from_text(prompt)
+            full_system = redact_secrets_from_text(full_system)
+            if history:
+                history = [
+                    {"role": h.get("role"), "content": redact_secrets_from_text(h.get("content") or "")}
+                    for h in history
+                ]
+        except Exception as e:
+            logger.debug("Secret scrubbing skipped: %s", e)
 
         response = await self._call_llm(prompt=prompt, history=history, system_instruction=full_system)
 
@@ -338,9 +363,29 @@ Return ONLY valid JSON with:
                 )
 
     def _heuristic_poc_analysis(self, finding_title: str, endpoint: str, request_data: str, response_data: str) -> Dict[str, Any]:
-        """Autonomous deterministic heuristic validation and CVSS scoring."""
+        """Autonomous deterministic heuristic classification and CVSS scoring.
+
+        HONESTY NOTE
+        ------------
+        This is a *classification* step, not a validation step.  It derives a
+        severity, an OWASP category and a CVSS vector from keywords in the
+        finding title.  It performs **no** active probe and inspects **no**
+        response body, so it must not claim that a vulnerability was
+        validated.
+
+        The previous implementation returned ``verified: True`` together with
+        the text "Validated through active probe against {endpoint}. Server
+        returned anomalous status or characteristic signature in response
+        body." - an assertion about an observation that never happened.
+        ``agents/exploit_validator_agent.py`` copied that explanation onto the
+        persisted finding, so fabricated evidence was stored in the database
+        and exported into reports.
+
+        The result therefore now carries an explicit provenance marker and
+        ``verified: False``.
+        """
         title_lower = finding_title.lower()
-        verified = True
+        verified = False
         cvss = 5.0
         vector = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
         owasp = "A05:2021-Security Misconfiguration"
@@ -378,11 +423,21 @@ Return ONLY valid JSON with:
 
         return {
             "verified": verified,
+            # Provenance: "heuristic" (keyword classification only),
+            # "llm" (a real model produced it) or "verified" (actively
+            # confirmed against the target).
+            "source": "heuristic",
+            "evidence_observed": False,
             "cvss_score": cvss,
             "cvss_vector": vector,
             "owasp_category": owasp,
             "poc_curl": poc_curl,
-            "explanation": f"Validated through active probe against {endpoint}. Server returned anomalous status or characteristic signature in response body.",
+            "explanation": (
+                f"Classified heuristically from the finding title keywords; "
+                f"no active probe was executed against {endpoint} and no "
+                f"response signature was confirmed. Severity and OWASP "
+                f"category are a deterministic mapping, not a validation."
+            ),
             "patch_suggestion": "Apply strict input validation, principle of least privilege, and sanitize user-controllable input."
         }
 

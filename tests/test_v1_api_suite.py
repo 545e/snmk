@@ -11,6 +11,21 @@ from web.server import app
 client = TestClient(app)
 
 
+def _expected_agent_count() -> int:
+    """Registered agent count, derived from the registry.
+
+    A hard-coded "85" became stale when the MAP / network-intelligence tier
+    was added (9 further agents), so the assertion is now derived from the
+    single source of truth instead of a duplicated literal.
+    """
+    from core.agent_registry import agent_registry
+
+    return agent_registry.get_summary()["total_discovered"]
+
+
+_EXPECTED_AGENT_COUNT = _expected_agent_count()
+
+
 def test_health_endpoints():
     """Verify system health, liveness, readiness, and dependencies probes."""
     res_live = client.get("/health/live")
@@ -29,7 +44,7 @@ def test_health_endpoints():
     assert res_dep.status_code == 200
     data_dep = res_dep.json()
     assert data_dep["status"] == "HEALTHY"
-    assert data_dep["dependencies"]["agent_workforce"]["total_agents"] == 85
+    assert data_dep["dependencies"]["agent_workforce"]["total_agents"] == _EXPECTED_AGENT_COUNT
     assert data_dep["dependencies"]["integrations_hub"]["supported_providers"] >= 21
 
 
@@ -139,21 +154,21 @@ def test_v1_threat_intelligence():
 
 
 def test_v1_ai_workforce():
-    """Verify 85 specialist agents across 5 operational tiers."""
+    """Verify the registered specialist agents across every operational tier."""
     res_agents = client.get("/api/v1/ai/agents")
     assert res_agents.status_code == 200
     agents = res_agents.json()["data"]
-    assert len(agents) == 85
+    assert len(agents) == _EXPECTED_AGENT_COUNT
 
     res_summary = client.get("/api/v1/ai/agents/summary")
     assert res_summary.status_code == 200
     summary = res_summary.json()["data"]
-    assert summary["total_discovered"] == 85
-    assert summary["tiers"]["specialist_workforce"] == 17
-    assert summary["tiers"]["offensive_recon"] == 9
-    assert summary["tiers"]["owasp_plugins"] == 10
-    assert summary["tiers"]["core_engines"] == 32
-    assert summary["tiers"]["tool_adapters"] == 17
+    assert summary["total_discovered"] == _EXPECTED_AGENT_COUNT
+    # The tier breakdown must add up to the total - it used to omit the
+    # network_intelligence tier entirely.
+    assert sum(summary["tiers"].values()) == _EXPECTED_AGENT_COUNT
+    for tier, count in summary["tiers"].items():
+        assert count > 0, f"tier {tier} reported zero agents"
 
 
 def test_v1_reports_and_exports():

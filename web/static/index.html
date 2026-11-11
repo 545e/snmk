@@ -1087,7 +1087,7 @@
             <div class="swa-feed-toolbar" style="padding: 10px 18px; background: rgba(255,255,255,0.015); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                 <div style="position: relative; flex: 1; min-width: 240px; max-width: 380px;">
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" id="dashFindingsSearch" placeholder="Filter vulnerabilities, endpoints, CWE..." oninput="filterDashboardFindings()" style="width: 100%; padding: 5px 12px 5px 30px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--text-title); outline: none;">
+                    <input type="text" id="dashFindingsSearch" placeholder="Filter vulnerabilities, endpoints, CWE..." oninput="__debounced_filterDashboardFindings()" style="width: 100%; padding: 5px 12px 5px 30px; background: var(--bg-main); border: 1px solid var(--border); border-radius: 6px; font-size: 12px; color: var(--text-title); outline: none;">
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     <div class="dash-sev-filters" style="display: flex; gap: 4px;">
@@ -3502,7 +3502,7 @@ Content-Type: application/json
                                     <p style="color: var(--text-muted); font-size: 12.5px;">Live database inventory of discovered domains, IP bindings, CNAME alias chains, and takeover vulnerabilities.</p>
                                 </div>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="assetSearchFilter" class="input-target" placeholder="Filter domain/IP..." style="max-width: 200px; padding: 6px 12px; font-size: 12px;" oninput="filterAssetsTable()">
+                                    <input type="text" id="assetSearchFilter" class="input-target" placeholder="Filter domain/IP..." style="max-width: 200px; padding: 6px 12px; font-size: 12px;" oninput="__debounced_filterAssetsTable()">
                                     <button class="btn btn-secondary" onclick="exportAssetsCsv()" style="font-size: 12px; padding: 6px 12px;">Export CSV</button>
                                     <button class="btn btn-primary" onclick="loadAssetsTable()" style="font-size: 12px; padding: 6px 12px;">Refresh</button>
                                 </div>
@@ -4375,7 +4375,7 @@ Content-Type: application/json
                                     <p style="color: var(--text-muted); font-size: 12.5px;">Complete registry of all 16 implemented offensive, defensive, OSINT, forensics, and AI evaluation engines.</p>
                                 </div>
                                 <div style="display: flex; gap: 8px;">
-                                    <input type="text" id="toolSearchFilter" class="input-target" placeholder="Search tool by name or function..." style="max-width: 240px; padding: 6px 12px; font-size: 12px;" oninput="filterToolCatalog()">
+                                    <input type="text" id="toolSearchFilter" class="input-target" placeholder="Search tool by name or function..." style="max-width: 240px; padding: 6px 12px; font-size: 12px;" oninput="__debounced_filterToolCatalog()">
                                     <select id="toolCategorySelect" class="input-target" style="padding: 6px 12px; font-size: 12px;" onchange="loadToolRegistry(this.value)">
                                         <option value="">All Categories (34 Tools)</option>
                                         <option value="soc">A. Security Operations Center (SOC)</option>

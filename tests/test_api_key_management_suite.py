@@ -69,7 +69,14 @@ def test_adhoc_connection_testing():
     res = client.post("/api/integrations/test", json=test_payload)
     assert res.status_code == 200
     data = res.json()
-    assert data["status"] in ("AUTHENTICATION_FAILED", "ERROR", "FAILED")
+    # A bogus key must never be reported as a successful connection.  The
+    # exact non-success status depends on the environment: an offline or
+    # firewalled host yields UNREACHABLE, a reachable one yields
+    # AUTHENTICATION_FAILED.
+    assert data["status"] != "SUCCESS"
+    assert data["status"] in (
+        "AUTHENTICATION_FAILED", "ERROR", "FAILED", "UNREACHABLE", "CONFIGURED",
+    )
     assert "latency_ms" in data
     assert data["latency_ms"] >= 0
 

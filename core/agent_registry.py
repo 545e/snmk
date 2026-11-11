@@ -1,15 +1,26 @@
 """
 SWA AI — Autonomous Cybersecurity Enterprise Agent Registry
 =============================================================
-Central registry, discovery engine, and execution hub for all 85 cybersecurity agents,
-specialist engines, OWASP security plugins, and scanner adapters across 5 operational tiers.
+Central registry, discovery engine, and execution hub for the cybersecurity
+agents, specialist engines, OWASP security plugins, scanner adapters and
+network-intelligence agents across 6 operational tiers.
 
-Tier 1: Specialist Workforce Agents (17)
-Tier 2: Offensive & Reconnaissance Domain Agents (9)
-Tier 3: OWASP Top 10 Security Plugin Agents (10)
-Tier 4: Core Autonomous Security & Reliability Engines (32)
-Tier 5: External Tool & Scanner Integration Adapters (17)
-Total Discovered & Managed Agents: 85
+Tier 1: Specialist Workforce Agents
+Tier 2: Offensive & Reconnaissance Domain Agents
+Tier 3: OWASP Top 10 Security Plugin Agents
+Tier 4: Core Autonomous Security & Reliability Engines
+Tier 5: External Tool & Scanner Integration Adapters
+Tier 6: Network Intelligence (MAP) Agents
+
+NOTE ON AGENT COUNTS
+--------------------
+The agent count is **derived from the registry** (``get_summary()``), it is
+not a hardcoded constant.  An earlier revision of this module documented
+"85 agents across 5 tiers" while the registry actually contained 94 agents
+across 6 tiers - the MAP / network-intelligence tier had been added without
+updating the documented totals, the tier summary or the API assertions that
+depended on them.  Use ``agent_registry.get_summary()["total_discovered"]``
+rather than a literal.
 """
 
 import logging
@@ -874,7 +885,7 @@ class AgentRegistry:
     def get_summary(self) -> Dict[str, Any]:
         """Returns structured metrics for the complete agent workforce."""
         manifests = list(self._agents.values())
-        tiers_count = {}
+        tiers_count: Dict[str, int] = {}
         for m in manifests:
             tiers_count[m.tier] = tiers_count.get(m.tier, 0) + 1
 
@@ -883,13 +894,12 @@ class AgentRegistry:
             "total_registered": len(manifests),
             "available": sum(1 for m in manifests if m.available),
             "installed": sum(1 for m in manifests if m.installed),
-            "tiers": {
-                "specialist_workforce": tiers_count.get("specialist_workforce", 0),
-                "offensive_recon": tiers_count.get("offensive_recon", 0),
-                "owasp_plugins": tiers_count.get("owasp_plugins", 0),
-                "core_engines": tiers_count.get("core_engines", 0),
-                "tool_adapters": tiers_count.get("tool_adapters", 0)
-            },
+            # The tier breakdown is derived from the registry so that it can
+            # never disagree with "total_discovered".  A hardcoded five-tier
+            # mapping silently dropped the network_intelligence tier, which
+            # made the tier counts sum to fewer agents than were registered.
+            "tiers": dict(sorted(tiers_count.items())),
+            "tier_count": len(tiers_count),
             "status": "OPERATIONAL"
         }
 
@@ -1017,6 +1027,9 @@ class AgentRegistry:
         }
         evidence: List[Dict[str, Any]] = []
         handled = False
+        # Tracks an engine-level failure so that an agent whose handler
+        # raised is not reported as COMPLETED / "executed successfully".
+        execution_error = None
 
         try:
             if manifest.tier == "owasp_plugins":
@@ -1301,16 +1314,18 @@ class AgentRegistry:
                         outputs["engine_status"] = "OPERATIONAL"
                 except Exception as eng_err:
                     outputs["engine_note"] = str(eng_err)
+                    execution_error = str(eng_err)
+                    manifest.status = "FAILED"
+                    manifest.last_result = f"ERROR: {eng_err}"
 
             elif manifest.tier == "network_intelligence":
                 handled = True
-                output_data = {}
-                from core.network import (
-                    origin_engine, geo_engine, dns_engine, route_engine,
-                    perf_engine, discovery_engine, threat_engine, live_capture, map_ai_assistant
-                )
-                tgt = inputs.get("target") or "127.0.0.1"
                 try:
+                    from core.network import (
+                        origin_engine, geo_engine, dns_engine, route_engine,
+                        perf_engine, discovery_engine, threat_engine, live_capture, map_ai_assistant
+                    )
+                    tgt = inputs.get("target") or "127.0.0.1"
                     if manifest.id == "map_orchestrator":
                         from core.network import get_local_network_info
                         output_data = {"posture": get_local_network_info().dict(), "status": "COORDINATED"}
@@ -1323,9 +1338,11 @@ class AgentRegistry:
                     elif manifest.id == "map_dns_bgp":
                         output_data = await dns_engine.resolve_all(tgt)
                     elif manifest.id == "map_topology_discovery":
-                        output_data = {"devices": [], "total": 0, "status": "SCOPED_TARGET_AUDIT"}
+                        devs = discovery_engine.discover_local_devices()
+                        output_data = {"devices": [d.dict() for d in devs], "total": len(devs)}
                     elif manifest.id == "map_performance":
-                        output_data = {"latency_ms": 14.5, "jitter_ms": 1.2, "status": "OPTIMAL", "packet_loss": 0.0}
+                        sp = await perf_engine.run_speed_test()
+                        output_data = sp.dict()
                     elif manifest.id == "map_packet_forensics":
                         cap = live_capture.get_status()
                         output_data = {"status": cap, "flows": [f.dict() for f in live_capture.get_flows()[:10]]}
@@ -1334,12 +1351,19 @@ class AgentRegistry:
                         output_data = th.dict()
                     elif manifest.id == "map_root_cause":
                         ai_res = await map_ai_assistant.answer_query(f"Identify root cause for {tgt}")
-                        output_data = ai_res if isinstance(ai_res, dict) else {"root_cause": str(ai_res)}
+                        output_data = ai_res
                     else:
                         output_data = {"message": f"MAP Agent {manifest.name} executed successfully."}
-                except Exception as n_err:
-                    output_data = {"error": str(n_err)}
-                outputs.update(output_data)
+                    # The computed result must actually reach the caller.  It
+                    # used to be assigned to a local variable that was never
+                    # propagated, so every MAP agent was reported as
+                    # "NOT_EXECUTABLE" even though it had a working handler.
+                    outputs["network_intelligence"] = output_data
+                except Exception as map_err:
+                    outputs["engine_note"] = str(map_err)
+                    execution_error = str(map_err)
+                    manifest.status = "FAILED"
+                    manifest.last_result = f"ERROR: {map_err}"
 
             elif manifest.tier == "tool_adapters":
                 handled = True
@@ -1379,22 +1403,32 @@ class AgentRegistry:
                     pass
                 return task_record
 
-            # Record successful completion
+            # Record completion.  An agent whose handler raised is reported as
+            # FAILED - previously every handler error was swallowed and the
+            # agent was still stamped COMPLETED / "executed successfully",
+            # which inflated the "successful agents" metric.
             duration = round(time.time() - start_time, 2)
-            outputs["summary"] = f"Agent '{manifest.name}' executed successfully against {target}."
-            manifest.status = "COMPLETED"
-            manifest.last_result = "SUCCESS"
+            if execution_error:
+                outputs["summary"] = (
+                    f"Agent '{manifest.name}' failed against {target}: {execution_error}"
+                )
+                manifest.status = "FAILED"
+                manifest.last_result = f"ERROR: {execution_error}"
+            else:
+                outputs["summary"] = f"Agent '{manifest.name}' executed successfully against {target}."
+                manifest.status = "COMPLETED"
+                manifest.last_result = "SUCCESS"
 
             task_record = {
                 "id": task_id,
                 "agent_role": manifest.role or manifest.id,
                 "scan_id": scan_id,
                 "title": title,
-                "status": "COMPLETED",
+                "status": "FAILED" if execution_error else "COMPLETED",
                 "inputs": inputs,
                 "outputs": outputs,
                 "evidence": evidence,
-                "error_message": None,
+                "error_message": execution_error,
                 "started_at": now_iso,
                 "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
                 "duration_seconds": duration
@@ -1448,13 +1482,15 @@ class AgentRegistry:
         discovered = self.discover_all_agents()
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
-        tier_results = {
-            "specialist_workforce": {"count": 0, "status": "COMPLETED", "agents": []},
-            "offensive_recon": {"count": 0, "status": "COMPLETED", "agents": []},
-            "owasp_plugins": {"count": 0, "status": "COMPLETED", "agents": []},
-            "core_engines": {"count": 0, "status": "COMPLETED", "agents": []},
-            "tool_adapters": {"count": 0, "status": "COMPLETED", "agents": []}
-        }
+        # The tier buckets are derived from the registry itself so that a new
+        # operational tier cannot be silently folded into "core_engines".
+        # Previously the "network_intelligence" tier (the MAP agents) had no
+        # bucket, so all of its agents were mis-reported as core engines.
+        tier_results: Dict[str, Dict[str, Any]] = {}
+        for _agent in discovered.values():
+            _tier = _agent.tier or "core_engines"
+            if _tier not in tier_results:
+                tier_results[_tier] = {"count": 0, "status": "COMPLETED", "agents": []}
 
         status_counts = {"COMPLETED": 0, "FAILED": 0, "NOT_EXECUTABLE": 0}
 

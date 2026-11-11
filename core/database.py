@@ -66,6 +66,16 @@ class Database:
 
 
 
+    # ``PRAGMA journal_mode = WAL`` is a persistent, database-level setting.
+
+    # It is verified once per process instead of being re-applied on every
+
+    # connection (see ``get_connection``).
+
+    _wal_configured: bool = False
+
+
+
     def __init__(self, db_path: str = DB_PATH):
 
 
@@ -130,9 +140,13 @@ class Database:
 
 
 
-    def check_health(self) -> Dict[str, Any]:
+    def check_health(self, deep: bool = False) -> Dict[str, Any]:
+        """Validates database connectivity and returns table integrity metrics.
 
-        """Validates database connectivity and returns table integrity metrics."""
+        ``deep=True`` runs a full ``PRAGMA quick_check`` integrity scan.  The
+        default is a cheap liveness probe because the health endpoints are
+        polled continuously by orchestrators and the UI.
+        """
 
         try:
 
@@ -148,9 +162,18 @@ class Database:
 
                 findings_count = cursor.fetchone()[0]
 
-                cursor.execute("PRAGMA quick_check(1)")
-
-                quick_check = cursor.fetchone()[0]
+                # NOTE: ``PRAGMA quick_check`` is a full integrity scan of
+                # the database file (O(database size), not O(1)).  It used to
+                # run on every /health, /health/ready and /health/dependencies
+                # probe - the most frequently polled endpoints of the platform.
+                # The cheap liveness probe is used here; the full integrity
+                # scan stays available through check_health(deep=True).
+                if deep:
+                    cursor.execute("PRAGMA quick_check(1)")
+                    quick_check = cursor.fetchone()[0]
+                else:
+                    cursor.execute("SELECT 1")
+                    quick_check = "ok"
 
                 return {
 
@@ -2668,6 +2691,56 @@ class Database:
 
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_remediation_finding ON remediation_tickets (finding_id);")
 
+                # --- indexes supporting the platform's hot read paths ---
+                # Findings are ordered by (cvss_score DESC, created_at DESC)
+                # on every list request; without these indexes SQLite
+                # materialises and sorts the whole table per request.
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cvss_created ON findings (cvss_score DESC, created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_scan_cvss_created ON findings (scan_id, cvss_score DESC, created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_lifecycle ON findings (lifecycle_status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_remediation ON findings (remediation_status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_poc ON findings (poc_verification_state)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cwe ON findings (cwe_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cve ON findings (cve_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_owasp ON findings (owasp_category)")
+                # logs are read per scan and ordered by id
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_scan_id_id ON logs (scan_id, id)")
+                # scans are looked up by target when computing drift baselines
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_target_url ON scans (target_url, created_at DESC)")
+                # remediation tickets / agent tasks: filtered and sorted
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_remediation_scan_updated ON remediation_tickets (scan_id, updated_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_scan_started ON agent_tasks (scan_id, started_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_role_started ON agent_tasks (agent_role, started_at DESC)")
+                # "list newest first" history tables
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_exports_created ON cyber_exports (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_runs_created ON cyber_test_runs (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_run ON cyber_test_results (run_id, created_at ASC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_created ON cyber_test_results (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_deployments_created ON cyber_deployments (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_approval_status_created ON approval_requests (status, created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_template_created ON report_records (template_type, created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_created ON report_records (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_security_tests_run ON llm_security_tests (run_id, created_at ASC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_datasets_created ON datasets (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_training_created ON ai_training_jobs (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_evaluations_created ON ai_evaluations (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_created ON vulnerability_assessment_reports (created_at DESC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_scan ON vulnerability_assessment_reports (scan_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects (workspace_id, created_at ASC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_drift_detected ON asset_drift_events (detected_at DESC)")
+                # assets are sorted by (http_responsive DESC, subdomain ASC)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_responsive ON assets (http_responsive DESC, subdomain ASC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_parent_responsive ON assets (parent_domain, http_responsive DESC, subdomain ASC)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_status ON agents_inventory (status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_tier_name ON agents_inventory (tier, name)")
+                # threat indicator lookups by value (used by IOC enrichment)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_threat_indicators_value ON threat_indicators (indicator_value)")
+                # workflow execution history is read newest-first
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_workflow_exec_started ON workflow_executions (started_at DESC)")
+                # agent memory is read per (session, project) newest-first
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_mem_session_proj_time ON agent_memory_records (session_id, project_id, created_at DESC)")
+
+
 
 
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_drift_project ON asset_drift_events (project_id);")
@@ -3548,31 +3621,20 @@ class Database:
 
 
 
-    def list_scans(self, limit: Optional[int] = None) -> List[ScanJob]:
+    def list_scans(self, limit: Optional[int] = None, offset: int = 0) -> List[ScanJob]:
+        """Return assessment scans, newest first, optionally paginated.
 
-
-
+        ``offset`` allows callers to page without loading the complete
+        scan table and slicing the list in Python.
+        """
         with self.get_connection() as conn:
-
-
-
             cursor = conn.cursor()
-
-
-
             query = "SELECT * FROM scans ORDER BY created_at DESC"
-
-
-
-            if limit:
-
-
-
-                query += f" LIMIT {int(limit)}"
-
-
-
-            cursor.execute(query)
+            params = []
+            if limit is not None:
+                query += " LIMIT ? OFFSET ?"
+                params = [int(limit), int(offset or 0)]
+            cursor.execute(query, tuple(params))
 
 
 
@@ -3837,7 +3899,17 @@ class Database:
 
 
 
-    def list_findings(self, scan_id: Optional[str] = None) -> List[VulnerabilityFinding]:
+    def list_findings(self, scan_id: Optional[str] = None,
+                      limit: Optional[int] = None,
+                      offset: int = 0) -> List[VulnerabilityFinding]:
+        """Return findings, optionally scoped to a scan and paginated.
+
+        ``limit`` is optional for backwards compatibility, but every
+        caller that does not need the complete table should pass one:
+        the findings table carries evidence blobs (poc_curl,
+        request_evidence, response_evidence) and hydrating all of them
+        for a list view is O(table) work on the event loop.
+        """
 
 
 
@@ -3853,7 +3925,14 @@ class Database:
 
 
 
-                cursor.execute("SELECT * FROM findings WHERE scan_id = ? ORDER BY cvss_score DESC, created_at DESC", (scan_id,))
+                if limit is not None:
+                    cursor.execute(
+                        "SELECT * FROM findings WHERE scan_id = ? "
+                        "ORDER BY cvss_score DESC, created_at DESC LIMIT ? OFFSET ?",
+                        (scan_id, int(limit), int(offset or 0)),
+                    )
+                else:
+                    cursor.execute("SELECT * FROM findings WHERE scan_id = ? ORDER BY cvss_score DESC, created_at DESC", (scan_id,))
 
 
 
@@ -3861,7 +3940,14 @@ class Database:
 
 
 
-                cursor.execute("SELECT * FROM findings ORDER BY cvss_score DESC, created_at DESC")
+                if limit is not None:
+                    cursor.execute(
+                        "SELECT * FROM findings "
+                        "ORDER BY cvss_score DESC, created_at DESC LIMIT ? OFFSET ?",
+                        (int(limit), int(offset or 0)),
+                    )
+                else:
+                    cursor.execute("SELECT * FROM findings ORDER BY cvss_score DESC, created_at DESC")
 
 
 
@@ -4776,6 +4862,47 @@ class Database:
 
 
 
+
+    def count_scans(self) -> int:
+
+        """Return the number of assessment scans (O(1) aggregate)."""
+
+        with self.get_connection() as conn:
+
+            return int(conn.execute("SELECT COUNT(*) FROM scans").fetchone()[0])
+
+
+
+    def count_findings(self) -> int:
+
+        """Return the number of vulnerability findings (O(1) aggregate)."""
+
+        with self.get_connection() as conn:
+
+            return int(conn.execute("SELECT COUNT(*) FROM findings").fetchone()[0])
+
+
+
+    def finding_severity_counts(self) -> Dict[str, int]:
+
+        """Return ``{severity: count}`` for every finding (single grouped scan).
+
+        Replaces the pattern of loading the complete findings table into
+        Python only to count it.
+        """
+
+        counts: Dict[str, int] = {}
+
+        with self.get_connection() as conn:
+
+            for row in conn.execute(
+                "SELECT UPPER(COALESCE(severity, 'INFO')) AS sev, COUNT(*) AS c "
+                "FROM findings GROUP BY sev"
+            ):
+
+                counts[str(row[0])] = int(row[1])
+
+        return counts
 
     def count_assets(self, parent_domain: Optional[str] = None) -> int:
 

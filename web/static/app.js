@@ -240,6 +240,15 @@ async function launchScan() {
     }
 }
 
+/**
+ * Guard against overlapping polling requests.
+ *
+ * `setInterval` with an async callback schedules the next tick whether or
+ * not the previous request has finished, so a slow server makes the
+ * requests pile up.  The flag below keeps at most one request in flight.
+ */
+let __swaPollInFlight = false;
+
 function pollScanStatus(scanId) {
     if (scanPollInterval) clearInterval(scanPollInterval);
     scanPollInterval = setInterval(async () => {
@@ -294,6 +303,8 @@ function pollScanStatus(scanId) {
             }
         } catch (e) {
             console.debug('Polling error:', e);
+        } finally {
+            __swaPollInFlight = false;
         }
     }, 2000);
 }
@@ -1609,9 +1620,10 @@ function navToView(view, updateHash = true) {
     } else if (targetContainerId === 'viewApprovals') {
         loadApprovalsList();
     } else if (targetContainerId === 'viewReports') {
+        // NOTE: loadReportsCenter() used to be called twice here, which
+        // duplicated the /api/scans fetch and the archive fetches.
         loadReportsCenter();
         if (typeof renderDetailedReportView === 'function') renderDetailedReportView();
-        loadReportsCenter();
     } else if (targetContainerId === 'viewCyberAudit') {
         loadAuditLogsAction();
     } else if (targetContainerId === 'viewAiAutomation') {
@@ -12507,6 +12519,32 @@ function setDashboardFindingsFilter(sev, btn) {
     renderDashboardFindingsTable();
 }
 
+/**
+ * Trailing-edge debounce for the free-text search inputs.
+ *
+ * Every search box on the platform fired its filter on *every* keystroke,
+ * which meant a full linear scan, a re-sort and a complete DOM rebuild per
+ * character typed.  Debouncing collapses that into one pass per pause.
+ */
+function debounce(fn, wait) {
+    let timer = null;
+    return function (...args) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => { timer = null; fn.apply(this, args); }, wait);
+    };
+}
+
+const FILTER_DEBOUNCE_MS = 200;
+
+// Expose debounced variants of the table filters on `window` so that the
+// inline `oninput` handlers in index.html can use them.  Inline handlers
+// resolve against the global object, so these must be properties of
+// `window` rather than script-scoped bindings.
+window.__installDebouncedFilter = function (name, fn) {
+    window[name] = debounce(fn, FILTER_DEBOUNCE_MS);
+    return window[name];
+};
+
 function filterDashboardFindings() {
     renderDashboardFindingsTable();
 }
@@ -12531,8 +12569,13 @@ function renderDashboardFindingsTable() {
             return false;
         }
         if (searchTerm) {
-            const str = `${f.title || ''} ${f.endpoint || ''} ${f.cwe_id || ''} ${f.owasp_category || ''} ${f.method || ''} ${f.description || ''}`.toLowerCase();
-            if (!str.includes(searchTerm)) return false;
+            // The searchable text is built once per item and cached, instead
+            // of re-allocating a 200+ character template literal for every
+            // row on every keystroke.
+            if (f.__searchBlob === undefined) {
+                f.__searchBlob = `${f.title || ''} ${f.endpoint || ''} ${f.cwe_id || ''} ${f.owasp_category || ''} ${f.method || ''} ${f.description || ''}`.toLowerCase();
+            }
+            if (!f.__searchBlob.includes(searchTerm)) return false;
         }
         return true;
     });
@@ -12624,9 +12667,13 @@ async function loadDashboardFindings(triggerBtn) {
     if (btn) btn.disabled = true;
 
     try {
-        const res = await fetch('/api/findings');
+        // Bounded page instead of the complete findings table: the full
+        // collection is megabytes of JSON and the dashboard renders at
+        // most 25 rows.
+        const res = await fetch('/api/findings?paged=true&limit=200&offset=0');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const findings = await res.json();
+        const payload = await res.json();
+        const findings = Array.isArray(payload) ? payload : (payload.items || []);
         dashFindingsCache = Array.isArray(findings) ? findings : [];
         
         // 1. Update Dashboard KPI Badges
@@ -12781,10 +12828,14 @@ async function renderDetailedReportView(scanId) {
             if (findings.length === 0) {
                 remList.innerHTML = `<li style="margin-bottom: 8px;">Maintain periodic continuous automated pentesting and update security headers.</li>`;
             } else {
+                // Set-based dedup: the previous Array.includes() scan was
+                // O(n^2) in the number of findings.
                 const uniqueRemediations = [];
+                const seenRemediations = new Set();
                 findings.forEach(f => {
                     const text = f.remediation_advice || f.remediation_patch;
-                    if (text && !uniqueRemediations.includes(text)) {
+                    if (text && !seenRemediations.has(text)) {
+                        seenRemediations.add(text);
                         uniqueRemediations.push(text);
                     }
                 });
@@ -13135,9 +13186,11 @@ function zoomMap(factor) {
 
 // Automatically sync Real SNMK SOC metrics & live findings
 function syncSocMetrics() {
-    fetch('/api/findings')
+    // Bounded page - the SOC counters only need the current window.
+    fetch('/api/findings?paged=true&limit=200&offset=0')
         .then(r => r.json())
-        .then(findings => {
+        .then(payload => {
+            const findings = Array.isArray(payload) ? payload : (payload.items || []);
             if (!Array.isArray(findings)) return;
             allFindingsCache = findings;
             const total = findings.length;
@@ -15810,4 +15863,17 @@ async function testAllIntegrationsUI() {
             btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: -2px; margin-right: 4px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Test All Connections';
         }
     }
+}
+
+// ---------------------------------------------------------------------
+// Debounced table filters.
+//
+// The inline `oninput` handlers in index.html call the wrappers below.
+// Without them every keystroke triggered a full linear scan, a re-sort
+// and a complete DOM rebuild of the table.
+// ---------------------------------------------------------------------
+if (typeof window !== 'undefined') {
+    window.__debounced_filterDashboardFindings = debounce(filterDashboardFindings, FILTER_DEBOUNCE_MS);
+    window.__debounced_filterAssetsTable = debounce(filterAssetsTable, FILTER_DEBOUNCE_MS);
+    window.__debounced_filterToolCatalog = debounce(filterToolCatalog, FILTER_DEBOUNCE_MS);
 }

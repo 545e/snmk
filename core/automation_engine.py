@@ -521,7 +521,7 @@ class AutomationEngine:
             raise ValueError(f"Workflow {wf['name']} is currently disabled")
 
         # 1. Target scope verification
-        is_lab = target in ("127.0.0.1", "localhost") or "127.0.0.1" in target or "localhost" in target
+        is_lab = scope_policy.is_lab_target(target)
         val_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab)
         if not val_res.is_allowed:
             raise ScopeViolation(f"Target scope validation failed for {target}: {val_res.reason}")

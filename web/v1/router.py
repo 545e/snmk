@@ -37,6 +37,16 @@ from core.tool_registry import tool_registry
 v1_router = APIRouter(tags=["v1"])
 
 
+def _registered_agent_count() -> int:
+    """Number of registered agents, derived from the agent registry."""
+    try:
+        from core.agent_registry import agent_registry
+
+        return int(agent_registry.get_summary()["total_discovered"])
+    except Exception:
+        return 0
+
+
 # --- Standardized Response Envelope ---
 
 def v1_envelope(
@@ -295,16 +305,12 @@ async def v1_create_project(payload: V1ProjectCreatePayload):
 @v1_router.get("/dashboard/metrics")
 async def v1_dashboard_metrics():
     """Retrieve top-level cybersecurity posture metrics and KPI summary."""
-    scans = db.list_scans()
-    findings = db.list_findings()
-    total_scans = len(scans)
-    total_findings = len(findings)
-
+    # Aggregate queries: the previous implementation loaded the complete
+    # findings table (every row plus its evidence blobs) only to count it.
+    total_scans = db.count_scans()
+    total_findings = db.count_findings()
     severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
-    for f in findings:
-        sev = (f.severity.value if hasattr(f.severity, "value") else str(f.severity)).upper()
-        if sev in severity_counts:
-            severity_counts[sev] += 1
+    severity_counts.update(db.finding_severity_counts())
 
     posture_score = max(30, 100 - (severity_counts["CRITICAL"] * 15 + severity_counts["HIGH"] * 5 + severity_counts["MEDIUM"] * 2))
     grade = "Grade A (90-100)" if posture_score >= 90 else "Grade B (75-89)" if posture_score >= 75 else "Grade C (50-74)" if posture_score >= 50 else "Grade D (<50)"
@@ -315,7 +321,9 @@ async def v1_dashboard_metrics():
         "severities": severity_counts,
         "posture_score": posture_score,
         "posture_grade": grade,
-        "active_agents": 85,
+        # Derived from the registry instead of a stale literal (the
+        # catalogue grew to 94 agents when the MAP tier was added).
+        "active_agents": _registered_agent_count(),
         "registered_tools": 15,
         "connected_integrations": 23,
     })
@@ -340,9 +348,10 @@ async def v1_dashboard_summary():
 @v1_router.get("/assessments")
 async def v1_list_assessments(limit: int = 50, offset: int = 0):
     """List all autonomous security assessments."""
-    scans = db.list_scans()
-    total = len(scans)
-    paged = scans[offset : offset + limit]
+    # The previous implementation loaded every scan and sliced the list in
+    # Python.  Count and page in SQL instead.
+    total = db.count_scans()
+    paged = db.list_scans(limit=limit, offset=offset)
     return v1_envelope(data=paged, meta={"total": total, "limit": limit, "offset": offset})
 
 @v1_router.post("/assessments")
@@ -354,7 +363,10 @@ async def v1_launch_assessment(payload: V1AssessmentLaunchPayload):
 
     # Scheme normalization
     if "://" not in target:
-        if any(h in target.lower() for h in ["127.0.0.1", "localhost", "0.0.0.0"]):
+        # Decide on the *parsed hostname*, not on a substring of the target:
+        # "https://evil.example/?ref=localhost" must not be treated as a lab
+        # host (and "mylocalhost.com" must not be downgraded to http://).
+        if scope_policy.is_lab_target(target):
             target = f"http://{target}"
         else:
             target = f"https://{target}"
@@ -485,12 +497,21 @@ async def v1_list_exposed_assets():
 # =====================================================================
 
 @v1_router.get("/vulnerabilities")
-async def v1_list_vulnerabilities(severity: Optional[str] = None):
+async def v1_list_vulnerabilities(
+    severity: Optional[str] = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+):
     """List deduplicated vulnerabilities across all assessments."""
-    findings = db.list_findings()
-    if severity:
-        findings = [f for f in findings if (f.severity.value if hasattr(f.severity, "value") else str(f.severity)).upper() == severity.upper()]
-    return v1_envelope(data=findings)
+    # Filtering and pagination are performed in SQL.  The previous
+    # implementation loaded the complete findings table into Python and
+    # filtered it there, which was O(table) per request.
+    findings, total = db.list_findings_advanced(
+        severity=severity.upper() if severity else None,
+        limit=limit,
+        offset=offset,
+    )
+    return v1_envelope(data=findings, meta={"total": total, "limit": limit, "offset": offset})
 
 @v1_router.get("/findings")
 async def v1_list_findings(
@@ -501,16 +522,17 @@ async def v1_list_findings(
     offset: int = 0,
 ):
     """List vulnerability findings with filtering, status, and pagination."""
-    findings = db.list_findings()
-    if scan_id:
-        findings = [f for f in findings if f.scan_id == scan_id]
-    if severity:
-        findings = [f for f in findings if (f.severity.value if hasattr(f.severity, "value") else str(f.severity)).upper() == severity.upper()]
-    if status:
-        findings = [f for f in findings if getattr(f, "lifecycle_status", "OPEN").upper() == status.upper()]
-
-    total = len(findings)
-    paged = findings[offset : offset + limit]
+    # Filtering and pagination are performed in SQL.  The previous
+    # implementation loaded the complete findings table (including the
+    # evidence blobs) into Python and filtered it there - O(table) per
+    # request on the event loop.
+    paged, total = db.list_findings_advanced(
+        severity=severity.upper() if severity else None,
+        scan_id=scan_id,
+        lifecycle_status=status.upper() if status else None,
+        limit=limit,
+        offset=offset,
+    )
     return v1_envelope(data=paged, meta={"total": total, "limit": limit, "offset": offset})
 
 @v1_router.get("/findings/{finding_id}")

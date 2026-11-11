@@ -23,7 +23,12 @@ def _utc_now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
 
-# Regex patterns for detecting and redacting sensitive credentials in memory
+# Regex patterns for detecting and redacting sensitive credentials in memory.
+#
+# This list is deliberately a superset of the platform's evidence redactor
+# (core.app_security.SENSITIVE_PATTERNS): agent memory is persisted *and*
+# forwarded to third-party LLM providers, so a narrower list would leak
+# credentials that the evidence path already redacts.
 SECRET_PATTERNS = [
     re.compile(r"(sk-[a-zA-Z0-9_\-]{20,})", re.IGNORECASE),
     re.compile(r"(ghp_[a-zA-Z0-9]{30,})", re.IGNORECASE),
@@ -31,11 +36,22 @@ SECRET_PATTERNS = [
     re.compile(r"(Bearer\s+[a-zA-Z0-9\._\-]{20,})", re.IGNORECASE),
     re.compile(r"(password\s*[:=]\s*['\"][^'\"]+['\"])", re.IGNORECASE),
     re.compile(r"(api[_\-]?key\s*[:=]\s*['\"][^'\"]+['\"])", re.IGNORECASE),
+    # --- additional shapes covered by the platform evidence redactor ---
+    re.compile(r"(?i)(Authorization:\s*Basic\s+)[A-Za-z0-9+/=]{8,}"),
+    re.compile(r"(?i)(passwd[\"'\s:=]+)[^\"'\s&]{3,}"),
+    re.compile(r"(?i)(secret[\"'\s:=]+)[A-Za-z0-9_\-\.]{12,}"),
+    re.compile(r"(?i)(token[\"'\s:=]+)[A-Za-z0-9_\-\.]{16,}"),
+    re.compile(r"-----BEGIN [A-Z ]+ PRIVATE KEY-----[^-]+-----END [A-Z ]+ PRIVATE KEY-----", re.DOTALL),
+    re.compile(r"(?i)(Set-Cookie:\s*[^=]+=)[^;\r\n]{16,}"),
+    # AWS access key ids and JWTs
+    re.compile(r"(?<![A-Za-z0-9])(?:AKIA|ASIA)[0-9A-Z]{16}(?![A-Za-z0-9])"),
+    re.compile(r"eyJ[A-Za-z0-9_\-]{8,}\.eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}"),
 ]
 
 
 def redact_secrets_from_text(text: str) -> str:
-    """Detects and scrubs raw API keys and secrets before storing into agent memory."""
+    """Detects and scrubs raw API keys and secrets before storing into agent
+    memory and before forwarding content to an external LLM provider."""
     if not text:
         return text
     scrubbed = text
@@ -105,6 +121,11 @@ class AgentMemoryStore:
         mem_id = f"mem_{uuid.uuid4().hex[:10]}"
         now = _utc_now()
         meta = metadata or {}
+        # The metadata blob is persisted verbatim, which means a caller that
+        # puts raw tool output or request headers in it would store secrets
+        # that the content scrubber just removed.  Scrub the serialised
+        # metadata as well.
+        meta_json = redact_secrets_from_text(json.dumps(meta))
 
         with db.get_connection() as conn:
             cursor = conn.cursor()
@@ -119,7 +140,7 @@ class AgentMemoryStore:
                 memory_tier,
                 role,
                 clean_content,
-                json.dumps(meta),
+                meta_json,
                 token_count,
                 now
             ))

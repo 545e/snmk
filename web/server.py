@@ -3113,7 +3113,7 @@ async def run_all_plugins_endpoint(payload: Optional[Dict[str, Any]] = None):
     payload = payload or {}
     target = payload.get("target") or "127.0.0.1:8000"
     from core.scope_policy import scope_policy
-    is_lab = payload.get("lab_mode", False) or "127.0.0.1" in target or "localhost" in target
+    is_lab = payload.get("lab_mode", False) or scope_policy.is_lab_target(target)
     scope_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab, auto_authorize=True)
     if not scope_res.is_allowed:
         raise HTTPException(status_code=403, detail=f"Scope Policy Refusal: {scope_res.reason}")
@@ -3127,7 +3127,7 @@ async def run_single_plugin_endpoint(plugin_id: str, payload: Optional[Dict[str,
     payload = payload or {}
     target = payload.get("target") or "127.0.0.1:8000"
     from core.scope_policy import scope_policy
-    is_lab = payload.get("lab_mode", False) or "127.0.0.1" in target or "localhost" in target
+    is_lab = payload.get("lab_mode", False) or scope_policy.is_lab_target(target)
     scope_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab, auto_authorize=True)
     if not scope_res.is_allowed:
         raise HTTPException(status_code=403, detail=f"Scope Policy Refusal: {scope_res.reason}")
@@ -4305,7 +4305,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
     if tool_id_clean in network_tools:
 
-        is_lab = (req.options or {}).get("lab_mode", False) or "127.0.0.1" in effective_target or "localhost" in effective_target
+        is_lab = (req.options or {}).get("lab_mode", False) or scope_policy.is_lab_target(effective_target)
 
         scope_res = scope_policy.validate_target(effective_target, explicit_lab_authorization=is_lab, auto_authorize=True)
 
@@ -4592,7 +4592,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     Nessus-style vulnerability assessment report.
     """
     from core.scope_policy import scope_policy
-    is_lab = req.lab_mode or "127.0.0.1" in req.target or "localhost" in req.target
+    is_lab = req.lab_mode or scope_policy.is_lab_target(req.target)
     scope_res = scope_policy.validate_target(req.target, explicit_lab_authorization=is_lab, auto_authorize=True)
 
     if not scope_res.is_allowed:

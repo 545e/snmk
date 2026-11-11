@@ -21,6 +21,17 @@ DEFAULT_ALLOWED_LAB_TARGETS = [
     "0a2f008804b73639822f564400da00ed.web-security-academy.net"
 ]
 
+# Host names that identify a local lab target.  Membership is tested against
+# the *parsed hostname* only - never against the raw target string - so that a
+# remote URL containing "localhost" cannot be mistaken for a lab host.
+_LAB_HOST_NAMES = frozenset({
+    "127.0.0.1",
+    "localhost",
+    "0.0.0.0",
+    "::1",
+    "::",
+})
+
 CLOUD_METADATA_IPS = [
     "169.254.169.254", # AWS, GCP, Azure, OpenStack IMDS
     "169.254.170.2",   # AWS ECS metadata
@@ -141,6 +152,31 @@ class ScopePolicy:
             return True
         except ValueError:
             return False
+
+    def is_lab_target(self, target: str) -> bool:
+        """Return True when ``target`` resolves to a local lab host.
+
+        The decision is made on the *parsed hostname* only.  A substring test
+        such as ``"localhost" in target`` is trivially spoofed by a remote
+        URL (``https://evil.example/?ref=http://localhost``) and would
+        therefore bypass the human-approval gate that protects active
+        exploitation steps.
+        """
+        try:
+            host = self._normalize_hostname(target)
+        except Exception:
+            return False
+        if not host:
+            return False
+        if host in _LAB_HOST_NAMES:
+            return True
+        if host.endswith(".localhost"):
+            return True
+        try:
+            ip = ipaddress.ip_address(host)
+        except ValueError:
+            return False
+        return ip.is_loopback
 
     def is_private_or_restricted(self, ip_str: str) -> Tuple[bool, str]:
         """Checks whether an IP address belongs to loopback, RFC1918, link-local, or cloud metadata."""
