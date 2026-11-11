@@ -13,12 +13,17 @@ repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if repo_root not in sys.path:
     sys.path.insert(0, repo_root)
 
+import tempfile
 import threading
 import time
 import uvicorn
-from playwright.sync_api import sync_playwright
 
-ARTIFACT_DIR = r"C:\Users\krish\.gemini\antigravity\brain\2f05e276-5a92-40c7-bc12-e83cd864cf64"
+try:
+    from playwright.sync_api import sync_playwright
+except ImportError:
+    sync_playwright = None
+
+ARTIFACT_DIR = os.environ.get("MAP_ARTIFACT_DIR") or os.path.join(tempfile.gettempdir(), "map_e2e_artifacts")
 SCREENSHOT_DIR = os.path.join(ARTIFACT_DIR, "screenshots")
 os.makedirs(SCREENSHOT_DIR, exist_ok=True)
 
@@ -54,6 +59,9 @@ def wait_for_server(port=8765, timeout=10.0):
 
 
 def run_e2e_test():
+    if not sync_playwright:
+        print("[E2E] Playwright is not installed or available in this environment. Skipping.")
+        return {}, {}
     print("[E2E] Starting local test server on port 8765...")
     server = ServerThread(port=8765)
     server.start()
