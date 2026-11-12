@@ -172,3 +172,43 @@ class TestAgentUsageEndpoint:
         with db.get_connection() as conn:
             truth = conn.execute("SELECT COUNT(*) FROM agent_tasks").fetchone()[0]
         assert body["usage_summary"]["total_requests"] == truth
+
+
+# ---------------------------------------------------------------------------
+# The audit-log primary key was a bare millisecond timestamp, so two audit
+# entries written inside the same millisecond collided on the primary key and
+# the INSERT failed with "UNIQUE constraint failed: cyber_audit_logs.id".
+# This intermittently broke the CI approval-gate and deployment tests.
+# ---------------------------------------------------------------------------
+class TestAuditLogIdUniqueness:
+    def test_rapid_audit_writes_do_not_collide(self):
+        from core.database import db
+
+        ids = [db.record_audit_log(action="dsa_audit_id_probe", actor="probe",
+                                   details=str(i)) for i in range(200)]
+        try:
+            assert len(set(ids)) == len(ids), "audit ids collided"
+            with db.get_connection() as conn:
+                rows = conn.execute(
+                    "SELECT id FROM cyber_audit_logs WHERE action = ?",
+                    ("dsa_audit_id_probe",)).fetchall()
+            stored = [r[0] for r in rows]
+            assert len(stored) == len(set(stored)), "duplicate audit ids were stored"
+        finally:
+            with db.get_connection() as conn:
+                conn.execute("DELETE FROM cyber_audit_logs WHERE action = ?",
+                             ("dsa_audit_id_probe",))
+                conn.commit()
+
+    def test_audit_id_keeps_a_timestamp_prefix(self):
+        """The id stays human-readable and sorts chronologically."""
+        from core.database import db
+
+        log_id = db.record_audit_log(action="dsa_audit_prefix_probe", actor="probe")
+        try:
+            assert log_id.startswith("aud_"), log_id
+            assert log_id.count("_") == 2, log_id
+        finally:
+            with db.get_connection() as conn:
+                conn.execute("DELETE FROM cyber_audit_logs WHERE id = ?", (log_id,))
+                conn.commit()

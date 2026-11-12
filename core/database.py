@@ -6635,7 +6635,17 @@ class Database:
 
 
 
-        log_id = f"aud_{int(datetime.datetime.now().timestamp() * 1000)}"
+        # NOTE: the id used to be a bare millisecond timestamp, which is not
+        # unique: two audit entries written inside the same millisecond
+        # produced the same primary key and the INSERT failed with
+        # "UNIQUE constraint failed: cyber_audit_logs.id".  The timestamp
+        # prefix is kept (it stays human-readable and sorts chronologically)
+        # and a random suffix makes the id collision-free.  The id is opaque
+        # to every consumer - nothing parses it.
+        log_id = (
+            f"aud_{int(datetime.datetime.now().timestamp() * 1000)}"
+            f"_{uuid.uuid4().hex[:12]}"
+        )
 
 
 
