@@ -470,7 +470,7 @@ def validate_tool_target(target: str, *, tool_id: str) -> ScopeValidationResult:
             )
 
     # 2. Basic hostname syntax validation (catches shell metacharacters and junk).
-    if not _looks_like_ip(probe_host):
+    if not is_builtin_lab and not _looks_like_ip(probe_host):
         if not _DOMAIN_RE.match(probe_host):
             return ScopeValidationResult(
                 is_allowed=False, target=clean, hostname=probe_host,

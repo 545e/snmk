@@ -431,6 +431,21 @@ class ScannerIntegrations:
         import datetime
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         t_id = tool_id.lower().strip()
+        tool_aliases = {
+            "zap": "owasp_zap",
+            "owasp-zap": "owasp_zap",
+            "defender": "microsoft_defender",
+            "windows_defender": "microsoft_defender",
+            "wireshark": "tshark",
+            "native": "swa_native",
+            "swa": "swa_native",
+            "reverse_engineer_anything": "rea",
+        }
+        t_id = tool_aliases.get(t_id, t_id)
+        if t_id.startswith("scanner_"):
+            t_id = t_id.replace("scanner_", "", 1)
+            if t_id == "defender":
+                t_id = "microsoft_defender"
         inventory = ScannerIntegrations.get_tool_inventory()
         meta = inventory.get(t_id)
 
@@ -757,8 +772,24 @@ class ScannerIntegrations:
     async def run_tool_health_check(tool_id: str) -> Dict[str, Any]:
         """Executes a safe version or ping check for the specified tool."""
         start = time.time()
+        tool_id_clean = tool_id.lower().strip()
+        tool_aliases = {
+            "zap": "owasp_zap",
+            "owasp-zap": "owasp_zap",
+            "defender": "microsoft_defender",
+            "windows_defender": "microsoft_defender",
+            "wireshark": "tshark",
+            "native": "swa_native",
+            "swa": "swa_native",
+            "reverse_engineer_anything": "rea",
+        }
+        canonical_id = tool_aliases.get(tool_id_clean, tool_id_clean)
+        if canonical_id.startswith("scanner_"):
+            canonical_id = canonical_id.replace("scanner_", "", 1)
+            if canonical_id == "defender":
+                canonical_id = "microsoft_defender"
         inventory = ScannerIntegrations.get_tool_inventory()
-        tool = inventory.get(tool_id)
+        tool = inventory.get(canonical_id) or inventory.get(tool_id_clean)
 
         if not tool:
             return {
