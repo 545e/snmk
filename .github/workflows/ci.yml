@@ -52,6 +52,7 @@ jobs:
         env:
           PYTHONPATH: .
           CI: "true"
+        shell: bash
         run: |
           set -o pipefail
           pytest tests/ -v --ignore=tests/e2e_map_browser_test.py 2>&1 | tee pytest-report.txt
@@ -67,6 +68,7 @@ jobs:
 
       - name: Summarise pytest failures
         if: failure()
+        shell: bash
         run: |
           # Surface the failing tests as workflow annotations so the
           # failure is visible without downloading the artifact.
