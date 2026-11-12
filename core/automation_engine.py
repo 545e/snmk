@@ -322,6 +322,10 @@ class AutomationEngine:
                 error TEXT
             )
             """)
+            # The workflow execution history is read newest-first, so it
+            # needs an index on started_at.
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_workflow_exec_started "
+                          "ON workflow_executions (started_at DESC)")
             conn.commit()
 
     def _seed_default_workflows(self):

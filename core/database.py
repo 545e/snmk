@@ -2703,58 +2703,6 @@ class Database:
 
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_remediation_finding ON remediation_tickets (finding_id);")
 
-                # --- indexes supporting the platform's hot read paths ---
-                # Findings are ordered by (cvss_score DESC, created_at DESC)
-                # on every list request; without these indexes SQLite
-                # materialises and sorts the whole table per request.
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cvss_created ON findings (cvss_score DESC, created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_scan_cvss_created ON findings (scan_id, cvss_score DESC, created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_lifecycle ON findings (lifecycle_status)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_remediation ON findings (remediation_status)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_poc ON findings (poc_verification_state)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cwe ON findings (cwe_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cve ON findings (cve_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_owasp ON findings (owasp_category)")
-                # logs are read per scan and ordered by id
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_scan_id_id ON logs (scan_id, id)")
-                # scans are looked up by target when computing drift baselines
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_target_url ON scans (target_url, created_at DESC)")
-                # remediation tickets / agent tasks: filtered and sorted
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_remediation_scan_updated ON remediation_tickets (scan_id, updated_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_scan_started ON agent_tasks (scan_id, started_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_role_started ON agent_tasks (agent_role, started_at DESC)")
-                # "list newest first" history tables
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_exports_created ON cyber_exports (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_runs_created ON cyber_test_runs (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_run ON cyber_test_results (run_id, created_at ASC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_created ON cyber_test_results (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_deployments_created ON cyber_deployments (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_approval_status_created ON approval_requests (status, created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_template_created ON report_records (template_type, created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_created ON report_records (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_security_tests_run ON llm_security_tests (run_id, created_at ASC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_datasets_created ON datasets (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_training_created ON ai_training_jobs (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_evaluations_created ON ai_evaluations (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_created ON vulnerability_assessment_reports (created_at DESC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_scan ON vulnerability_assessment_reports (scan_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects (workspace_id, created_at ASC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_drift_detected ON asset_drift_events (detected_at DESC)")
-                # assets are sorted by (http_responsive DESC, subdomain ASC)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_responsive ON assets (http_responsive DESC, subdomain ASC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_parent_responsive ON assets (parent_domain, http_responsive DESC, subdomain ASC)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_status ON agents_inventory (status)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_tier_name ON agents_inventory (tier, name)")
-                # threat indicator lookups by value (used by IOC enrichment)
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_threat_indicators_value ON threat_indicators (indicator_value)")
-                # workflow execution history is read newest-first
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_workflow_exec_started ON workflow_executions (started_at DESC)")
-                # agent memory is read per (session, project) newest-first
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_mem_session_proj_time ON agent_memory_records (session_id, project_id, created_at DESC)")
-
-
-
-
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_drift_project ON asset_drift_events (project_id);")
 
 
@@ -3298,6 +3246,152 @@ class Database:
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ths_timestamp ON tool_health_snapshots(timestamp);")
 
             conn.commit()
+            # --- indexes supporting the platform's hot read paths ---
+            # NOTE: these indexes are created at the very END of init_db(),
+            # after every CREATE TABLE and every ALTER TABLE migration, because
+            # several of the indexed columns (remediation_status,
+            # poc_verification_state, cve_id, ...) are added by the migration
+            # loops above.  Creating them earlier aborted init_db() on a fresh
+            # database, which broke every module import.
+            #
+            # Each index is also individually guarded: an index is a pure
+            # optimisation and must never be able to abort schema creation.
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cvss_created ON findings (cvss_score DESC, created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_scan_cvss_created ON findings (scan_id, cvss_score DESC, created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_lifecycle ON findings (lifecycle_status)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_remediation ON findings (remediation_status)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_poc ON findings (poc_verification_state)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cwe ON findings (cwe_id)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cve ON findings (cve_id)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_owasp ON findings (owasp_category)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_scan_id_id ON logs (scan_id, id)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_target_url ON scans (target_url, created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_remediation_scan_updated ON remediation_tickets (scan_id, updated_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_scan_started ON agent_tasks (scan_id, started_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_role_started ON agent_tasks (agent_role, started_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_exports_created ON cyber_exports (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_runs_created ON cyber_test_runs (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_run ON cyber_test_results (run_id, created_at ASC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_created ON cyber_test_results (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_deployments_created ON cyber_deployments (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_approval_status_created ON approval_requests (status, created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_template_created ON report_records (template_type, created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_created ON report_records (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_security_tests_run ON llm_security_tests (run_id, created_at ASC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_datasets_created ON datasets (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_training_created ON ai_training_jobs (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_evaluations_created ON ai_evaluations (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_created ON vulnerability_assessment_reports (created_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_scan ON vulnerability_assessment_reports (scan_id)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects (workspace_id, created_at ASC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_drift_detected ON asset_drift_events (detected_at DESC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_responsive ON assets (http_responsive DESC, subdomain ASC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_parent_responsive ON assets (parent_domain, http_responsive DESC, subdomain ASC)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_status ON agents_inventory (status)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_tier_name ON agents_inventory (tier, name)")
+            except sqlite3.Error:
+                pass
+            try:
+                cursor.execute("CREATE INDEX IF NOT EXISTS idx_threat_indicators_value ON threat_indicators (indicator_value)")
+            except sqlite3.Error:
+                pass
 
 
 

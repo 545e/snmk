@@ -81,6 +81,10 @@ def init_agent_memory_schema() -> None:
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mem_session ON agent_memory_records(session_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mem_agent ON agent_memory_records(agent_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mem_project ON agent_memory_records(project_id)")
+        # The session history is read per (session, project) newest-first,
+        # so the composite index avoids sorting the whole partition.
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_mem_session_proj_time "
+                      "ON agent_memory_records (session_id, project_id, created_at DESC)")
         conn.commit()
 
 
