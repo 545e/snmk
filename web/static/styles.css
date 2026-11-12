@@ -6522,3 +6522,431 @@ tr, .at-item, .soc-nav-item, li[class*="item"] { transition: background-color .1
         scroll-behavior: auto !important;
     }
 }
+
+
+/* =========================================================================
+   Tool Dependency Manager & Real-Time Health Center Styles (§10 - §16)
+   ========================================================================= */
+
+.tool-health-indicator-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.tool-health-nav-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.tool-health-nav-btn:hover {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(16, 185, 129, 0.5);
+    transform: translateY(-1px);
+}
+
+.tool-health-nav-btn.status-degraded {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.4);
+    color: #f59e0b;
+}
+
+.tool-health-nav-btn.status-attention {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #ef4444;
+}
+
+.tool-health-nav-btn.status-checking {
+    background: rgba(56, 189, 248, 0.1);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+}
+
+.tool-health-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: #10b981;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+    display: inline-block;
+    transition: all 0.2s ease;
+}
+
+.tool-health-nav-btn.status-degraded .tool-health-status-dot {
+    background-color: #f59e0b;
+    box-shadow: 0 0 6px rgba(245, 158, 11, 0.7);
+}
+
+.tool-health-nav-btn.status-attention .tool-health-status-dot {
+    background-color: #ef4444;
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.7);
+}
+
+.tool-health-nav-btn.status-checking .tool-health-status-dot {
+    background-color: #38bdf8;
+    box-shadow: 0 0 6px rgba(56, 189, 248, 0.8);
+    animation: tool-dot-pulse 1s infinite alternate ease-in-out;
+}
+
+@keyframes tool-dot-pulse {
+    0% { transform: scale(0.85); opacity: 0.6; }
+    100% { transform: scale(1.25); opacity: 1; }
+}
+
+.soc-tool-health-pill {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 10px;
+    margin-left: 6px;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+/* Floating Popover Overlay & Card */
+.tool-health-popover-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 1050;
+    display: none;
+    align-items: flex-start;
+    justify-content: flex-end;
+    padding: 56px 24px 24px 24px;
+}
+
+.tool-health-popover-overlay.open {
+    display: flex;
+}
+
+.tool-health-popover {
+    width: 100%;
+    max-width: 680px;
+    max-height: 85vh;
+    background: var(--bg-card, #131722);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 12px;
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(99, 102, 241, 0.2);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: popover-slide-down 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes popover-slide-down {
+    from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.tool-popover-header {
+    padding: 16px 20px;
+    background: var(--bg-subtle, rgba(255, 255, 255, 0.03));
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tool-popover-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tool-popover-title {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--text-title, #f8fafc);
+    margin: 0;
+}
+
+.tool-popover-subtitle {
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+    margin: 2px 0 0 0;
+}
+
+.tool-popover-actions-bar {
+    padding: 10px 20px;
+    background: rgba(0, 0, 0, 0.15);
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.tool-filter-pills {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.tool-filter-pill {
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    background: var(--bg-subtle, rgba(255, 255, 255, 0.06));
+    color: var(--text-muted, #94a3b8);
+    border: 1px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.tool-filter-pill:hover, .tool-filter-pill.active {
+    background: rgba(99, 102, 241, 0.18);
+    color: #818cf8;
+    border-color: rgba(99, 102, 241, 0.4);
+}
+
+.tool-search-input {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    background: var(--bg-card, #0f172a);
+    color: var(--text-title, #f8fafc);
+    outline: none;
+    width: 170px;
+}
+
+.tool-search-input:focus {
+    border-color: #818cf8;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.tool-popover-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.tool-diag-card {
+    background: var(--bg-card, #1e293b);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    border-radius: 8px;
+    padding: 12px 14px;
+    transition: all 0.2s ease;
+}
+
+.tool-diag-card:hover {
+    border-color: rgba(99, 102, 241, 0.35);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.tool-diag-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-diag-name-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tool-diag-name {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--text-title, #f8fafc);
+}
+
+.tool-diag-category {
+    font-size: 10.5px;
+    font-weight: 600;
+    padding: 1px 7px;
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text-muted, #94a3b8);
+}
+
+.tool-status-badge {
+    font-size: 10px;
+    font-weight: 800;
+    padding: 2px 8px;
+    border-radius: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-badge-healthy {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.status-badge-degraded {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.status-badge-unavailable {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.status-badge-checking {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.35);
+}
+
+.tool-diag-meta {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11.5px;
+    color: var(--text-muted, #94a3b8);
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tool-diag-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+.btn-tool-action {
+    padding: 4px 10px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s ease;
+}
+
+.btn-tool-install {
+    background: #10b981;
+    color: #0b0f17;
+}
+
+.btn-tool-install:hover {
+    background: #059669;
+}
+
+.btn-tool-repair {
+    background: #f59e0b;
+    color: #0b0f17;
+}
+
+.btn-tool-repair:hover {
+    background: #d97706;
+}
+
+.btn-tool-recheck {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-title, #f8fafc);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+}
+
+.btn-tool-recheck:hover {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.btn-tool-details {
+    background: transparent;
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.btn-tool-details:hover {
+    background: rgba(99, 102, 241, 0.15);
+}
+
+.tool-diag-details-tray {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--border, rgba(255, 255, 255, 0.08));
+    font-size: 11px;
+    color: var(--text-muted, #94a3b8);
+    display: none;
+}
+
+.tool-diag-details-tray.open {
+    display: block;
+}
+
+.tool-popover-footer {
+    padding: 12px 20px;
+    background: var(--bg-subtle, rgba(255, 255, 255, 0.02));
+    border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+}
+
+/* Tool Dependency Center Section in View Tools */
+.tool-dep-center-section {
+    background: var(--bg-card, #131722);
+    border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+}
+
+.tool-dep-center-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.tool-dep-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+}
+
+.tool-dep-table th {
+    text-align: left;
+    padding: 10px 12px;
+    color: var(--text-muted, #94a3b8);
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+}
+
+.tool-dep-table td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.06));
+    vertical-align: middle;
+}
+
+.tool-dep-table tr:hover td {
+    background: rgba(255, 255, 255, 0.02);
+}

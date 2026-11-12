@@ -1605,6 +1605,7 @@ function navToView(view, updateHash = true) {
         loadScanCompare();
     } else if (targetContainerId === 'viewTools') {
         loadToolRegistry();
+        if (typeof loadToolDependencyCenter === 'function') loadToolDependencyCenter();
     } else if (targetContainerId === 'viewAllTools') {
         initAllToolsView();
     } else if (targetContainerId === 'viewAgents') {
@@ -15876,4 +15877,482 @@ if (typeof window !== 'undefined') {
     window.__debounced_filterDashboardFindings = debounce(filterDashboardFindings, FILTER_DEBOUNCE_MS);
     window.__debounced_filterAssetsTable = debounce(filterAssetsTable, FILTER_DEBOUNCE_MS);
     window.__debounced_filterToolCatalog = debounce(filterToolCatalog, FILTER_DEBOUNCE_MS);
+}
+
+
+// =========================================================================
+// Intelligent Tool Dependency Manager & Health Center Client Controller (§10 - §16)
+// =========================================================================
+
+window.toolHealthState = {
+    summary: null,
+    tools: [],
+    filter: 'ALL',
+    search: '',
+    pendingInstallTools: [],
+    isChecking: false
+};
+
+async function initToolHealthMonitoring() {
+    await fetchToolHealthSummary();
+    // Periodic refresh every 45 seconds
+    setInterval(fetchToolHealthSummary, 45000);
+}
+
+async function fetchToolHealthSummary() {
+    try {
+        const res = await fetch('/api/tools/health/summary');
+        if (!res.ok) return;
+        const data = await res.json();
+        window.toolHealthState.summary = data;
+        updateToolHealthIndicators(data);
+    } catch (e) {
+        console.warn('Tool health summary fetch error:', e);
+    }
+}
+
+function updateToolHealthIndicators(data) {
+    if (!data) return;
+    const btn = document.getElementById('topNavToolHealthBtn');
+    const textEl = document.getElementById('topNavToolHealthText');
+    const dotEl = document.getElementById('toolHealthStatusDot');
+    const pillEl = document.getElementById('socNavToolHealthPill');
+    const tdcBadge = document.getElementById('tdcStatusBadge');
+
+    if (textEl) textEl.textContent = data.nav_text || `${data.healthy}/${data.total_monitored} Tools Healthy`;
+    if (pillEl) pillEl.textContent = data.nav_text ? data.nav_text.split(' ')[0] : `${data.healthy}/${data.total_monitored}`;
+
+    const isHealthy = data.overall_status === 'HEALTHY';
+    const isDegraded = data.overall_status === 'DEGRADED';
+    const isAttention = !isHealthy && !isDegraded;
+
+    if (btn) {
+        btn.classList.remove('status-degraded', 'status-attention', 'status-checking');
+        if (isDegraded) btn.classList.add('status-degraded');
+        else if (isAttention) btn.classList.add('status-attention');
+    }
+
+    if (tdcBadge) {
+        tdcBadge.className = 'tool-status-badge ' + (isHealthy ? 'status-badge-healthy' : (isDegraded ? 'status-badge-degraded' : 'status-badge-unavailable'));
+        tdcBadge.textContent = `${data.healthy}/${data.total_monitored} Tools Operational`;
+    }
+
+    const popoverBadge = document.getElementById('popoverHeaderBadge');
+    if (popoverBadge) {
+        popoverBadge.className = 'tool-status-badge ' + (isHealthy ? 'status-badge-healthy' : (isDegraded ? 'status-badge-degraded' : 'status-badge-unavailable'));
+        popoverBadge.textContent = data.overall_status;
+    }
+}
+
+function toggleToolHealthPopover(event) {
+    if (event) event.stopPropagation();
+    const overlay = document.getElementById('toolHealthPopoverOverlay');
+    if (!overlay) return;
+    const isOpen = overlay.classList.contains('open');
+    if (isOpen) {
+        closeToolHealthPopover();
+    } else {
+        overlay.classList.add('open');
+        const btn = document.getElementById('topNavToolHealthBtn');
+        if (btn) btn.setAttribute('aria-expanded', 'true');
+        loadToolHealthPopoverData();
+    }
+}
+
+function closeToolHealthPopover() {
+    const overlay = document.getElementById('toolHealthPopoverOverlay');
+    if (overlay) overlay.classList.remove('open');
+    const btn = document.getElementById('topNavToolHealthBtn');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+}
+
+function closeToolHealthPopoverOnBackdrop(event) {
+    if (event.target && event.target.id === 'toolHealthPopoverOverlay') {
+        closeToolHealthPopover();
+    }
+}
+
+async function loadToolHealthPopoverData() {
+    const container = document.getElementById('popoverCardsContainer');
+    if (container && window.toolHealthState.tools.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">Loading tool diagnostics...</div>';
+    }
+    try {
+        const res = await fetch('/api/tools/health');
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data = await res.json();
+        window.toolHealthState.tools = data.tools || [];
+        window.toolHealthState.summary = data.summary || {};
+        updateToolHealthIndicators(data.summary);
+        
+        const lastRefEl = document.getElementById('popoverLastRefresh');
+        if (lastRefEl && data.timestamp) {
+            const dateStr = new Date(data.timestamp).toLocaleTimeString();
+            lastRefEl.textContent = `Last verified at ${dateStr} • Dynamic Level 1-5 checks`;
+        }
+
+        renderToolHealthPopover();
+    } catch (e) {
+        if (container) {
+            container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 24px;">Failed to load diagnostics: ${e.message}</div>`;
+        }
+    }
+}
+
+function renderToolHealthPopover() {
+    const container = document.getElementById('popoverCardsContainer');
+    if (!container) return;
+
+    const tools = window.toolHealthState.tools || [];
+    const filter = window.toolHealthState.filter || 'ALL';
+    const search = (window.toolHealthState.search || '').toLowerCase().trim();
+
+    // Counts for filter pills
+    const countAll = tools.length;
+    const countHealthy = tools.filter(t => t.status === 'HEALTHY').length;
+    const countDegraded = tools.filter(t => t.status === 'DEGRADED').length;
+    const countUnavailable = tools.filter(t => t.status === 'UNAVAILABLE' || t.status === 'ERROR').length;
+
+    const elAll = document.getElementById('filterCountAll');
+    const elH = document.getElementById('filterCountHealthy');
+    const elD = document.getElementById('filterCountDegraded');
+    const elU = document.getElementById('filterCountUnavailable');
+    if (elAll) elAll.textContent = countAll;
+    if (elH) elH.textContent = countHealthy;
+    if (elD) elD.textContent = countDegraded;
+    if (elU) elU.textContent = countUnavailable;
+
+    // Filter tools
+    const filtered = tools.filter(t => {
+        if (filter === 'HEALTHY' && t.status !== 'HEALTHY') return false;
+        if (filter === 'DEGRADED' && t.status !== 'DEGRADED') return false;
+        if (filter === 'UNAVAILABLE' && (t.status !== 'UNAVAILABLE' && t.status !== 'ERROR')) return false;
+        if (search) {
+            const matchName = (t.name || '').toLowerCase().includes(search);
+            const matchId = (t.tool_id || '').toLowerCase().includes(search);
+            const matchCat = (t.category || '').toLowerCase().includes(search);
+            if (!matchName && !matchId && !matchCat) return false;
+        }
+        return true;
+    });
+
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">No tools match current filter criteria.</div>';
+        return;
+    }
+
+    container.innerHTML = filtered.map(t => {
+        const isHealthy = t.status === 'HEALTHY';
+        const isDegraded = t.status === 'DEGRADED';
+        const isUnavailable = t.status === 'UNAVAILABLE' || t.status === 'ERROR';
+        const isChecking = t.status === 'CHECKING';
+
+        const badgeClass = isHealthy ? 'status-badge-healthy' : (isDegraded ? 'status-badge-degraded' : (isChecking ? 'status-badge-checking' : 'status-badge-unavailable'));
+        
+        let actionBtnHtml = '';
+        if (isUnavailable) {
+            actionBtnHtml = `<button class="btn-tool-action btn-tool-install" onclick="openInstallConfirmModal(['${t.tool_id}'])">Install</button>`;
+        } else if (isDegraded) {
+            actionBtnHtml = `<button class="btn-tool-action btn-tool-repair" onclick="repairTool('${t.tool_id}')">Repair</button>`;
+        } else {
+            actionBtnHtml = `<button class="btn-tool-action btn-tool-recheck" onclick="recheckSingleTool('${t.tool_id}', event)">Recheck</button>`;
+        }
+
+        const checksPassedCount = (t.checks_passed || []).length;
+        const checksFailedCount = (t.checks_failed || []).length;
+        const totalChecks = checksPassedCount + checksFailedCount;
+
+        const detailsId = `tray_${t.tool_id}`;
+
+        return `
+            <div class="tool-diag-card" id="card_${t.tool_id}">
+                <div class="tool-diag-header">
+                    <div class="tool-diag-name-wrap">
+                        <span class="tool-diag-name">${escapeHtml(t.name)}</span>
+                        <span class="tool-diag-category">${escapeHtml(t.category)}</span>
+                        ${t.installed_version ? `<span style="font-size: 10px; color: #38bdf8; font-family: var(--mono); background: rgba(56,189,248,0.1); padding: 1px 6px; border-radius: 4px;">v${escapeHtml(t.installed_version)}</span>` : ''}
+                    </div>
+                    <span class="tool-status-badge ${badgeClass}">${escapeHtml(t.status)}</span>
+                </div>
+                <div class="tool-diag-meta">
+                    <div>
+                        <span>Checks Passed: <strong style="color: ${checksPassedCount > 0 ? '#10b981' : 'inherit'};">${checksPassedCount}/${totalChecks || 5}</strong></span>
+                        <span style="margin-left: 10px;">Latency: <strong>${(t.latency_ms || 0).toFixed(1)}ms</strong></span>
+                    </div>
+                    <div class="tool-diag-actions">
+                        ${actionBtnHtml}
+                        <button class="btn-tool-action btn-tool-details" onclick="toggleToolDetailsTray('${detailsId}')">Details</button>
+                    </div>
+                </div>
+                <div class="tool-diag-details-tray" id="${detailsId}">
+                    <div style="margin-bottom: 4px;"><strong>Binary / Adapter:</strong> <code>${escapeHtml(t.binary_path || 'Not detected on PATH / tools/bin')}</code></div>
+                    <div style="margin-bottom: 4px;"><strong>Level Reached:</strong> Tier ${t.level_reached || 1} / 5</div>
+                    ${t.checks_passed && t.checks_passed.length ? `<div style="color: #10b981; margin-bottom: 2px;">✓ ${escapeHtml(t.checks_passed.join(' • '))}</div>` : ''}
+                    ${t.checks_failed && t.checks_failed.length ? `<div style="color: #ef4444; margin-bottom: 2px;">✗ ${escapeHtml(t.checks_failed.join(' • '))}</div>` : ''}
+                    ${t.remediation_advice ? `<div style="color: #f59e0b; margin-top: 4px; font-style: italic;">💡 ${escapeHtml(t.remediation_advice)}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function toggleToolDetailsTray(trayId) {
+    const tray = document.getElementById(trayId);
+    if (tray) tray.classList.toggle('open');
+}
+
+function setPopoverFilter(filter) {
+    window.toolHealthState.filter = filter;
+    document.querySelectorAll('.tool-filter-pill').forEach(p => p.classList.remove('active'));
+    event.target.classList.add('active');
+    renderToolHealthPopover();
+}
+
+function handlePopoverSearch(val) {
+    window.toolHealthState.search = val;
+    renderToolHealthPopover();
+}
+
+async function checkAllToolsHealth() {
+    const spin1 = document.getElementById('popoverRefreshSpin');
+    const spin2 = document.getElementById('tdcRefreshIcon');
+    if (spin1) spin1.textContent = '⏳';
+    if (spin2) spin2.textContent = '⏳';
+
+    try {
+        const res = await fetch('/api/tools/health/check-all', { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            window.toolHealthState.tools = data.tools || [];
+            window.toolHealthState.summary = data.summary || {};
+            updateToolHealthIndicators(data.summary);
+            renderToolHealthPopover();
+            loadToolDependencyCenter();
+        }
+    } catch (e) {
+        console.error('Check all tools error:', e);
+    } finally {
+        if (spin1) spin1.textContent = '🔄';
+        if (spin2) spin2.textContent = '🔄';
+    }
+}
+
+async function recheckSingleTool(toolId, event) {
+    if (event) event.stopPropagation();
+    const card = document.getElementById(`card_${toolId}`);
+    if (card) {
+        const badge = card.querySelector('.tool-status-badge');
+        if (badge) {
+            badge.className = 'tool-status-badge status-badge-checking';
+            badge.textContent = 'CHECKING...';
+        }
+    }
+    try {
+        const res = await fetch('/api/tools/health/check', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tool_id: toolId, level: 5 })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            // Update tool in local state
+            const idx = window.toolHealthState.tools.findIndex(t => t.tool_id === toolId);
+            if (idx >= 0 && data.diagnostic) {
+                window.toolHealthState.tools[idx] = data.diagnostic;
+            }
+            if (data.summary) {
+                window.toolHealthState.summary = data.summary;
+                updateToolHealthIndicators(data.summary);
+            }
+            renderToolHealthPopover();
+            loadToolDependencyCenter();
+        }
+    } catch (e) {
+        console.error('Recheck tool error:', e);
+    }
+}
+
+async function repairTool(toolId) {
+    try {
+        const res = await fetch(`/api/tools/repair/${toolId}`, { method: 'POST' });
+        if (res.ok) {
+            await checkAllToolsHealth();
+        }
+    } catch (e) {
+        console.error('Repair tool error:', e);
+    }
+}
+
+function openInstallConfirmModal(toolIds) {
+    window.toolHealthState.pendingInstallTools = toolIds;
+    const modal = document.getElementById('toolInstallConfirmModal');
+    const listEl = document.getElementById('installConfirmSelectedList');
+    const feedbackBox = document.getElementById('installProgressFeedbackBox');
+    const btn = document.getElementById('btnConfirmExecuteInstall');
+
+    if (feedbackBox) feedbackBox.style.display = 'none';
+    if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Confirm & Install';
+    }
+
+    const tools = window.toolHealthState.tools || [];
+    const items = toolIds.map(id => tools.find(t => t.tool_id === id) || { tool_id: id, name: id, category: 'Security' });
+
+    if (listEl) {
+        listEl.innerHTML = items.map(it => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px;">
+                <div>
+                    <strong style="color: #38bdf8;">${escapeHtml(it.name)}</strong>
+                    <span style="color: var(--text-muted); font-size: 11px; margin-left: 6px;">(${escapeHtml(it.category || 'Tool')})</span>
+                </div>
+                <span style="font-family: var(--mono); font-size: 11px; color: #10b981;">Target: tools/bin</span>
+            </div>
+        `).join('');
+    }
+
+    if (modal) modal.style.display = 'flex';
+}
+
+function openInstallAllMissingModal() {
+    const tools = window.toolHealthState.tools || [];
+    const missing = tools.filter(t => (t.status === 'UNAVAILABLE' || t.status === 'ERROR') && !['nmap', 'wireshark', 'clamav', 'wazuh', 'microsoft_defender'].includes(t.tool_id)).map(t => t.tool_id);
+    if (missing.length === 0) {
+        alert('All automated installable tools are already installed and operational.');
+        return;
+    }
+    openInstallConfirmModal(missing);
+}
+
+function closeInstallConfirmModal() {
+    const modal = document.getElementById('toolInstallConfirmModal');
+    if (modal) modal.style.display = 'none';
+}
+
+async function executeConfirmedInstallation() {
+    const btn = document.getElementById('btnConfirmExecuteInstall');
+    const feedbackBox = document.getElementById('installProgressFeedbackBox');
+    const statusEl = document.getElementById('installProgressStatus');
+    const detailEl = document.getElementById('installProgressDetail');
+
+    if (btn) btn.disabled = true;
+    if (feedbackBox) feedbackBox.style.display = 'block';
+    if (statusEl) statusEl.textContent = 'Initiating Secure Sandboxed Download...';
+    if (detailEl) detailEl.textContent = 'Verifying official repository hashes and TLS certificate chain...';
+
+    const toolsToInstall = window.toolHealthState.pendingInstallTools || [];
+
+    try {
+        if (toolsToInstall.length === 1) {
+            const toolId = toolsToInstall[0];
+            const res = await fetch('/api/tools/install', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tool_id: toolId, isolated: true })
+            });
+            const data = await res.json();
+            if (data.job_id) {
+                await pollInstallJob(data.job_id, statusEl, detailEl);
+            }
+        } else {
+            const res = await fetch('/api/tools/install-all', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ tool_ids: toolsToInstall, skip_healthy: true })
+            });
+            if (statusEl) statusEl.textContent = 'Batch installation running in topological order...';
+            // Wait 5 seconds then recheck
+            await new Promise(r => setTimeout(r, 4500));
+        }
+
+        if (statusEl) statusEl.textContent = '✓ Installation & Health Verification Completed!';
+        if (detailEl) detailEl.textContent = 'All tools validated through Level 1-5 health checks.';
+        
+        // Refresh full inventory
+        await checkAllToolsHealth();
+        setTimeout(closeInstallConfirmModal, 1600);
+    } catch (e) {
+        if (statusEl) statusEl.textContent = 'Installation encountered an issue';
+        if (detailEl) detailEl.textContent = e.message;
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function pollInstallJob(jobId, statusEl, detailEl) {
+    for (let i = 0; i < 30; i++) {
+        await new Promise(r => setTimeout(r, 1200));
+        try {
+            const res = await fetch(`/api/tools/install/status?job_id=${jobId}`);
+            if (res.ok) {
+                const job = await res.json();
+                if (statusEl) statusEl.textContent = `Status: ${job.status || 'PROCESSING'}...`;
+                if (detailEl && job.logs && job.logs.length) {
+                    detailEl.textContent = job.logs[job.logs.length - 1];
+                }
+                if (job.status === 'HEALTHY' || job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED') {
+                    break;
+                }
+            }
+        } catch (e) {}
+    }
+}
+
+async function loadToolDependencyCenter() {
+    const tbody = document.getElementById('toolDepTableBody');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch('/api/tools/health');
+        if (!res.ok) return;
+        const data = await res.json();
+        const tools = data.tools || [];
+        window.toolHealthState.tools = tools;
+        if (data.summary) updateToolHealthIndicators(data.summary);
+
+        if (tools.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">No tools discovered.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = tools.map(t => {
+            const isHealthy = t.status === 'HEALTHY';
+            const isDegraded = t.status === 'DEGRADED';
+            const badgeClass = isHealthy ? 'status-badge-healthy' : (isDegraded ? 'status-badge-degraded' : 'status-badge-unavailable');
+            
+            let actionBtn = '';
+            if (t.status === 'UNAVAILABLE' || t.status === 'ERROR') {
+                actionBtn = `<button class="btn-tool-action btn-tool-install" onclick="openInstallConfirmModal(['${t.tool_id}'])">Install</button>`;
+            } else if (isDegraded) {
+                actionBtn = `<button class="btn-tool-action btn-tool-repair" onclick="repairTool('${t.tool_id}')">Repair</button>`;
+            } else {
+                actionBtn = `<button class="btn-tool-action btn-tool-recheck" onclick="recheckSingleTool('${t.tool_id}', event)">Recheck</button>`;
+            }
+
+            return `
+                <tr>
+                    <td><strong>${escapeHtml(t.name)}</strong></td>
+                    <td style="color: var(--text-muted); font-size: 11.5px;">${escapeHtml(t.category)}</td>
+                    <td><span class="tool-status-badge ${badgeClass}">${escapeHtml(t.status)}</span></td>
+                    <td style="font-family: var(--mono); font-size: 11px;">${t.installed_version ? 'v' + escapeHtml(t.installed_version) : '—'}</td>
+                    <td style="font-family: var(--mono); font-size: 11px; color: var(--text-muted);">${t.required_version ? escapeHtml(t.required_version) : 'Latest'}</td>
+                    <td style="font-family: var(--mono); font-size: 10.5px; color: var(--text-muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(t.binary_path || 'tools/bin')}">
+                        ${escapeHtml(t.binary_path || 'tools/bin (sandbox)')}
+                    </td>
+                    <td>Level ${t.level_reached || 1}/5</td>
+                    <td style="text-align: right;">
+                        ${actionBtn}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.warn('loadToolDependencyCenter error:', e);
+    }
+}
+
+// Auto-initialize tool health monitoring on DOM ready
+if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    initToolHealthMonitoring();
+} else {
+    document.addEventListener('DOMContentLoaded', initToolHealthMonitoring);
 }

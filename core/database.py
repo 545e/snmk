@@ -3243,7 +3243,47 @@ class Database:
 
                 """)
 
+            # Table for Tool Dependency Installation Jobs (§18 Database Architecture)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tool_install_jobs (
+                id TEXT PRIMARY KEY,
+                tool_id TEXT NOT NULL,
+                target_version TEXT,
+                status TEXT NOT NULL,
+                stage TEXT,
+                progress_percent INTEGER DEFAULT 0,
+                error_message TEXT,
+                install_path TEXT,
+                installed_version TEXT,
+                logs TEXT,
+                requested_by TEXT,
+                started_at TEXT NOT NULL,
+                completed_at TEXT
+            );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tij_tool_id ON tool_install_jobs(tool_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_tij_started_at ON tool_install_jobs(started_at);")
 
+            # Table for Tool Health Monitoring Snapshots (§18 Database Architecture)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tool_health_snapshots (
+                id TEXT PRIMARY KEY,
+                tool_id TEXT NOT NULL,
+                health_state TEXT NOT NULL,
+                installed_version TEXT,
+                required_version TEXT,
+                binary_path TEXT,
+                latency_ms REAL,
+                level_reached INTEGER,
+                checks_passed TEXT,
+                checks_failed TEXT,
+                remediation_advice TEXT,
+                diagnostics TEXT,
+                timestamp TEXT NOT NULL
+            );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ths_tool_id ON tool_health_snapshots(tool_id);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_ths_timestamp ON tool_health_snapshots(timestamp);")
 
             conn.commit()
 
@@ -9958,6 +9998,187 @@ class Database:
                 }
                 for r in rows
             ]
+
+
+    # =========================================================================
+    # Tool Dependency Manager & Tool Health Operations (§18 Database Architecture)
+    # =========================================================================
+
+    def save_tool_install_job(self, job: Dict[str, Any]) -> None:
+        """Persists or updates an installation job record."""
+        logs_json = json.dumps(job.get("logs", [])) if isinstance(job.get("logs"), list) else str(job.get("logs", ""))
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            INSERT INTO tool_install_jobs (
+                id, tool_id, target_version, status, stage, progress_percent,
+                error_message, install_path, installed_version, logs, requested_by,
+                started_at, completed_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                status = excluded.status,
+                stage = excluded.stage,
+                progress_percent = excluded.progress_percent,
+                error_message = excluded.error_message,
+                install_path = excluded.install_path,
+                installed_version = excluded.installed_version,
+                logs = excluded.logs,
+                completed_at = excluded.completed_at;
+            """, (
+                job.get("job_id") or job.get("id"),
+                job.get("tool_id"),
+                job.get("target_version"),
+                job.get("status").value if hasattr(job.get("status"), "value") else str(job.get("status")),
+                job.get("stage"),
+                job.get("progress_percent", 0),
+                job.get("error_message") or job.get("error"),
+                job.get("install_path"),
+                job.get("installed_version"),
+                logs_json,
+                job.get("requested_by") or job.get("user", "admin"),
+                job.get("started_at") or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                job.get("completed_at")
+            ))
+            conn.commit()
+
+    def update_tool_install_job(self, job_id: str, updates: Dict[str, Any]) -> None:
+        """Applies delta updates to an ongoing install job."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            set_clauses = []
+            params = []
+            for k, v in updates.items():
+                if k == "logs" and isinstance(v, list):
+                    v = json.dumps(v)
+                set_clauses.append(f"{k} = ?")
+                params.append(v)
+            if not set_clauses:
+                return
+            params.append(job_id)
+            cursor.execute(f"UPDATE tool_install_jobs SET {', '.join(set_clauses)} WHERE id = ?;", params)
+            conn.commit()
+
+    def get_tool_install_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+        """Retrieves a single install job by ID."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT * FROM tool_install_jobs WHERE id = ?;", (job_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+            col_names = [d[0] for d in cursor.description]
+            res = dict(zip(col_names, row))
+            if res.get("logs"):
+                try:
+                    res["logs"] = json.loads(res["logs"])
+                except Exception:
+                    pass
+            return res
+
+    def list_tool_install_jobs(self, tool_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+        """Lists recent tool installation jobs."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            if tool_id:
+                cursor.execute("""
+                SELECT * FROM tool_install_jobs WHERE tool_id = ? ORDER BY started_at DESC LIMIT ?;
+                """, (tool_id, limit))
+            else:
+                cursor.execute("""
+                SELECT * FROM tool_install_jobs ORDER BY started_at DESC LIMIT ?;
+                """, (limit,))
+            rows = cursor.fetchall()
+            col_names = [d[0] for d in cursor.description]
+            jobs = []
+            for row in rows:
+                item = dict(zip(col_names, row))
+                if item.get("logs"):
+                    try:
+                        item["logs"] = json.loads(item["logs"])
+                    except Exception:
+                        pass
+                jobs.append(item)
+            return jobs
+
+    def save_tool_health_snapshot(self, snapshot: Dict[str, Any]) -> None:
+        """Persists a Level 1-5 health diagnostic snapshot."""
+        import uuid
+        snap_id = snapshot.get("id") or f"ths_{uuid.uuid4().hex[:12]}"
+        checks_passed_str = json.dumps(snapshot.get("checks_passed", []))
+        checks_failed_str = json.dumps(snapshot.get("checks_failed", []))
+        diag_str = json.dumps(snapshot.get("diagnostics", {})) if isinstance(snapshot.get("diagnostics"), dict) else str(snapshot.get("diagnostics", ""))
+        
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            INSERT OR REPLACE INTO tool_health_snapshots (
+                id, tool_id, health_state, installed_version, required_version,
+                binary_path, latency_ms, level_reached, checks_passed, checks_failed,
+                remediation_advice, diagnostics, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            """, (
+                snap_id,
+                snapshot.get("tool_id"),
+                str(snapshot.get("status") or snapshot.get("health_state")),
+                snapshot.get("installed_version"),
+                snapshot.get("required_version"),
+                snapshot.get("binary_path"),
+                float(snapshot.get("latency_ms", 0.0)),
+                int(snapshot.get("level_reached", 1)),
+                checks_passed_str,
+                checks_failed_str,
+                snapshot.get("remediation_advice") or snapshot.get("remediation"),
+                diag_str,
+                snapshot.get("last_checked") or snapshot.get("timestamp") or datetime.datetime.now(datetime.timezone.utc).isoformat()
+            ))
+            conn.commit()
+
+    def get_latest_tool_health_snapshots(self) -> Dict[str, Dict[str, Any]]:
+        """Retrieves the most recent health snapshot for every tool."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            SELECT s1.* FROM tool_health_snapshots s1
+            JOIN (
+                SELECT tool_id, MAX(timestamp) as max_ts
+                FROM tool_health_snapshots
+                GROUP BY tool_id
+            ) s2 ON s1.tool_id = s2.tool_id AND s1.timestamp = s2.max_ts;
+            """)
+            rows = cursor.fetchall()
+            col_names = [d[0] for d in cursor.description]
+            snapshots = {}
+            for row in rows:
+                item = dict(zip(col_names, row))
+                try:
+                    item["checks_passed"] = json.loads(item["checks_passed"])
+                    item["checks_failed"] = json.loads(item["checks_failed"])
+                    item["diagnostics"] = json.loads(item["diagnostics"])
+                except Exception:
+                    pass
+                snapshots[item["tool_id"]] = item
+            return snapshots
+
+    def get_tool_health_history(self, tool_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+        """Retrieves chronological health history for a specific tool."""
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+            SELECT * FROM tool_health_snapshots WHERE tool_id = ? ORDER BY timestamp DESC LIMIT ?;
+            """, (tool_id, limit))
+            rows = cursor.fetchall()
+            col_names = [d[0] for d in cursor.description]
+            history = []
+            for row in rows:
+                item = dict(zip(col_names, row))
+                try:
+                    item["checks_passed"] = json.loads(item["checks_passed"])
+                    item["checks_failed"] = json.loads(item["checks_failed"])
+                except Exception:
+                    pass
+                history.append(item)
+            return history
+
 
 db = Database()
 

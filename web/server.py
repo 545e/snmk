@@ -4846,6 +4846,211 @@ async def update_single_tool_endpoint(tool_id: str):
 
 
 
+
+# =====================================================================
+# Intelligent Tool Dependency Manager & Real-Time Health Center APIs (§17)
+# =====================================================================
+
+class ToolHealthCheckPayload(BaseModel):
+    tool_id: Optional[str] = None
+    level: int = 5
+
+class ToolInstallPayload(BaseModel):
+    tool_id: str
+    target_version: Optional[str] = None
+    isolated: bool = True
+
+class ToolInstallAllPayload(BaseModel):
+    tool_ids: Optional[List[str]] = None
+    skip_healthy: bool = True
+
+class ToolCancelPayload(BaseModel):
+    job_id: str
+
+
+@app.get("/api/tools/health")
+async def get_tools_health_all(force_refresh: bool = False):
+    """Returns Level 1-5 health diagnostics for all registered security tools and dynamic summary."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    snapshot, summary = await tool_dependency_manager.get_all_health(force_refresh=force_refresh)
+    return {
+        "status": "SUCCESS",
+        "tools": [diag.dict() for diag in snapshot.values()],
+        "summary": summary.dict(),
+        "timestamp": summary.last_refresh
+    }
+
+
+@app.get("/api/tools/health/summary")
+async def get_tools_health_summary(force_refresh: bool = False):
+    """Returns dynamic real-time health indicator metrics for the top navigation bar."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    summary = await tool_dependency_manager.get_health_summary(force_refresh=force_refresh)
+    return summary.dict()
+
+
+@app.get("/api/tools/health/{tool_id}")
+async def get_single_tool_health(tool_id: str, level: int = 5, force_refresh: bool = False):
+    """Returns tiered diagnostic state for a single tool."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    diag = await tool_dependency_manager.get_tool_health(tool_id, level=level, force_refresh=force_refresh)
+    if not diag:
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_id}' not found in registry.")
+    return diag.dict()
+
+
+@app.post("/api/tools/health/check")
+async def run_tool_health_check(payload: Optional[ToolHealthCheckPayload] = None, tool_id: Optional[str] = None):
+    """Executes on-demand health check for a specific tool and broadcasts update."""
+    t_id = (payload.tool_id if payload else None) or tool_id
+    if not t_id:
+        raise HTTPException(status_code=400, detail="tool_id is required.")
+    from core.tool_dependency_manager import tool_dependency_manager
+    diag = await tool_dependency_manager.get_tool_health(t_id, level=payload.level if payload else 5, force_refresh=True)
+    if not diag:
+        raise HTTPException(status_code=404, detail=f"Tool '{t_id}' not found in registry.")
+    summary = await tool_dependency_manager.get_health_summary(force_refresh=False)
+    asyncio.create_task(queue_manager.broadcast_event("TOOL_HEALTH_UPDATE", summary.dict()))
+    return {
+        "status": "COMPLETED",
+        "diagnostic": diag.dict(),
+        "summary": summary.dict()
+    }
+
+
+@app.post("/api/tools/health/check-all")
+async def run_all_tool_health_checks():
+    """Forces immediate re-evaluation of all 15 security tools and broadcasts WebSocket state."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    snapshot, summary = await tool_dependency_manager.get_all_health(force_refresh=True)
+    asyncio.create_task(queue_manager.broadcast_event("TOOL_HEALTH_UPDATE", summary.dict()))
+    return {
+        "status": "COMPLETED",
+        "tools": [diag.dict() for diag in snapshot.values()],
+        "summary": summary.dict(),
+        "timestamp": summary.last_refresh
+    }
+
+
+@app.get("/api/tools/dependencies")
+async def get_tool_dependencies():
+    """Returns tool dependency DAG, manifest catalog, and topological installation sequence."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    manifest = tool_dependency_manager.get_manifest()
+    order = tool_dependency_manager.get_dependency_order()
+    nodes = list(manifest.keys())
+    edges = []
+    for tid, item in manifest.items():
+        for dep in item.dependencies:
+            edges.append({"from": dep, "to": tid})
+    return {
+        "status": "SUCCESS",
+        "tools": {k: v.dict() for k, v in manifest.items()},
+        "topological_sequence": order,
+        "graph": {"nodes": nodes, "edges": edges}
+    }
+
+
+@app.post("/api/tools/install")
+async def install_tool_endpoint(payload: ToolInstallPayload, background_tasks: BackgroundTasks):
+    """Executes sandboxed installation for a registered tool with integrity verification."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    manifest = tool_dependency_manager.get_manifest()
+    t_id = payload.tool_id.lower().strip()
+    if t_id not in manifest:
+        raise HTTPException(status_code=404, detail=f"Tool '{payload.tool_id}' is not registered.")
+    
+    import uuid
+    job_id = f"job_inst_{uuid.uuid4().hex[:8]}"
+
+    async def run_install():
+        item = manifest[t_id]
+        res = await tool_dependency_manager.installer.install_tool(item, job_id=job_id)
+        tool_dependency_manager.health_engine.invalidate_cache()
+        _, summary = await tool_dependency_manager.get_all_health(force_refresh=True)
+        await queue_manager.broadcast_event("TOOL_HEALTH_UPDATE", summary.dict())
+        await queue_manager.broadcast_event("TOOL_INSTALL_COMPLETED", res)
+
+    asyncio.create_task(run_install())
+    return {
+        "job_id": job_id,
+        "tool_id": t_id,
+        "status": "IN_PROGRESS",
+        "message": f"Installation job initiated for {manifest[t_id].name}."
+    }
+
+
+@app.post("/api/tools/install-all")
+async def install_all_tools_endpoint(payload: Optional[ToolInstallAllPayload] = None):
+    """Installs all missing or degraded tools in topological dependency order."""
+    from core.tool_dependency_manager import tool_dependency_manager
+
+    async def run_install_all():
+        res = await tool_dependency_manager.install_all_missing(user="admin")
+        _, summary = await tool_dependency_manager.get_all_health(force_refresh=True)
+        await queue_manager.broadcast_event("TOOL_HEALTH_UPDATE", summary.dict())
+        await queue_manager.broadcast_event("TOOL_INSTALL_ALL_COMPLETED", res)
+
+    asyncio.create_task(run_install_all())
+    return {
+        "status": "IN_PROGRESS",
+        "message": "Topological dependency installation for all missing tools started in background."
+    }
+
+
+@app.post("/api/tools/repair/{tool_id}")
+async def repair_tool_endpoint(tool_id: str):
+    """Repairs a degraded tool by validating, resetting artifacts, and verifying operational health."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    manifest = tool_dependency_manager.get_manifest()
+    t_id = tool_id.lower().strip()
+    if t_id not in manifest:
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_id}' not found.")
+    res = await tool_dependency_manager.repair_tool(t_id)
+    _, summary = await tool_dependency_manager.get_all_health(force_refresh=True)
+    asyncio.create_task(queue_manager.broadcast_event("TOOL_HEALTH_UPDATE", summary.dict()))
+    return res
+
+
+@app.post("/api/tools/install/cancel")
+async def cancel_install_endpoint(payload: ToolCancelPayload):
+    """Cancels an in-progress or queued installation job."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    success = tool_dependency_manager.cancel_job(payload.job_id)
+    if not success:
+        raise HTTPException(status_code=404, detail=f"Job '{payload.job_id}' not found or already completed.")
+    return {"status": "CANCELLED", "job_id": payload.job_id}
+
+
+@app.get("/api/tools/install/status")
+async def get_install_status(job_id: Optional[str] = None, tool_id: Optional[str] = None):
+    """Retrieves real-time progress and status of installation jobs."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    if job_id:
+        job = tool_dependency_manager.get_job_status(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+        return job
+    jobs = tool_dependency_manager.list_jobs(tool_id=tool_id, limit=50)
+    return {"jobs": jobs}
+
+
+@app.get("/api/tools/install/logs")
+async def get_install_logs(job_id: str):
+    """Retrieves real-time log output for an active or completed install job."""
+    from core.tool_dependency_manager import tool_dependency_manager
+    job = tool_dependency_manager.get_job_status(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job '{job_id}' not found.")
+    logs = job.get("logs", [])
+    return {
+        "job_id": job_id,
+        "tool_id": job.get("tool_id"),
+        "status": job.get("status"),
+        "logs": logs
+    }
+
+
 # =====================================================================
 
 # SOC Scan Comparison & Asset Inventory API
@@ -6562,8 +6767,22 @@ async def system_status():
 
 
 
-    components.append(_component(
+    try:
+        from core.tool_dependency_manager import tool_dependency_manager
+        tool_summ = await tool_dependency_manager.get_health_summary(force_refresh=False)
+        components.append(_component(
+            "security_tool_dependencies", "Security Tool Dependency Engine & Health Monitor",
+            "HEALTHY" if tool_summ.overall_status == "HEALTHY" else ("DEGRADED" if tool_summ.healthy > 0 else "ATTENTION_REQUIRED"),
+            f"{tool_summ.nav_text} operational ({tool_summ.healthy} healthy, {tool_summ.degraded} degraded, {tool_summ.unavailable} unavailable).",
+            evidence=tool_summ.dict()
+        ))
+    except Exception as e:
+        components.append(_component(
+            "security_tool_dependencies", "Security Tool Dependency Engine & Health Monitor",
+            "DEGRADED", f"Error querying tool health: {e}"
+        ))
 
+    components.append(_component(
         "realtime", "Real-time channel (WebSocket/SSE)", "HEALTHY",
 
         f"Channel ready - {len(queue_manager.subscribers)} connected client(s), "

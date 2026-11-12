@@ -362,6 +362,14 @@
                 <button class="swa-action-btn theme-toggle-btn" id="themeToggleBtn" onclick="toggleTheme()" title="Switch to Light Mode">
                     <span id="themeToggleIcon">☀️</span>
                 </button>
+                                <!-- Navigation-Bar Tool Health Indicator (§10 & §11) -->
+                <div class="tool-health-indicator-wrap" id="topNavToolHealthWrap">
+                    <button class="tool-health-nav-btn" id="topNavToolHealthBtn" onclick="toggleToolHealthPopover(event)" title="Click to view Tool Health Diagnostics & Dependency Center" aria-haspopup="dialog" aria-expanded="false">
+                        <span class="tool-health-status-dot" id="toolHealthStatusDot"></span>
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="margin-right: 1px;"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        <span id="topNavToolHealthText">Checking Tools...</span>
+                    </button>
+                </div>
                 <div class="cyber-user-profile" id="userProfileBadge" title="Operator Profile">
                     <img id="operatorAvatarImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' rx='40' fill='%233478F6'/%3E%3Ctext x='40' y='52' font-family='Arial,sans-serif' font-size='34' font-weight='700' fill='white' text-anchor='middle'%3EOP%3C/text%3E%3C/svg%3E" alt="Avatar" class="cyber-avatar-img">
                     <div>
@@ -389,6 +397,7 @@
             </button>
             <button class="soc-nav-item" id="topNavTools" onclick="navToView('tools')">
                 <span>🛠️ Security Tools</span>
+                <span id="socNavToolHealthPill" class="soc-tool-health-pill">--</span>
             </button>
             <button class="soc-nav-item" id="topNavAgents" onclick="navToView('agents')">
                 <span>🤖 AI Agents</span>
@@ -2687,6 +2696,50 @@ Content-Type: application/json
     </div>
 
     <!-- All Tools — Unified Threat Intelligence Runner -->
+        <!-- TOOL DEPENDENCY CENTER (§6 & §16) -->
+    <div class="tool-dep-center-section" id="toolDependencyCenterSection">
+        <div class="tool-dep-center-header">
+            <div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <h3 style="font-size: 17px; font-weight: 800; color: var(--text-title); margin: 0;">TOOL DEPENDENCY CENTER</h3>
+                    <span class="tool-status-badge status-badge-healthy" id="tdcStatusBadge">Scanning Tools...</span>
+                </div>
+                <p style="font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0 0;">Intelligent security tool dependency management, official release verification, isolated sandbox, and real-time health telemetry.</p>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-secondary" onclick="checkAllToolsHealth()" style="font-size: 12px; padding: 6px 12px; display: inline-flex; align-items: center; gap: 6px;">
+                    <span id="tdcRefreshIcon">🔄</span> Recheck All
+                </button>
+                <button class="btn btn-primary" onclick="openInstallAllMissingModal()" id="btnInstallAllMissingTdc" style="font-size: 12px; font-weight: 700; padding: 6px 14px; background: #10b981; border: none; color: #0b0f17;">
+                    ⚡ Install All Missing
+                </button>
+            </div>
+        </div>
+
+        <!-- Dependency Center Table -->
+        <div style="overflow-x: auto;">
+            <table class="tool-dep-table">
+                <thead>
+                    <tr>
+                        <th>Tool</th>
+                        <th>Category</th>
+                        <th>Health Status</th>
+                        <th>Installed Ver</th>
+                        <th>Required Ver</th>
+                        <th>Sandbox / Path</th>
+                        <th>Level Checked</th>
+                        <th style="text-align: right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="toolDepTableBody">
+                    <tr>
+                        <td colspan="8" style="text-align: center; color: var(--text-muted); padding: 24px;">Loading tool dependency inventory...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
     <div id="allToolsSection" class="all-tools-section" style="margin-bottom: 24px;">
         <div class="all-tools-header">
             <div class="all-tools-title-row">
@@ -7107,6 +7160,102 @@ Content-Type: application/json
         <div class="modal-custom-footer">
             <button type="button" class="btn btn-secondary" onclick="closeRotateModal()">Cancel</button>
             <button type="button" class="btn btn-primary" onclick="submitRotateKey()" id="btnSubmitRotate" style="font-weight: 700;">Update &amp; Encrypt</button>
+        </div>
+    </div>
+</div>
+
+
+<!-- INTERACTIVE TOOL DIAGNOSTIC POPOVER (§12 - §15) -->
+<div id="toolHealthPopoverOverlay" class="tool-health-popover-overlay" onclick="closeToolHealthPopoverOnBackdrop(event)">
+    <div class="tool-health-popover" id="toolHealthPopover" role="dialog" aria-modal="true" aria-labelledby="popoverTitle">
+        <!-- Header -->
+        <div class="tool-popover-header">
+            <div class="tool-popover-title-row">
+                <span class="tool-health-status-dot" id="popoverHeaderDot"></span>
+                <div>
+                    <h3 class="tool-popover-title" id="popoverTitle">Security Tools Health &amp; Diagnostics</h3>
+                    <p class="tool-popover-subtitle" id="popoverLastRefresh">Checking system telemetry...</p>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span class="tool-status-badge status-badge-healthy" id="popoverHeaderBadge">--</span>
+                <button onclick="closeToolHealthPopover()" style="background: none; border: none; color: var(--text-muted); font-size: 22px; cursor: pointer; line-height: 1; padding: 0 4px;" aria-label="Close popover">&times;</button>
+            </div>
+        </div>
+
+        <!-- Actions & Filters Bar -->
+        <div class="tool-popover-actions-bar">
+            <div class="tool-filter-pills" id="popoverFilterPills">
+                <button class="tool-filter-pill active" onclick="setPopoverFilter('ALL')">All (<span id="filterCountAll">15</span>)</button>
+                <button class="tool-filter-pill" onclick="setPopoverFilter('HEALTHY')">Healthy (<span id="filterCountHealthy">0</span>)</button>
+                <button class="tool-filter-pill" onclick="setPopoverFilter('DEGRADED')">Degraded (<span id="filterCountDegraded">0</span>)</button>
+                <button class="tool-filter-pill" onclick="setPopoverFilter('UNAVAILABLE')">Unavailable (<span id="filterCountUnavailable">0</span>)</button>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="text" class="tool-search-input" id="popoverToolSearch" placeholder="Filter tools..." oninput="handlePopoverSearch(this.value)">
+                <button class="btn btn-secondary" onclick="checkAllToolsHealth()" id="btnPopoverCheckAll" style="font-size: 11px; padding: 5px 10px;" title="Re-evaluate all tools">
+                    <span id="popoverRefreshSpin">🔄</span> Check All
+                </button>
+            </div>
+        </div>
+
+        <!-- Scrollable Cards Body -->
+        <div class="tool-popover-body" id="popoverCardsContainer">
+            <div style="text-align: center; color: var(--text-muted); padding: 30px;">Loading tool diagnostics...</div>
+        </div>
+
+        <!-- Footer -->
+        <div class="tool-popover-footer">
+            <button class="btn btn-primary" onclick="openInstallAllMissingModal()" id="btnPopoverInstallAll" style="font-size: 11.5px; font-weight: 700; background: #10b981; border: none; color: #0b0f17; padding: 6px 14px;">
+                ⚡ Install All Missing
+            </button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <a href="javascript:void(0)" onclick="closeToolHealthPopover(); navToView('tools');" style="font-size: 12px; color: #818cf8; text-decoration: none; font-weight: 600;">Open Tool Dependency Center &rarr;</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- SECURE TOOL INSTALLATION CONFIRMATION MODAL (§6 & §8) -->
+<div id="toolInstallConfirmModal" class="modal-custom-overlay" style="display: none;">
+    <div class="modal-custom-card" style="max-width: 580px;">
+        <div class="modal-custom-header">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px;">🛡️</span>
+                <h3 style="color: var(--text-title); margin: 0; font-size: 16px; font-weight: 800;">Confirm Secure Tool Installation</h3>
+            </div>
+            <button onclick="closeInstallConfirmModal()" style="background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 22px;">&times;</button>
+        </div>
+        <div class="modal-custom-body" style="padding: 16px 20px;">
+            <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 0;">
+                The following security tools will be downloaded from verified official sources, checksum-validated (SHA-256), and installed into the isolated workspace directory.
+            </p>
+
+            <div id="installConfirmSelectedList" style="background: var(--bg-card, #0f172a); border: 1px solid var(--border, rgba(255,255,255,0.08)); border-radius: 8px; padding: 12px; margin-bottom: 14px; max-height: 180px; overflow-y: auto;">
+                <!-- Dynamically populated list of tools to install -->
+            </div>
+
+            <div style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 8px; padding: 12px; font-size: 11.5px; color: #10b981; margin-bottom: 14px;">
+                <div style="font-weight: 700; margin-bottom: 3px;">🔒 Security &amp; Isolation Guarantees:</div>
+                <ul style="margin: 0; padding-left: 18px; color: var(--text-body, #cbd5e1);">
+                    <li>Official sources allowlist (github.com/projectdiscovery, github.com/aquasecurity, etc.)</li>
+                    <li>SHA-256 package cryptographic integrity verification</li>
+                    <li>Path traversal (ZipSlip) &amp; symlink extraction guards</li>
+                    <li>Sandboxed installation to <code style="color: #38bdf8;">tools/bin</code> &amp; isolated virtual environment</li>
+                    <li>Least privilege: runs under standard user permissions</li>
+                </ul>
+            </div>
+
+            <div id="installProgressFeedbackBox" style="display: none; padding: 10px; border-radius: 6px; background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3); font-size: 12px;">
+                <div id="installProgressStatus" style="font-weight: 700; color: #38bdf8;">Installing...</div>
+                <div id="installProgressDetail" style="font-size: 11px; color: var(--text-muted); margin-top: 2px;"></div>
+            </div>
+        </div>
+        <div class="modal-custom-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeInstallConfirmModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="executeConfirmedInstallation()" id="btnConfirmExecuteInstall" style="font-weight: 700; background: #10b981; border: none; color: #0b0f17; padding: 7px 18px;">
+                Confirm &amp; Install
+            </button>
         </div>
     </div>
 </div>

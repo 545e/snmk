@@ -25,8 +25,10 @@ import json
 import os
 import re
 import shutil
+import sys
 import time
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
 
 from core.models import VulnerabilityFinding, Severity
@@ -55,9 +57,33 @@ class ScannerIntegrations:
 
     @staticmethod
     def _find_binary(name: str, extra_paths: Optional[List[str]] = None) -> Optional[str]:
-        p = shutil.which(name)
-        if p:
-            return p
+        # 1. Check tools/bin sandboxed directory
+        project_root = Path(__file__).resolve().parent.parent
+        tools_bin = project_root / "tools" / "bin"
+        
+        candidates = [name]
+        if os.name == "nt" and not name.lower().endswith(('.exe', '.cmd', '.bat')):
+            candidates.extend([f"{name}.exe", f"{name}.cmd", f"{name}.bat"])
+            
+        for cand in candidates:
+            bin_path = tools_bin / cand
+            if bin_path.is_file():
+                return str(bin_path)
+
+        # 2. Check Python environment Scripts/bin
+        scripts_dir = Path(sys.prefix) / ("Scripts" if os.name == "nt" else "bin")
+        for cand in candidates:
+            cand_path = scripts_dir / cand
+            if cand_path.is_file():
+                return str(cand_path)
+
+        # 3. Check system PATH via shutil.which
+        for cand in candidates:
+            p = shutil.which(cand)
+            if p:
+                return p
+
+        # 4. Check explicit extra_paths fallback
         if extra_paths:
             for ep in extra_paths:
                 if os.path.isfile(ep):
