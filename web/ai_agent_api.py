@@ -314,15 +314,20 @@ async def get_provider_usage_metrics():
     reported as null with an explicit note rather than fabricated figures.
     """
     agents = db.list_ai_agents()
+    # NOTE: the previous implementation derived these metrics from
+    # get_agent_tasks(), which returns only the most recent 100 rows, so
+    # the "aggregated" totals were silently wrong.  The aggregates are now
+    # computed in SQL over the whole table.
     try:
-        tasks = db.get_agent_tasks()
+        metrics = db.get_agent_task_metrics()
     except Exception:
-        tasks = []
-    total = len(tasks)
-    completed = sum(1 for t in tasks if str(t.get("status", "")).upper() == "COMPLETED")
-    failed = sum(1 for t in tasks if str(t.get("status", "")).upper() == "FAILED")
-    durations = [t.get("duration_seconds") for t in tasks if isinstance(t.get("duration_seconds"), (int, float))]
-    avg_latency_ms = round((sum(durations) / len(durations)) * 1000, 2) if durations else None
+        metrics = {"total": 0, "by_status": {}, "completed": 0, "failed": 0,
+                    "avg_duration_seconds": None}
+    total = metrics["total"]
+    completed = metrics["completed"]
+    failed = metrics["failed"]
+    avg_duration = metrics["avg_duration_seconds"]
+    avg_latency_ms = round(avg_duration * 1000, 2) if avg_duration is not None else None
     return {
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "total_configured_agents": len(agents),

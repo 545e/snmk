@@ -40,6 +40,8 @@ from core.kill_chain.db import (
     list_evidence,
     list_indicators,
     list_incidents,
+    count_incidents,
+    count_evidence,
 )
 
 
@@ -94,7 +96,9 @@ class CyberKillChainEngine:
                 save_indicator(ind)
                 all_new_indicators.append(ind)
 
-        # Run correlation across all persistent findings
+        # Run correlation across all persistent findings.
+        # The same data is handed to get_overview(), which used to re-read
+        # the corpus from SQLite and correlate it a second time.
         all_db_findings = list_findings()
         all_db_evidence = list_evidence()
         all_db_indicators = list_indicators()
@@ -106,7 +110,12 @@ class CyberKillChainEngine:
             target_asset=tgt,
         )
 
-        overview = self.get_overview()
+        overview = self.get_overview(
+            findings=all_db_findings,
+            evidence=all_db_evidence,
+            indicators=all_db_indicators,
+            attack_paths=attack_paths,
+        )
 
         return {
             "status": "COMPLETED",
@@ -119,23 +128,54 @@ class CyberKillChainEngine:
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 
-    def get_overview(self) -> KillChainOverview:
+    def get_overview(
+        self,
+        findings: Optional[List[KillChainFinding]] = None,
+        evidence: Optional[List[EvidenceItem]] = None,
+        indicators: Optional[List[ThreatIndicator]] = None,
+        incidents: Optional[List[Any]] = None,
+        attack_paths: Optional[List[CorrelatedAttackPath]] = None,
+    ) -> KillChainOverview:
         """
         Computes the complete SOC dashboard overview metrics.
+
+        The optional parameters let a caller supply data it has already
+        loaded.  ``analyze_telemetry`` used to correlate the whole corpus
+        and then call ``get_overview()``, which re-read the corpus from
+        SQLite and correlated it a *second* time.
+
+        The stage summaries are computed in a single pass over the
+        findings (bucketed by stage) with a per-stage severity counter,
+        instead of ~28 separate passes over the same list.
         """
-        all_findings = list_findings()
-        all_ev = list_evidence()
-        all_inc = list_incidents()
+        all_findings = findings if findings is not None else list_findings()
+        all_ev = evidence if evidence is not None else list_evidence()
+        all_inc = incidents if incidents is not None else list_incidents()
+        all_ind = indicators if indicators is not None else list_indicators()
         coverage = self.controls_matrix.get_matrix()
+
+        # --- single pass: bucket findings by stage and count severities ---
+        from collections import Counter, defaultdict
+
+        by_stage: Dict[Any, List[KillChainFinding]] = defaultdict(list)
+        severity_by_stage: Dict[Any, Counter] = defaultdict(Counter)
+        risk_sum = 0.0
+        conf_sum = 0.0
+        for f in all_findings:
+            by_stage[f.stage].append(f)
+            severity_by_stage[f.stage][f.severity.value] += 1
+            risk_sum += f.risk_score
+            conf_sum += f.confidence_score
 
         # Compute status and summary per stage
         stage_summaries = {}
         for stage_enum in self.analyzers.keys():
             s_val = stage_enum.value
-            s_findings = [f for f in all_findings if f.stage == stage_enum]
+            s_findings = by_stage.get(stage_enum, [])
+            sev = severity_by_stage.get(stage_enum, Counter())
             analyzer = self.analyzers[stage_enum]
             st = analyzer.determine_stage_status(s_findings)
-            max_risk = max([f.risk_score for f in s_findings], default=0.0)
+            max_risk = max((f.risk_score for f in s_findings), default=0.0)
 
             stage_summaries[s_val] = {
                 "stage": s_val,
@@ -144,26 +184,30 @@ class CyberKillChainEngine:
                 "status": st.value,
                 "findings_count": len(s_findings),
                 "risk_score": max_risk,
-                "critical": sum(1 for f in s_findings if f.severity.value == "CRITICAL"),
-                "high": sum(1 for f in s_findings if f.severity.value == "HIGH"),
-                "medium": sum(1 for f in s_findings if f.severity.value == "MEDIUM"),
-                "low": sum(1 for f in s_findings if f.severity.value == "LOW"),
+                "critical": sev.get("CRITICAL", 0),
+                "high": sev.get("HIGH", 0),
+                "medium": sev.get("MEDIUM", 0),
+                "low": sev.get("LOW", 0),
                 "detection_capabilities": analyzer.detection_capabilities,
             }
 
-        avg_risk = round(sum([f.risk_score for f in all_findings]) / max(1, len(all_findings)), 1)
-        avg_conf = round(sum([f.confidence_score for f in all_findings]) / max(1, len(all_findings)), 1)
+        avg_risk = round(risk_sum / max(1, len(all_findings)), 1)
+        avg_conf = round(conf_sum / max(1, len(all_findings)), 1)
 
-        attack_paths = self.correlation_engine.correlate(
-            findings=all_findings,
-            evidence=all_ev,
-            indicators=list_indicators(),
-        )
+        if attack_paths is None:
+            attack_paths = self.correlation_engine.correlate(
+                findings=all_findings,
+                evidence=all_ev,
+                indicators=all_ind,
+            )
 
         return KillChainOverview(
             total_findings=len(all_findings),
-            total_evidence_count=len(all_ev),
-            active_incidents_count=sum(1 for i in all_inc if i.status.value not in ("CLOSED", "REMEDIATED")),
+            # NOTE: the previous values were len() of lists that are read
+            # with a LIMIT, so they were silently capped.  The counters are
+            # exact now.
+            total_evidence_count=count_evidence(),
+            active_incidents_count=count_incidents(),
             overall_risk_score=avg_risk,
             overall_confidence_score=avg_conf,
             stage_summaries=stage_summaries,
@@ -188,7 +232,9 @@ class CyberKillChainEngine:
         evidence = list_evidence(stage=stage_enum.value)
         indicators = list_indicators(stage=stage_enum.value)
         playbook = self.incident_manager.get_playbook_for_stage(stage_enum.value)
-        controls = [c for c in self.controls_matrix.get_matrix()["matrix"].get(stage_enum.value, {}).values()]
+        # NOTE: the previous line rebuilt the entire 7x5 controls matrix
+        # (a DB query plus gap analysis) and then discarded the result -
+        # the response uses ``analyzer.default_controls`` instead.
 
         return {
             "stage": stage_enum.value,

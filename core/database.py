@@ -8490,6 +8490,36 @@ class Database:
 
 
 
+    def get_agent_task_metrics(self) -> Dict[str, Any]:
+        """Return exact aggregate metrics for the agent task history.
+
+        The previous implementation derived the "aggregated usage metrics"
+        from ``get_agent_tasks()``, which is limited to the most recent
+        100 rows, so the reported totals were silently wrong on a platform
+        with thousands of tasks.  These aggregates are computed in SQL over
+        the whole table.
+        """
+        with self.get_connection() as conn:
+            total = int(conn.execute("SELECT COUNT(*) FROM agent_tasks").fetchone()[0])
+            by_status: Dict[str, int] = {}
+            for row in conn.execute(
+                "SELECT UPPER(COALESCE(status, '')) AS s, COUNT(*) AS c "
+                "FROM agent_tasks GROUP BY s"
+            ):
+                by_status[str(row[0])] = int(row[1])
+            avg_row = conn.execute(
+                "SELECT AVG(duration_seconds) FROM agent_tasks "
+                "WHERE duration_seconds IS NOT NULL"
+            ).fetchone()
+            avg_duration = avg_row[0] if avg_row else None
+        return {
+            "total": total,
+            "by_status": by_status,
+            "completed": by_status.get("COMPLETED", 0),
+            "failed": by_status.get("FAILED", 0),
+            "avg_duration_seconds": float(avg_duration) if avg_duration is not None else None,
+        }
+
     def get_agent_tasks(self, scan_id: Optional[str] = None, agent_role: Optional[str] = None) -> List[Dict[str, Any]]:
 
 

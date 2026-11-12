@@ -451,9 +451,19 @@ class ScannerIntegrations:
         return inventory
 
     @staticmethod
-    def update_tool(tool_id: str) -> Dict[str, Any]:
-        """Updates a specific cybersecurity tool, template database, or signature baseline."""
-        ScannerIntegrations.invalidate_inventory_cache()
+    def update_tool(tool_id: str, inventory: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+        """Updates a specific cybersecurity tool, template database, or signature baseline.
+
+        ``inventory`` lets a caller supply an already-detected inventory.
+        ``update_all_tools`` used to have every one of its 16 workers
+        invalidate the shared cache and re-run the full binary detection,
+        so one "update all" request spawned ~15 x 15 subprocesses
+        instead of 15.  When no inventory is supplied the cache is
+        refreshed, which is the correct behaviour for a single-tool
+        update (the binary may have just been installed).
+        """
+        if inventory is None:
+            ScannerIntegrations.invalidate_inventory_cache()
         import datetime
         now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         t_id = tool_id.lower().strip()
@@ -472,7 +482,8 @@ class ScannerIntegrations:
             t_id = t_id.replace("scanner_", "", 1)
             if t_id == "defender":
                 t_id = "microsoft_defender"
-        inventory = ScannerIntegrations.get_tool_inventory()
+        if inventory is None:
+            inventory = ScannerIntegrations.get_tool_inventory()
         meta = inventory.get(t_id)
 
         if not meta:
@@ -557,7 +568,12 @@ class ScannerIntegrations:
         # 1. Update all external tools in parallel with ThreadPoolExecutor
         tool_ids = list(inventory.keys())
         with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
-            future_to_tid = {executor.submit(ScannerIntegrations.update_tool, tid): tid for tid in tool_ids}
+            # The refreshed inventory is passed to every worker so that the
+            # shared cache is detected exactly once for the whole batch.
+            future_to_tid = {
+                executor.submit(ScannerIntegrations.update_tool, tid, inventory): tid
+                for tid in tool_ids
+            }
             for future in concurrent.futures.as_completed(future_to_tid):
                 tid = future_to_tid[future]
                 try:

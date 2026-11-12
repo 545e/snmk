@@ -663,63 +663,24 @@ async def list_agents(
 
 
 
-    dumped = [m.model_dump() for m in manifests]
-
-
-
-
-
-
-
+    # NOTE: the previous code ran model_dump() on *every* manifest before
+    # slicing the page, so a 10-item page still paid for 94 recursive
+    # Pydantic serialisations.  Slice first, then dump the page only.
+    # (``start`` is also clamped at 0: a page number of 0 previously
+    # produced a negative slice index.)
     if page is not None and limit is not None and limit > 0:
-
-
-
-        total = len(dumped)
-
-
-
-        start = (page - 1) * limit
-
-
-
-        items = dumped[start:start + limit]
-
-
-
+        total = len(manifests)
+        start = max(0, (page - 1) * limit)
+        items = [m.model_dump() for m in manifests[start:start + limit]]
         return {
-
-
-
             "items": items,
-
-
-
             "total": total,
-
-
-
             "page": page,
-
-
-
             "limit": limit,
-
-
-
             "pages": (total + limit - 1) // limit
-
-
-
         }
 
-
-
-
-
-
-
-    return dumped
+    return [m.model_dump() for m in manifests]
 
 
 

@@ -229,6 +229,17 @@ def get_evidence(evidence_id: str) -> Optional[EvidenceItem]:
         return _row_to_evidence(row)
 
 
+def count_evidence(stage: Optional[str] = None) -> int:
+    """Return the number of evidence items (exact, not limited)."""
+    with db.get_connection() as conn:
+        query = "SELECT COUNT(*) FROM kill_chain_evidence"
+        params = []
+        if stage:
+            query += " WHERE stage = ?"
+            params.append(stage)
+        return int(conn.execute(query, params).fetchone()[0])
+
+
 def list_evidence(stage: Optional[str] = None, asset: Optional[str] = None, limit: int = 100) -> List[EvidenceItem]:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
@@ -549,7 +560,23 @@ def get_incident(incident_id: str) -> Optional[IncidentRecord]:
         return _row_to_incident(row)
 
 
-def list_incidents(status: Optional[str] = None) -> List[IncidentRecord]:
+def count_incidents(status: Optional[str] = None) -> int:
+    """Return the number of incident records (exact, not limited)."""
+    with db.get_connection() as conn:
+        query = "SELECT COUNT(*) FROM kill_chain_incidents"
+        params = []
+        if status and status != "ALL":
+            query += " WHERE status = ?"
+            params.append(status.upper())
+        return int(conn.execute(query, params).fetchone()[0])
+
+
+def list_incidents(status: Optional[str] = None, limit: int = 200,                   offset: int = 0) -> List[IncidentRecord]:
+    """Return incident records, newest first.
+
+    ``limit`` bounds the result set - the table is append-only and was
+    previously read in full on every overview request.
+    """
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -558,7 +585,8 @@ def list_incidents(status: Optional[str] = None) -> List[IncidentRecord]:
         if status and status != "ALL":
             query += " WHERE status = ?"
             params.append(status.upper())
-        query += " ORDER BY updated_at DESC"
+        query += " ORDER BY updated_at DESC LIMIT ? OFFSET ?"
+        params = list(params) + [int(limit), int(offset or 0)]
         rows = cursor.execute(query, params).fetchall()
         return [_row_to_incident(r) for r in rows]
 

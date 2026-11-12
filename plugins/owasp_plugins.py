@@ -66,6 +66,44 @@ STACK_TRACE_SIGS = [
 # =====================================================================
 # A01: Broken Access Control
 # =====================================================================
+# Parameters that are the most common injection sinks.  The order defines the
+# priority; anything not listed keeps its declaration order.  This is used to
+# make the OWASP probe selection deterministic (see the note in the plugin).
+_PROBE_PARAMETER_PRIORITY = (
+    "id", "q", "query", "search", "keyword", "name", "user", "username",
+    "login", "account", "email", "password", "passwd", "pwd", "url", "uri",
+    "file", "filename", "path", "redirect", "next", "return", "continue",
+    "include", "load", "data", "cmd", "command", "exec", "run", "page",
+    "item", "product", "order", "sort", "filter", "lang", "locale", "view",
+    "action", "type", "format", "callback", "src", "target", "dest",
+)
+
+
+def _rank_probe_parameters(params):
+    """Return ``params`` de-duplicated and ordered by injection relevance.
+
+    The de-duplication preserves the first occurrence order and the sort is
+    stable, so parameters that are equally ranked keep their original
+    declaration order.  The result is therefore fully deterministic and
+    free of duplicates regardless of the caller's input order.
+    """
+    unique = list(dict.fromkeys(params))
+    priority = {name: index for index, name in enumerate(_PROBE_PARAMETER_PRIORITY)}
+
+
+    def sort_key(index_and_name):
+        index, name = index_and_name
+        lowered = name.lower()
+        rank = priority.get(lowered)
+        if rank is None:
+            # Unknown parameters sort after the known ones; the original
+            # index keeps the ordering deterministic for equal ranks.
+            return (1, index, lowered)
+        return (0, rank, index, lowered)
+
+    return [name for _, name in sorted(enumerate(unique), key=sort_key)]
+
+
 class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
     def __init__(self):
         super().__init__(
