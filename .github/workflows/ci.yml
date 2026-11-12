@@ -65,6 +65,19 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+      - name: Summarise pytest failures
+        if: failure()
+        run: |
+          # Surface the failing tests as workflow annotations so the
+          # failure is visible without downloading the artifact.
+          grep -E '^(FAILED|ERROR)' pytest-report.txt | head -40 | while read -r line; do
+            echo "::error::$line"
+          done
+          tail -30 pytest-report.txt | while read -r line; do
+            echo "::debug::$line"
+          done
+          exit 0
+
       - name: Test Cyber Tools & Autonomous Engines Import
         env:
           PYTHONPATH: .
