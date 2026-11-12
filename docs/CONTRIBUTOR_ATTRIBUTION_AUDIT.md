@@ -190,6 +190,15 @@ rewrite — a rewrite changes commit objects, never the working tree.
 | Source files modified | **0** |
 | Application behaviour changed | **none** |
 
+> **The figures in this table were measured against `origin/main` = `c76d186`.**
+> Every commit created after that point also carries the trailer, so the exact
+> counts grow by one per commit.  The scope is therefore **recomputed from
+> `origin/main` at apply time** by the procedure in §4.4, and the
+> old → new mapping in §4.3 is regenerated and printed before the push.
+> The *properties* verified in §4.2 (identical tip tree, zero metadata,
+> subject and body differences, zero trailers left, no other ref moved) hold
+> regardless of the count.
+
 ### 4.2 Verification of the proposed rewrite (performed in a scratch clone)
 
 The rewrite was executed against a **clone** of the repository, never against
