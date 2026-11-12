@@ -180,7 +180,12 @@ class AgentMemoryStore:
             SELECT id, session_id, agent_id, project_id, memory_tier, role, content, metadata_json, token_count, created_at
             FROM agent_memory_records
             WHERE session_id = ? AND project_id = ?
-            ORDER BY created_at DESC
+            -- ``rowid`` is the implicit SQLite insertion counter, so it
+            -- breaks ties deterministically in insertion order.  Without a
+            -- tie-breaker two turns written inside the same microsecond came
+            -- back in an unspecified order, which made the session history
+            -- (and therefore the LLM context order) flaky.
+            ORDER BY created_at DESC, rowid DESC
             LIMIT ?
             """, (session_id, project_id, limit))
             rows = cursor.fetchall()

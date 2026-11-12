@@ -212,3 +212,46 @@ class TestAuditLogIdUniqueness:
             with db.get_connection() as conn:
                 conn.execute("DELETE FROM cyber_audit_logs WHERE id = ?", (log_id,))
                 conn.commit()
+
+
+# ---------------------------------------------------------------------------
+# The session history was ordered by `created_at` alone.  Two turns written
+# inside the same microsecond therefore had no defined order, and the
+# returned history - which is what feeds the LLM context - was flaky.
+# ---------------------------------------------------------------------------
+class TestAgentMemoryOrdering:
+    def test_history_order_is_deterministic(self):
+        from core.agent_memory import agent_memory_store
+
+        bad = 0
+        for i in range(30):
+            sid = f"dsa_order_probe_{i}"
+            agent_memory_store.clear_session(sid)
+            try:
+                agent_memory_store.record_turn(
+                    session_id=sid, agent_id="probe", role="user", content="u")
+                agent_memory_store.record_turn(
+                    session_id=sid, agent_id="probe", role="assistant", content="a")
+                history = agent_memory_store.get_session_history(sid)
+                if (len(history) != 2 or history[0].role != "user"
+                        or history[1].role != "assistant"):
+                    bad += 1
+            finally:
+                agent_memory_store.clear_session(sid)
+        assert bad == 0, f"{bad} of 30 iterations returned the history out of order"
+
+    def test_history_is_chronological(self):
+        """The store returns the history ascending for LLM context feeding."""
+        from core.agent_memory import agent_memory_store
+
+        sid = "dsa_order_chrono"
+        agent_memory_store.clear_session(sid)
+        try:
+            agent_memory_store.record_turn(
+                session_id=sid, agent_id="probe", role="user", content="first")
+            agent_memory_store.record_turn(
+                session_id=sid, agent_id="probe", role="assistant", content="second")
+            history = agent_memory_store.get_session_history(sid)
+            assert [h.content for h in history] == ["first", "second"]
+        finally:
+            agent_memory_store.clear_session(sid)
