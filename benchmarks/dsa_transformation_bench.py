@@ -221,11 +221,98 @@ def bench_gating():
     print(f"  patterns with a usable gate: {gated}/{len(effective)}")
 
 
+
+# ---------------------------------------------------------------------------
+# 5. Write path: SQLite connection reuse and write amplification
+# ---------------------------------------------------------------------------
+def bench_write_path():
+    banner("5. Write path (core.database)")
+    from core.database import db
+    from core.models import VulnerabilityFinding, Severity
+
+    scan_id = "dsa_bench_write_probe"
+    n = 100
+
+    def persist():
+        for i in range(n):
+            db.save_finding(VulnerabilityFinding(
+                id=f"dsa_bench_{i}", scan_id=scan_id, title=f"bench {i}",
+                severity=Severity.HIGH, cvss_score=5.0,
+                endpoint="http://127.0.0.1/x", method="GET", description="bench"))
+
+    persist()  # warm
+    best, med = timeit(persist, repeat=1, warmup=0)
+    print(f"  persist {n} findings      best {best:9.1f} ms   "
+          f"({best / n:.2f} ms per finding)")
+
+    with db.get_connection() as conn:
+        rows = conn.execute(
+            "SELECT COUNT(*) FROM findings WHERE scan_id = ?", (scan_id,)).fetchone()[0]
+        conn.execute("DELETE FROM findings WHERE scan_id = ?", (scan_id,))
+        conn.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+        conn.commit()
+    print(f"  rows written: {rows} (probe rows cleaned up)")
+
+    # The per-scan counters are recomputed with one grouped query.
+    best, _ = timeit(lambda: db.update_scan_counts(scan_id, force=True), repeat=10)
+    print(f"  update_scan_counts(force)   best {best:9.3f} ms")
+
+
+# ---------------------------------------------------------------------------
+# 6. Tool inventory refresh (the cache-invalidation storm)
+# ---------------------------------------------------------------------------
+def bench_tool_inventory():
+    banner("6. Tool inventory refresh (core.scanner_integrations)")
+    from core.scanner_integrations import ScannerIntegrations
+
+    ScannerIntegrations.invalidate_inventory_cache()
+    best, _ = timeit(lambda: ScannerIntegrations.get_tool_inventory(), repeat=1, warmup=0)
+    print(f"  one inventory detection pass   best {best:9.2f} ms")
+
+    ScannerIntegrations.invalidate_inventory_cache()
+    best, _ = timeit(lambda: ScannerIntegrations.update_all_tools(), repeat=1, warmup=0)
+    print(f"  update_all_tools()             best {best:9.2f} ms")
+    print("  (the old code ran one detection pass per worker: 16 x the above)")
+
+
+# ---------------------------------------------------------------------------
+# 7. Enterprise agent listing
+# ---------------------------------------------------------------------------
+def bench_enterprise_agents():
+    banner("7. Enterprise agent listing (web.enterprise_api)")
+    from core.agent_registry import agent_registry
+
+    manifests = agent_registry.list_manifests()
+
+    def old_impl(page, limit):
+        dumped = [m.model_dump() for m in manifests]
+        total = len(dumped)
+        start = (page - 1) * limit
+        items = dumped[start:start + limit]
+        return {"items": items, "total": total}
+
+    def new_impl(page, limit):
+        total = len(manifests)
+        start = max(0, (page - 1) * limit)
+        items = [m.model_dump() for m in manifests[start:start + limit]]
+        return {"items": items, "total": total}
+
+    assert old_impl(1, 10) == new_impl(1, 10), "listing output differs"
+    o_best, _ = timeit(lambda: old_impl(1, 10), repeat=30)
+    n_best, _ = timeit(lambda: new_impl(1, 10), repeat=30)
+    print(f"  page of 10 of {len(manifests)} agents:")
+    print(f"    dump-all-then-slice : {o_best:8.3f} ms")
+    print(f"    slice-then-dump     : {n_best:8.3f} ms   "
+          f"({o_best / max(n_best, 1e-9):.1f}x faster)")
+
 if __name__ == "__main__":
     env_line()
     bench_js_scanner()
     bench_signature_matching()
     bench_database()
     bench_gating()
+    bench_write_path()
+    bench_tool_inventory()
+    bench_enterprise_agents()
     print()
     print("Done.")
