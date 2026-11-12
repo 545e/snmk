@@ -17,46 +17,63 @@ import urllib.request
 import urllib.error
 import unittest
 
-BASE_URL = "http://127.0.0.1:8000"
 
 class TestE2ELocalScan(unittest.TestCase):
     _server_proc = None
 
+    @staticmethod
+    def _pick_free_port() -> int:
+        """Return a TCP port that is free right now."""
+        import socket
+
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.bind(("127.0.0.1", 0))
+            return int(s.getsockname()[1])
+
     @classmethod
     def setUpClass(cls):
-        # Check if server is already running and reachable
-        try:
-            with urllib.request.urlopen(f"{BASE_URL}/api/settings", timeout=1.0) as resp:
-                if resp.status == 200:
-                    return
-        except Exception:
-            pass
-
-        # If not running, start server in background for testing
+        # Start a dedicated server for this test on a port the OS says is
+        # free, so the test and the server always agree on the port and a
+        # developer's own running instance is never disturbed.
         repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         env = os.environ.copy()
         env["HEADLESS"] = "1"
         env["SWA_HOST"] = "127.0.0.1"
-        env["SWA_PORT"] = "8000"
+        # Ask the OS for a free port and hand it to the server, so the
+        # test and the server always agree on the port.
+        port = cls._pick_free_port()
+        cls.base_url = "http://127.0.0.1:%d" % port
+        env["SWA_PORT"] = str(port)
         
+        # The server output is captured to a file rather than discarded, so
+        # a start-up failure is diagnosable from the test output alone.
+        import tempfile
+        cls._server_log = tempfile.NamedTemporaryFile(
+            prefix="snmk_e2e_server_", suffix=".log", delete=False)
         cls._server_proc = subprocess.Popen(
             [sys.executable, "run.py"],
             cwd=repo_root,
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stdout=cls._server_log,
+            stderr=subprocess.STDOUT,
         )
         
-        # Wait up to 12 seconds for server to be responsive
+        # Wait for the server to become responsive.  This is a start-up
+        # budget, not an assertion: importing the whole FastAPI application
+        # takes noticeably longer on a cold, busy CI runner than on a
+        # developer machine, so the window is generous.
         started = False
-        for _ in range(24):
+        last_exc = "no request was attempted"
+        for _ in range(180):
             time.sleep(0.5)
             try:
-                with urllib.request.urlopen(f"{BASE_URL}/api/settings", timeout=1.0) as resp:
+                with urllib.request.urlopen(f"{cls.base_url}/api/settings", timeout=5.0) as resp:
                     if resp.status == 200:
                         started = True
                         break
-            except Exception:
+                    last_exc = f"HTTP {resp.status}"
+            except Exception as exc:
+                last_exc = f"{type(exc).__name__}: {exc}"
                 continue
                 
         if not started:
@@ -64,11 +81,24 @@ class TestE2ELocalScan(unittest.TestCase):
             if cls._server_proc:
                 try:
                     cls._server_proc.terminate()
-                    stdout, stderr = cls._server_proc.communicate(timeout=2)
-                    err = f"\nSTDOUT:\n{stdout.decode('utf-8', 'replace')}\nSTDERR:\n{stderr.decode('utf-8', 'replace')}"
+                    cls._server_proc.wait(timeout=5)
                 except Exception:
-                    cls._server_proc.kill()
-            raise RuntimeError(f"Failed to launch background SWA AI web server for E2E tests.{err}")
+                    try:
+                        cls._server_proc.kill()
+                    except Exception:
+                        pass
+            try:
+                cls._server_log.flush()
+                cls._server_log.close()
+                with open(cls._server_log.name, "r", encoding="utf-8",
+                          errors="replace") as fh:
+                    err = "\nSERVER OUTPUT:\n" + fh.read()[-4000:]
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"Failed to launch background SWA AI web server for E2E "
+                f"tests (port {port}, url {cls.base_url}, last error: {last_exc}).{err}"
+            )
 
     @classmethod
     def tearDownClass(cls):
@@ -82,12 +112,12 @@ class TestE2ELocalScan(unittest.TestCase):
     def test_01_ssrf_protection_blocks_unauthorized_local_scan(self):
         """Verifies SSRF guard blocks 127.0.0.1 when lab_mode is False."""
         payload = json.dumps({
-            "target_url": "http://127.0.0.1:8000",
+            "target_url": self.base_url,
             "profile": "quick",
             "lab_mode": False
         }).encode("utf-8")
         req = urllib.request.Request(
-            f"{BASE_URL}/api/scans",
+            f"{self.base_url}/api/scans",
             data=payload,
             headers={"Content-Type": "application/json"}
         )
@@ -101,14 +131,14 @@ class TestE2ELocalScan(unittest.TestCase):
         """Verifies full scan execution against 127.0.0.1:8000 with lab_mode=True."""
         # 1. Submit scan
         payload = json.dumps({
-            "target_url": "http://127.0.0.1:8000",
+            "target_url": self.base_url,
             "profile": "quick",
             "lab_mode": True,
             "max_depth": 1,
             "concurrency": 4
         }).encode("utf-8")
         req = urllib.request.Request(
-            f"{BASE_URL}/api/scans",
+            f"{self.base_url}/api/scans",
             data=payload,
             headers={"Content-Type": "application/json"}
         )
@@ -137,7 +167,7 @@ class TestE2ELocalScan(unittest.TestCase):
         while time.time() < deadline:
             time.sleep(2.0)
             try:
-                with urllib.request.urlopen(f"{BASE_URL}/api/scans/{scan_id}", timeout=5.0) as check_res:
+                with urllib.request.urlopen(f"{self.base_url}/api/scans/{scan_id}", timeout=5.0) as check_res:
                     final_data = json.loads(check_res.read().decode("utf-8"))
             except Exception as exc:
                 last_observed = f"status endpoint unreachable: {exc}"
@@ -161,16 +191,32 @@ class TestE2ELocalScan(unittest.TestCase):
         )
         self.assertGreaterEqual(final_data.get("progress_percent", 0), 100)
 
-        # 3. Verify findings
-        time.sleep(1.0)
-        try:
-            with urllib.request.urlopen(f"{BASE_URL}/api/scans/{scan_id}/findings", timeout=5.0) as findings_res:
-                findings = json.loads(findings_res.read().decode("utf-8"))
-        except Exception:
+        # 3. Verify findings.
+        #
+        # The scan status flips to COMPLETED before the last finding rows are
+        # committed, so the findings are polled for a short while instead of
+        # being read once after a fixed sleep.  The assertion itself is
+        # unchanged: at least one finding must be produced.
+        findings = []
+        findings_deadline = time.time() + 60.0
+        last_findings_error = "no attempt made"
+        while time.time() < findings_deadline:
+            try:
+                with urllib.request.urlopen(
+                    f"{self.base_url}/api/scans/{scan_id}/findings", timeout=10.0
+                ) as findings_res:
+                    findings = json.loads(findings_res.read().decode("utf-8"))
+                if findings:
+                    break
+                last_findings_error = "the scan reported no findings yet"
+            except Exception as exc:
+                last_findings_error = f"{type(exc).__name__}: {exc}"
             time.sleep(1.5)
-            with urllib.request.urlopen(f"{BASE_URL}/api/scans/{scan_id}/findings", timeout=5.0) as findings_res:
-                findings = json.loads(findings_res.read().decode("utf-8"))
-        self.assertGreater(len(findings), 0, "Expected at least 1 vulnerability finding on test target")
+        self.assertGreater(
+            len(findings), 0,
+            f"Expected at least 1 vulnerability finding on test target "
+            f"(last state: {last_findings_error})",
+        )
 
         for f in findings:
             self.assertIn("title", f)
@@ -180,7 +226,7 @@ class TestE2ELocalScan(unittest.TestCase):
 
         # 4. Verify report generation across all formats
         for fmt in ["html", "json", "sarif", "csv", "markdown"]:
-            rep_res = urllib.request.urlopen(f"{BASE_URL}/api/scans/{scan_id}/report?format={fmt}")
+            rep_res = urllib.request.urlopen(f"{self.base_url}/api/scans/{scan_id}/report?format={fmt}")
             self.assertEqual(rep_res.code, 200)
             rep_text = rep_res.read().decode("utf-8", errors="ignore")
             self.assertGreater(len(rep_text), 50, f"Report format {fmt} returned unexpectedly short content")
