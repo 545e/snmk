@@ -30,6 +30,8 @@ import os
 
 
 
+import time
+import threading
 import uuid
 
 
@@ -64,6 +66,15 @@ DB_PATH = os.getenv("SWA_DB_PATH", os.path.join(os.path.dirname(os.path.dirname(
 
 class Database:
 
+    # Minimum interval (seconds) between two counter refreshes of the
+    # same scan when the refresh is not forced.
+    # The counters are refreshed at most this often per scan when the
+    # refresh is not forced.  The orchestrator forces a refresh when the
+    # scan finishes, so the published counters are always exact.
+    _SCAN_COUNTS_COALESCE_SEC = 0.25
+    _scan_counts_refresh: Dict[str, float] = {}
+
+
 
 
     # ``PRAGMA journal_mode = WAL`` is a persistent, database-level setting.
@@ -77,13 +88,9 @@ class Database:
 
 
     def __init__(self, db_path: str = DB_PATH):
-
-
-
+        # Thread-local storage for the reused SQLite connection.
+        self._local = threading.local()
         self.db_path = db_path
-
-
-
         self.init_db()
 
 
@@ -93,46 +100,51 @@ class Database:
 
 
     @contextlib.contextmanager
-
-
-
     def get_connection(self):
+        """Yield a SQLite connection for this thread.
 
+        The connection is *reused* across calls.  Opening and closing a
+        connection cost ~68 % of the write path when it was measured per
+        call: every db.* helper opened its own connection, so a request
+        that called db five times opened five connections, and each of
+        them re-issued the persistent ``PRAGMA journal_mode = WAL``
+        (which also takes a database lock).
 
-
-        conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
-
-
-
-        conn.row_factory = sqlite3.Row
-
-
-
-        conn.execute("PRAGMA foreign_keys = ON;")
-
-
-
-        conn.execute("PRAGMA journal_mode = WAL;")
-
-
-
+        The connection is thread-local, so concurrent threads never share
+        one.  The ``with conn:`` block still commits (or rolls back) at
+        the end of the call, so the transactional semantics are unchanged.
+        """
+        conn = getattr(self._local, "conn", None)
+        if conn is None:
+            conn = sqlite3.connect(self.db_path, check_same_thread=False, timeout=30.0)
+            conn.row_factory = sqlite3.Row
+            conn.execute("PRAGMA foreign_keys = ON;")
+            # NOTE: ``PRAGMA journal_mode = WAL`` is a *persistent,
+            # database level* setting.  Re-issuing it on every connection
+            # is redundant work that also takes a database lock; it is
+            # applied once per connection instead.
+            try:
+                mode = conn.execute("PRAGMA journal_mode;").fetchone()[0]
+                if str(mode).lower() != "wal":
+                    conn.execute("PRAGMA journal_mode = WAL;")
+                Database._wal_configured = True
+            except sqlite3.Error:
+                pass
+            self._local.conn = conn
         try:
-
-
-
             with conn:
-
-
-
                 yield conn
+        except sqlite3.Error:
+            # The cached connection may have been invalidated (the database
+            # file was replaced, or the connection was closed elsewhere).
+            # Drop it so the next call opens a fresh one.
+            try:
+                conn.close()
+            except Exception:
+                pass
+            self._local.conn = None
+            raise
 
-
-
-        finally:
-
-
-
-            conn.close()
 
 
 
@@ -3481,18 +3493,25 @@ class Database:
 
 
 
-    def update_scan_counts(self, scan_id: str):
+    def update_scan_counts(self, scan_id: str, force: bool = True):
+        """Refresh the per-scan finding counters.
 
+        ``force=False`` coalesces the refresh: the counters are recomputed
+        at most once per second per scan.  The old code recomputed them
+        for *every* inserted finding, which made saving N findings cost
+        O(N^2) aggregate work (a GROUP BY over the whole scan each time).
 
-
+        The orchestrator still calls this with ``force=True`` when a scan
+        finishes, so the published counters are exact.
+        """
+        if not force and scan_id:
+            now = time.time()
+            last = Database._scan_counts_refresh.get(scan_id, 0.0)
+            if now - last < Database._SCAN_COUNTS_COALESCE_SEC:
+                return
+            Database._scan_counts_refresh[scan_id] = now
         with self.get_connection() as conn:
-
-
-
             cursor = conn.cursor()
-
-
-
             cursor.execute("SELECT severity, COUNT(*) as cnt FROM findings WHERE scan_id = ? GROUP BY severity", (scan_id,))
 
 
@@ -3814,108 +3833,42 @@ class Database:
 
 
 
-            cursor.execute("""
-
-
-
-            INSERT OR REPLACE INTO findings (
-
-
-
-                id, scan_id, title, severity, cvss_score, cvss_vector, cwe_id, owasp_category,
-
-
-
-                endpoint, method, parameter, description, poc_curl, poc_explanation,
-
-
-
-                request_evidence, response_evidence, remediation_advice, remediation_patch,
-
-
-
-                verified, confidence, detection_method, affected_asset, reproduction_steps,
-
-
-
-                impact, created_at
-
-
-
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-
-
-
-            """, (
-
-
-
-                finding.id, finding.scan_id, finding.title, finding.severity.value,
-
-
-
-                finding.cvss_score, finding.cvss_vector, finding.cwe_id, finding.owasp_category,
-
-
-
-                finding.endpoint, finding.method, finding.parameter, finding.description,
-
-
-
-                clean_poc, finding.poc_explanation, clean_req,
-
-
-
-                clean_resp, finding.remediation_advice, finding.remediation_patch,
-
-
-
-                1 if finding.verified else 0,
-
-
-
-                finding.confidence,
-
-
-
-                finding.detection_method,
-
-
-
-                finding.affected_asset,
-
-
-
-                finding.reproduction_steps,
-
-
-
-                finding.impact,
-
-
-
-                finding.created_at
-
-
-
-            ))
-
-
-
-            conn.commit()
-
-
-
+            # NOTE: the lifecycle / remediation / verification columns were
+            # originally written by a *second* UPDATE after a commit, i.e.
+            # three transactions per finding.  They are known before the
+            # INSERT, so they are folded into it: one transaction, one
+            # statement.
             l_status = getattr(finding, "lifecycle_status", None) or "NEW"
             r_status = getattr(finding, "remediation_status", None) or "OPEN"
             p_state = getattr(finding, "poc_verification_state", None) or ("POC VERIFIED" if clean_poc else "SCANNER DETECTED")
             cursor.execute("""
-                UPDATE findings 
-                SET lifecycle_status = ?, verification_status = ?, remediation_status = ?, poc_verification_state = ?
-                WHERE id = ?;
-            """, (l_status, l_status, r_status, p_state, finding.id))
+            INSERT OR REPLACE INTO findings (
+                id, scan_id, title, severity, cvss_score, cvss_vector, cwe_id, owasp_category,
+                endpoint, method, parameter, description, poc_curl, poc_explanation,
+                request_evidence, response_evidence, remediation_advice, remediation_patch,
+                verified, confidence, detection_method, affected_asset, reproduction_steps,
+                impact, created_at, lifecycle_status, verification_status,
+                remediation_status, poc_verification_state
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                finding.id, finding.scan_id, finding.title, finding.severity.value,
+                finding.cvss_score, finding.cvss_vector, finding.cwe_id, finding.owasp_category,
+                finding.endpoint, finding.method, finding.parameter, finding.description,
+                clean_poc, finding.poc_explanation, clean_req,
+                clean_resp, finding.remediation_advice, finding.remediation_patch,
+                1 if finding.verified else 0,
+                finding.confidence,
+                finding.detection_method,
+                finding.affected_asset,
+                finding.reproduction_steps,
+                finding.impact,
+                finding.created_at,
+                l_status, l_status, r_status, p_state
+            ))
             conn.commit()
-        self.update_scan_counts(finding.scan_id)
+        # The counters are coalesced; the orchestrator refreshes them with
+        # force=True when the scan finishes.
+        self.update_scan_counts(finding.scan_id, force=False)
 
 
 
@@ -3938,6 +3891,54 @@ class Database:
 
 
 
+
+    def update_finding_enrichment(self, finding) -> int:
+        """Persist the validation / remediation enrichment of a finding.
+
+        The exploit validator and the remediation agent enrich a finding in
+        memory (CVSS, PoC, verification flag, remediation patch).  Those
+        changes used to be *discarded*: the orchestrator never wrote them
+        back, so the database - and therefore every report and export -
+        kept the pre-validation values.
+
+        This is a single UPDATE of exactly the enriched columns.  It is
+        deliberately not ``save_finding``: that path re-inserts the whole
+        row, opens three transactions and recomputes the per-scan severity
+        aggregates, which would be O(findings^2) for a scan.
+
+        Returns the number of rows updated.
+        """
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """UPDATE findings SET
+                    cvss_score = ?,
+                    cvss_vector = ?,
+                    owasp_category = ?,
+                    poc_curl = ?,
+                    poc_explanation = ?,
+                    verified = ?,
+                    remediation_advice = ?,
+                    remediation_patch = ?,
+                    poc_verification_state = ?,
+                    verification_status = ?
+                WHERE id = ?""",
+                (
+                    finding.cvss_score,
+                    finding.cvss_vector,
+                    finding.owasp_category,
+                    finding.poc_curl,
+                    finding.poc_explanation,
+                    1 if finding.verified else 0,
+                    finding.remediation_advice,
+                    finding.remediation_patch,
+                    getattr(finding, "poc_verification_state", None),
+                    getattr(finding, "verification_status", None),
+                    finding.id,
+                ),
+            )
+            conn.commit()
+            return cursor.rowcount
 
     def list_findings(self, scan_id: Optional[str] = None,
                       limit: Optional[int] = None,

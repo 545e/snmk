@@ -207,15 +207,50 @@ class SWAOrchestrator:
             remediation_agent = RemediationAgent(self.scan_id, self.llm, recon_data)
             final_findings = await remediation_agent.run(validated_findings)
 
+            # Persist the enrichment.
+            #
+            # The exploit validator and the remediation agent enrich the
+            # findings in memory (verified CVSS, PoC command, explanation,
+            # remediation patch).  Those changes used to be discarded: the
+            # orchestrator never wrote them back, so the database - and
+            # therefore every report, export and API response - kept the
+            # pre-validation values.
+            persisted = 0
+            for finding in final_findings:
+                try:
+                    persisted += db.update_finding_enrichment(finding)
+                except Exception as enrich_err:
+                    await self.log(
+                        f"Could not persist enrichment for {finding.id}: {enrich_err}",
+                        "WARN",
+                    )
+            await self.log(
+                f"Persisted exploit-validation and remediation enrichment "
+                f"for {persisted} finding(s).",
+                "SUCCESS",
+            )
+
             # Finalize
             await self._finalize_scan(start_time, recon_data)
 
         except asyncio.CancelledError:
             await self.log("Scan was cancelled by user.", "WARN")
             db.update_scan_status(self.scan_id, ScanStatus.CANCELLED)
+            # Force the counter refresh: the per-finding refresh is
+            # coalesced, so without this a cancelled scan would publish
+            # stale finding counts.
+            try:
+                db.update_scan_counts(self.scan_id, force=True)
+            except Exception:
+                pass
         except Exception as e:
             await self.log(f"Scan encountered an unexpected error: {str(e)}", "ERROR")
             db.update_scan_status(self.scan_id, ScanStatus.FAILED)
+            # Force the counter refresh (see the cancellation path).
+            try:
+                db.update_scan_counts(self.scan_id, force=True)
+            except Exception:
+                pass
             db.update_scan_progress(self.scan_id, 100, "Failed", error=str(e))
         finally:
             if self.scan_id in queue_manager.active_tasks:
