@@ -53,7 +53,17 @@ jobs:
           PYTHONPATH: .
           CI: "true"
         run: |
-          pytest tests/ -v --ignore=tests/e2e_map_browser_test.py
+          set -o pipefail
+          pytest tests/ -v --ignore=tests/e2e_map_browser_test.py 2>&1 | tee pytest-report.txt
+
+      - name: Upload pytest report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pytest-report-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: pytest-report.txt
+          retention-days: 14
+          if-no-files-found: ignore
 
       - name: Test Cyber Tools & Autonomous Engines Import
         env:
