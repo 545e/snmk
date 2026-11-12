@@ -477,7 +477,15 @@ runs are shown; the **speed-up ratio** is the stable quantity.
 | SQL signature scan, 64 KB adversarial body | 27 349 / 21 637 ms | 33 / 32 ms | **838× / 674×** | O(N²) → O(N) |
 | SQL signature scan, 32 KB adversarial body | 8 197 / 4 851 ms | 26 / 12 ms | **321× / 405×** | " |
 | SQL signature scan, 16 KB adversarial body | 1 816 / 1 191 ms | 12 / 6 ms | **151× / 206×** | " |
-| `db.check_health()` (health probe) | 293 / 263 ms | 5.0 / 4.8 ms | **59× / 55×** | O(db size) → O(1) |
+| `db.check_health()` (health probe) | 293 / 263 ms | 5.0 / 4.8 ms | **59x / 55x** | O(db size) to O(1) |
+| `db.check_health()` *after connection reuse* | 4.8 ms | **0.087 ms** | **55x** more | connection open/close removed |
+| `db.count_findings()` *after connection reuse* | 4.0 ms | **0.083 ms** | **49x** more | " |
+| `db.finding_severity_counts()` *after connection reuse* | 6.2 ms | **0.65 ms** | **9.6x** more | " |
+| `db.list_findings(limit=50)` *after connection reuse* | 8.0 ms | **3.1 ms** | **2.6x** more | " |
+| Persist one finding | 40.1 ms | **4.8 ms** | **8.4x** | O(N^2) aggregate to O(N) |
+| `update_all_tools()` (tool inventory) | ~94 s of redundant probing | **7.5 s** | **12x** | 16 detection passes to 1 |
+| Enterprise agent listing (page of 10) | 0.58 ms | **0.061 ms** | **9.5x** | slice before serialising |
+| Kill Chain overview summary (40 000 findings) | 224 ms | **76 ms** | **2.9x** | O(stages x N) passes to O(N) |
 | `list_findings()` full table | 151 / 134 ms | — | — | replaced by `list_findings(limit=50)` = **11 / 8 ms** |
 | Findings list query plan | temp B-tree sort | `SCAN findings USING INDEX idx_findings_cvss_created` | — | O(N log N) → O(log N + page) |
 | DB indexes | 28 | **82** | — | — |
