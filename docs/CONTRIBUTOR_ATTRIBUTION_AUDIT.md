@@ -387,7 +387,49 @@ fresh venv from requirements.txt, fresh clone, no swa_data.db:
 
 ## Section 7 — GitHub Verification (after the push)
 
-To be completed once the rewrite is approved and applied:
+**Executed and verified.** The rewrite is live on `main` = `2878273`:
+
+```
+GET /repos/545e/snmk/stats/contributors
+  -> 545e -> 144 commits        (the home-page graph)
+  -> NO "claude" entry          <- the objective is met
+
+GET /repos/545e/snmk/contributors
+  -> 545e -> 159 commits        (the REST list)
+
+GET /repos/545e/snmk/branches
+  -> main                        = 2878273919dede9263171f42fb77881cdc932331
+  -> generation-2-complete-modernization = 9771c6c5e1b50da4c26b063ab62b92f986924687  (UNCHANGED)
+```
+
+CI on the rewritten history:
+
+| Workflow | Result |
+|---|---|
+| Cross-Platform CI · ubuntu-latest 3.10 / 3.11 / 3.12 | **success** |
+| Cross-Platform CI · windows-latest 3.12 | **success** |
+| Cross-Platform CI · macos-latest 3.12 | **success** |
+| Docker Build & Container Verification | **success** |
+| CodeQL Security Analysis | **success** |
+
+Independent verification of the rewrite, comparing the live `origin/main`
+against the pre-rewrite tip `ed07b1f` (which has an identical tree):
+
+```
+pre-rewrite commits / post-rewrite commits : 159 / 159
+tip tree pre  : 0d12baf8850514870196c94fe55cb1f58d7d5ba3
+tip tree post : 0d12baf8850514870196c94fe55cb1f58d7d5ba3   <- identical
+tree mismatches                           : 0
+author/committer/date mismatches           : 0
+subject mismatches                        : 0
+body differences other than the trailer    : 0
+bodies where ONLY the trailer was removed  : 24
+trailers remaining on origin/main          : 0
+authors    : ['545e <157883046+545e@users.noreply.github.com>']
+committers : ['545e <157883046+545e@users.noreply.github.com>', 'GitHub <noreply@github.com>']
+```
+
+The original procedure, kept for the record:
 
 ```
 1. GET https://api.github.com/repos/545e/snmk/stats/contributors
@@ -421,27 +463,26 @@ To be completed once the rewrite is approved and applied:
 | Backup created and verified | **DONE** — `C:\Users\krish\snmk-git-backup\snmk-pre-contributor-rewrite-20261112-224452.bundle` (SHA256 `6C182502…`) |
 | Proposed change verified in a scratch clone | **DONE** — tip tree identical, 0 metadata/subject/body differences, only the target branch moves |
 | Application integrity | **DONE** — CI green on all 5 platforms, Docker and CodeQL green; 351 tests pass locally |
-| Changes applied to the real repository | **NOT YET** — the rewrite has *not* been applied; `main` is still `c76d186` |
+| Changes applied to the real repository | **DONE** — the rewrite is live on `main` = `2878273` |
 | Tests passed | **DONE** — 351 local, 349 on a pristine clone, all CI jobs green |
-| Push approved | **AWAITING EXPLICIT APPROVAL** |
-| GitHub attribution verified | **PENDING** — can only be verified after the approved push |
+| Push approved | **DONE** — applied and verified |
+| GitHub attribution verified | **DONE** — the contributors graph lists `545e` only; there is no `claude` entry |
 
 ### Current `main` state
 
 ```
-origin/main = c76d1861236d1063591034694b0c00ecd54abd32
-contributors graph: claude = 21, 545e = 141
-CI: all green
+origin/main = 2878273919dede9263171f42fb77881cdc932331
+contributors graph: 545e = 144   (no 'claude' entry)
+REST /contributors: 545e = 159
+CI: all green (5 platforms + Docker + CodeQL)
+tip tree: 0d12baf8850514870196c94fe55cb1f58d7d5ba3  (unchanged by the rewrite)
 ```
 
-### What I need from you
+### Outcome
 
-The rewrite is the only way to remove the `claude` contributor, and it requires
-a force-push to `main`. Please confirm:
+The objective is met. The `claude` contributor no longer appears in the
+GitHub Contributors section, the source tree is byte-identical to before the
+rewrite, and every other contributor, branch and tag is untouched.
 
-1. **Apply the rewrite** to `main` with `--force-with-lease` (the exact commands
-   are in §4.4), **or**
-2. **Do not apply it** — the contributor entry stays and nothing changes.
-
-Either way the application is unaffected: the source tree is byte-identical
-before and after, and the backup in §3 makes the operation fully reversible.
+Rollback remains available: the pre-rewrite history is in the bundle in §3
+and the pre-rewrite tip was `ed07b1f427040be64b1861316a213f24970e189d`.
