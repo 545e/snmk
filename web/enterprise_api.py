@@ -40,16 +40,8 @@ from pydantic import BaseModel, Field
 
 import datetime
 
-
-
-
-
-
-
 from core.database import db
-
-
-
+from core.scoring import compute_posture, deduplicate_findings
 from core.intelligence_models import (
 
 
@@ -218,71 +210,13 @@ async def get_global_context():
 
 
 
-    # Calculate live posture score and grade
-
-
-
-    findings = db.get_findings_by_scan(active_scan.id) if active_scan else []
-
-
-
-    posture_score = 100.0
-
-
-
-    for f in findings:
-
-
-
-        s = f.severity.value if hasattr(f.severity, "value") else str(f.severity)
-
-
-
-        if s == "CRITICAL":
-
-
-
-            posture_score -= 30
-
-
-
-        elif s == "HIGH":
-
-
-
-            posture_score -= 18
-
-
-
-        elif s == "MEDIUM":
-
-
-
-            posture_score -= 8
-
-
-
-        elif s == "LOW":
-
-
-
-            posture_score -= 3
-
-
-
-        else:
-
-
-
-            posture_score -= 1
-
-
-
-    posture_score = max(0.0, min(100.0, posture_score))
-
-
-
-    grade = "A" if posture_score >= 90 else "B" if posture_score >= 75 else "C" if posture_score >= 60 else "D" if posture_score >= 40 else "F"
+    # Calculate live posture score and grade using canonical scoring engine
+    scan_findings = db.get_findings_by_scan(active_scan.id) if active_scan else []
+    findings = scan_findings if scan_findings else db.list_findings()
+    deduped = deduplicate_findings(findings)
+    posture = compute_posture(deduped)
+    posture_score = float(posture["score"])
+    grade = posture["grade"]
 
 
 
@@ -352,23 +286,27 @@ async def get_global_context():
 
 
         latest_findings_count=len(findings),
-
-
-
         last_completion_timestamp=active_scan.completed_at if active_scan else None
-
-
-
     )
 
 
-
-
-
-
-
-
-
+@router.get("/posture")
+async def get_security_posture():
+    """Retrieve canonical security posture score, grade, risk, and deduplicated breakdown."""
+    findings = db.list_findings()
+    deduped = deduplicate_findings(findings)
+    posture = compute_posture(deduped)
+    return {
+        "score": posture["score"],
+        "grade": posture["grade"],
+        "grade_color": posture["grade_color"],
+        "risk": posture["risk"],
+        "penalties": posture["penalties"],
+        "counts": posture["counts"],
+        "total": posture["total"],
+        "raw_total": len(findings),
+        "deduplicated_total": len(deduped),
+    }
 
 
 @router.post("/context")

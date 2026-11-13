@@ -31,6 +31,7 @@ from core.app_security import (
 from core.database import db
 from core.models import ScanConfig, ScanJob, ScanProfile, ScanStatus, VulnerabilityFinding
 from core.scope_policy import scope_policy
+from core.scoring import compute_posture
 from core.integrations.registry import integration_registry
 from core.tool_registry import tool_registry
 
@@ -312,8 +313,9 @@ async def v1_dashboard_metrics():
     severity_counts = {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0, "INFO": 0}
     severity_counts.update(db.finding_severity_counts())
 
-    posture_score = max(30, 100 - (severity_counts["CRITICAL"] * 15 + severity_counts["HIGH"] * 5 + severity_counts["MEDIUM"] * 2))
-    grade = "Grade A (90-100)" if posture_score >= 90 else "Grade B (75-89)" if posture_score >= 75 else "Grade C (50-74)" if posture_score >= 50 else "Grade D (<50)"
+    posture = compute_posture(counts=severity_counts)
+    posture_score = posture["score"]
+    grade = f"Grade {posture['grade']}"
 
     return v1_envelope(data={
         "total_scans": total_scans,

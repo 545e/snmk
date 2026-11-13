@@ -6305,6 +6305,10 @@ app.include_router(kill_chain_router)
 from web.network_api import router as network_router
 app.include_router(network_router)
 
+# Include Digital Forensics & Data Recovery Router
+from web.forensics_api import forensics_router
+app.include_router(forensics_router)
+
 
 
 

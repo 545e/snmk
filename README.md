@@ -84,7 +84,7 @@ Clone the primary repository:
 
 ```bash
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 ```
 
 Select your operating system below to install and run SNMK with one command.
@@ -101,7 +101,7 @@ Open PowerShell and execute:
 
 ```powershell
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 .\install.ps1
 .\run.ps1
 ```
@@ -117,7 +117,7 @@ Open Command Prompt (`cmd.exe`) and execute:
 
 ```cmd
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 install.bat
 run.bat
 ```
@@ -153,7 +153,7 @@ sudo apt update && sudo apt install -y python3 python3-venv python3-pip git
 
 ```bash
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 chmod +x install.sh run.sh stop.sh
 ./install.sh
 ./run.sh
@@ -183,7 +183,7 @@ brew install python git
 
 ```bash
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 chmod +x install_macos.sh run_macos.sh stop_macos.sh
 ./install_macos.sh
 ./run_macos.sh
@@ -203,7 +203,7 @@ If you prefer to configure your Python environment manually:
 
 ```bash
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 
 # 1. Create a virtual environment
 python -m venv .venv
@@ -237,7 +237,7 @@ For containerized environments, SNMK provides production and development Docker 
 
 ```bash
 git clone https://github.com/545e/snmk.git
-cd SWA
+cd snmk
 docker compose up --build -d
 ```
 

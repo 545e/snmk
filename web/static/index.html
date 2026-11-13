@@ -2976,6 +2976,19 @@ Content-Type: application/json
 
                     <div id="tabForensics" class="tab-content" style="display: block;">
 
+                        <!-- Digital Forensics & Data Recovery Sub-Navigation -->
+                        <div class="dfir-subnav-bar" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; padding-bottom: 2px;">
+                            <button type="button" class="dfir-subtab-btn active" id="btnSubtabLogs" onclick="switchForensicsSubtab('dfirPaneLogs', this)" style="background: none; border: none; border-bottom: 2px solid #818cf8; color: #818cf8; font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">📜 Log Footprints</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabStorage" onclick="switchForensicsSubtab('dfirPaneStorage', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">💾 Physical Media & Disk Images</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabPhotorec" onclick="switchForensicsSubtab('dfirPanePhotorec', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">🔍 PhotoRec Carving Station</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabAutopsy" onclick="switchForensicsSubtab('dfirPaneAutopsy', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">📁 Autopsy Case Manager</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabExif" onclick="switchForensicsSubtab('dfirPaneExif', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">📷 ExifTool & GPS Extractor</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabCustody" onclick="switchForensicsSubtab('dfirPaneCustody', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">🛡️ Chain-of-Custody Ledger</button>
+                        </div>
+
+                        <!-- 1. DFIR Server Logs Pane -->
+                        <div id="dfirPaneLogs" class="dfir-subtab-pane" style="display: block;">
+
                         <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
 
                             <div>
@@ -3130,6 +3143,221 @@ Content-Type: application/json
 
                             <!-- Filled dynamically when a scan is selected -->
 
+                        </div>
+                        </div><!-- /dfirPaneLogs -->
+
+                        <!-- 2. Physical Storage & Forensic Disk Images Pane -->
+                        <div id="dfirPaneStorage" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                        <span>💾 Physical Media & Forensic Disk Images</span>
+                                        <span class="os-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">Read-Only Guaranteed</span>
+                                    </h3>
+                                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                        Inspect physical drives (NVMe, SSD, HDD, USB) and raw forensic bitstream images (.dd, .raw, .img, .e01, .aff) with sector size and partition validation.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="loadStorageDevices()" style="padding: 6px 12px; font-size: 12px;">🔄 Refresh Media</button>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
+                                            <th style="padding: 10px 12px;">Storage Device / Image</th>
+                                            <th style="padding: 10px 12px;">Type</th>
+                                            <th style="padding: 10px 12px;">Capacity</th>
+                                            <th style="padding: 10px 12px;">Scheme / Filesystem</th>
+                                            <th style="padding: 10px 12px;">Forensic State</th>
+                                            <th style="padding: 10px 12px;">Serial / Checksum</th>
+                                            <th style="padding: 10px 12px; text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dfirStorageList">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 3. PhotoRec Carving Station with Left Back Navigation -->
+                        <div id="dfirPanePhotorec" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px;">
+                                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                    <span>🔍 PhotoRec Deep File Carving Station</span>
+                                    <span class="os-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">Bitstream Sector Scraper</span>
+                                </h3>
+                                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                    Perform deep unallocated cluster carving across damaged partitions and forensic dumps using signature-based headers/footers.
+                                </p>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                    <h4 style="font-size: 13.5px; font-weight: 700; color: #818cf8; margin-bottom: 12px;">1. Carving Source & Mode</h4>
+
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 4px;">Target Storage Media / Disk Image:</label>
+                                        <select id="dfirCarveTargetSelect" class="form-select" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: #e2e8f0; padding: 8px; border-radius: 6px; font-size: 12px;">
+                                            <option value="DEV-DISK-001">Primary Forensic SSD (476.94 GB) [NTFS]</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 4px;">Partition Carving Boundary:</label>
+                                        <select id="dfirCarveModeSelect" class="form-select" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: #e2e8f0; padding: 8px; border-radius: 6px; font-size: 12px;">
+                                            <option value="WHOLE">Whole Partition / Disk (All Sectors)</option>
+                                            <option value="UNALLOCATED">Free / Unallocated Clusters Only</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 4px;">Carving Destination Directory:</label>
+                                        <input type="text" id="dfirCarveDestInput" value="forensics/recovered" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: #e2e8f0; padding: 8px; border-radius: 6px; font-family: var(--mono); font-size: 12px;">
+                                    </div>
+
+                                    <!-- Mandatory 'Left Back' Directory Navigation Explorer -->
+                                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 14px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <button type="button" class="btn btn-secondary" id="dfirBtnLeftBack" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; background: rgba(99,102,241,0.2); border-color: #818cf8; color: #818cf8;">
+                                                    ⬅ Left Back
+                                                </button>
+                                                <span style="font-size: 11px; color: var(--text-muted);">Current Folder:</span>
+                                            </div>
+                                            <span id="dfirBrowseBreadcrumb" style="font-family: var(--mono); font-size: 11px; color: #38bdf8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">.</span>
+                                        </div>
+                                        <div id="dfirDirItemList" style="max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 4px;">
+                                            <!-- Items dynamically loaded -->
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-primary" onclick="startPhotorecCarving()" style="width: 100%; padding: 10px; font-weight: 700; font-size: 13px; background: #818cf8; color: #0b0f17;">
+                                        ⚡ Launch PhotoRec Deep File Carve
+                                    </button>
+                                </div>
+
+                                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                    <h4 style="font-size: 13.5px; font-weight: 700; color: #818cf8; margin-bottom: 12px;">2. File Signature Filters</h4>
+                                    <div id="dfirSignatureCheckboxes" style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto;">
+                                        <!-- Loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Carving Telemetry Dashboard -->
+                            <div id="dfirCarveLiveArea" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-weight: 700; font-size: 14px; color: #e2e8f0;">Real-Time Carver Telemetry:</span>
+                                        <span id="dfirCarveStatusBadge" class="badge" style="background: #38bdf8; color: #0b0f17; font-size: 11px; font-weight: 700;">RUNNING</span>
+                                    </div>
+                                    <div style="display: flex; gap: 12px; font-size: 12px;">
+                                        <span id="dfirCarveSectorsText" style="color: var(--text-muted); font-family: var(--mono);">0 / 1,000,000 Sectors</span>
+                                        <span id="dfirCarveRecoveredCount" style="color: #10b981; font-weight: 700;">0 Files Carved</span>
+                                        <button type="button" class="btn btn-secondary" onclick="cancelPhotorecCarving()" style="padding: 2px 8px; font-size: 11px; color: #f85149;">Stop Carve</button>
+                                    </div>
+                                </div>
+
+                                <div style="background: rgba(0,0,0,0.4); border-radius: 6px; height: 10px; overflow: hidden; margin-bottom: 12px;">
+                                    <div id="dfirCarveProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #818cf8, #38bdf8); transition: width 0.3s;"></div>
+                                </div>
+
+                                <div id="dfirCarveLogTerminal" style="background: #080c14; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 11px; color: #94a3b8; height: 140px; overflow-y: auto;">
+                                    <!-- Log messages -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. Autopsy Case Manager Pane -->
+                        <div id="dfirPaneAutopsy" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                        <span>📁 Autopsy Digital Forensic Case Manager</span>
+                                        <span class="os-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">Ingest Pipelines Active</span>
+                                    </h3>
+                                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                        Coordinate evidence data sources, NSRL known hash triage, keyword indexing, and automated forensic artifact extraction.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-primary" onclick="loadAutopsyCases()" style="padding: 6px 14px; font-size: 12px;">🔄 Refresh Cases</button>
+                                </div>
+                            </div>
+
+                            <div id="dfirAutopsyCasesList">
+                                <!-- Loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- 5. ExifTool & GPS Extractor Pane (Strictly Zero Cloudinary) -->
+                        <div id="dfirPaneExif" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px;">
+                                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                    <span>📷 ExifTool Metadata &amp; GPS Geolocation Extractor</span>
+                                    <span class="os-pill" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">Zero Cloudinary Enforced</span>
+                                </h3>
+                                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                    Extract hardware serials, capture timestamps, camera lens optics, and GPS coordinates with direct mapping and Jimpl external verification.
+                                </p>
+                            </div>
+
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                                    <input type="file" id="dfirExifFileInput" accept="image/*,.pdf,.mp4" style="display: none;" onchange="runExifExtraction(this)">
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('dfirExifFileInput').click()" style="padding: 8px 16px; font-size: 12px;">
+                                        📁 Upload Evidence File (Image / Doc)
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="runExifExtraction(null)" style="padding: 8px 16px; font-size: 12px; background: #818cf8; color: #0b0f17;">
+                                        ⚡ Analyze Forensic GPS Baseline Sample
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="dfirExifReportArea">
+                                <!-- Results appear here -->
+                            </div>
+                        </div>
+
+                        <!-- 6. Chain of Custody Immutable Ledger Pane -->
+                        <div id="dfirPaneCustody" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                        <span>🛡️ Cryptographic Chain-of-Custody Evidence Ledger</span>
+                                        <span class="os-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">SHA-256 / SHA-512 Dual Sealed</span>
+                                    </h3>
+                                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                        Tamper-proof evidence tracking ledger. Every forensic artifact is hashed at acquisition and verifiable on-demand against disk state.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="loadCustodyRecords()" style="padding: 6px 12px; font-size: 12px;">🔄 Refresh Ledger</button>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
+                                            <th style="padding: 10px 12px;">Evidence ID</th>
+                                            <th style="padding: 10px 12px;">Evidence Item</th>
+                                            <th style="padding: 10px 12px;">Source Device</th>
+                                            <th style="padding: 10px 12px;">Examiner</th>
+                                            <th style="padding: 10px 12px;">SHA-256 Bitstream Hash</th>
+                                            <th style="padding: 10px 12px;">Status</th>
+                                            <th style="padding: 10px 12px; text-align: right;">Integrity Check</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dfirCustodyTableBody">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
 
                     </div>
@@ -7048,6 +7276,7 @@ Content-Type: application/json
 
 
     <script src="app.js?v=3.5.1"></script>
+    <script src="digital_forensics.js"></script>
 
 <!-- ADD / EDIT / TEST API KEY MODAL -->
 <div id="apiKeyModal" class="modal-custom-overlay" style="display: none;">
