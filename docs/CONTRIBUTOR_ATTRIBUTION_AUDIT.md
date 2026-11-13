@@ -183,8 +183,8 @@ rewrite — a rewrite changes commit objects, never the working tree.
 | Property | Value |
 |---|---|
 | Branch rewritten | `main` (and the local `perf/dsa-enterprise-transformation` which tracks it) |
-| Commits whose hash changes | **24** (21 trailer commits + 3 descendants) |
-| Commits whose hash is unchanged | **132** |
+| Commits whose hash changes | **42** (24 trailer commits + 18 descendants) |
+| Commits whose hash is unchanged | **117** |
 | Boundary (unchanged, stays the parent of the oldest affected commit) | `e7d877c` |
 | Other branches / tags | **untouched** — `generation-2-complete-modernization` stays `9771c6c`, the tag stays `985083a` |
 | Source files modified | **0** |
@@ -205,7 +205,7 @@ The rewrite was executed against a **clone** of the repository, never against
 the working copy or the remote:
 
 ```
-commit count            : 156 -> 156
+commit count            : 159 -> 159
 tip tree hash           : 9ff6d6644c41671a9de35adc54702bafcfce21b3  (before)
                         : 9ff6d6644c41671a9de35adc54702bafcfce21b3  (after)
 TREES IDENTICAL         : True      <- the source code is bit-for-bit unchanged
@@ -220,21 +220,61 @@ refs other than the target branch that moved : 0
 
 ### 4.3 Old → new commit mapping
 
-The full 24-entry mapping is produced by the procedure in §4.4 and is printed
-before anything is applied. Representative entries:
+The applied rewrite changed **42** commit hashes on `main`: the 24 commits that
+carried the trailer, plus 18 descendants whose parent chain moved.  The
+generation-2 branch side of every merge is **unchanged**, so
+`generation-2-complete-modernization` still points at `9771c6c` and the old
+`9771c6c` is still an ancestor of `main`.
 
-```
-c76d1861236d -> ddfd1669066c  ci: pin the shell for the pytest and summary steps
-f9ce518b665c -> d07cecda382f  test(e2e): run the local scan against the server ...
-68b39706842a -> 513e80108c64  fix(db): make the cyber audit log primary key collision-free
-9aee01ff47d4 -> 4dcce2e8695c  ci: surface the failing tests as workflow annotations
-075f44ff93c0 -> e529fb75f943  test(e2e): widen the scan completion budget ...
-41946babaa76 -> 2ac41b213613  ci: capture and upload the pytest report ...
-029cdbd31f22 -> 2470542d403e  fix(db): create the hot-path indexes after the schema ...
-d00e3cd2e3e5 -> 392c2bbd6acb  docs(dsa): add the connection-reuse and write-path ...
-...
-e9a499bf1a38 -> (new)         perf(dsa): required-literal gating, localised matching ...
-```
+The table below lists every affected commit.
+
+Full mapping (author and committer are `545e <157883046+545e@users.noreply.github.com>`
+for every row unless the committer column says otherwise):
+
+| Old SHA | Branch | Author | Author e-mail | Committer | Attribution type | Corrected SHA |
+|---|---|---|---|---|---|---|
+| `ed07b1f42704` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `2878273919de` |
+| `8009c7a07d9b` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `0cb9b2778401` |
+| `ba012b3e81d7` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `91bee8efeac1` |
+| `c76d1861236d` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `a0face947905` |
+| `f9ce518b665c` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `733302e675f1` |
+| `68b39706842a` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `c93fc62cfe5f` |
+| `9aee01ff47d4` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `8fbacd003b33` |
+| `075f44ff93c0` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `9a1b85d1c095` |
+| `41946babaa76` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `0cdb368b9d56` |
+| `029cdbd31f22` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `d6554827c7a8` |
+| `d00e3cd2e3e5` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `880fe2e299b1` |
+| `5a7502eb5008` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `a18c72d2143a` |
+| `bd7796de741f` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `ff7cf75c9c9c` |
+| `986fe04dde98` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `47252dfafcd0` |
+| `b644f1b31c1e` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `829bba7aeeee` |
+| `a4b517d62fd0` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `de465b9325d4` |
+| `57a826bed886` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `04cfba6afc12` |
+| `8471a2ccec6c` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `6b49ba999393` |
+| `5d7136472234` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `1d9a233222ca` |
+| `3897b44bcfed` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `25b2970fb2d8` |
+| `87d7b2f02657` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `27a9f016ea07` |
+| `6706b7cca6b0` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `b9909bb081f7` |
+| `d64b3ceadf70` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `2bfc02c1cba7` |
+| `d98b48c80e7e` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `367a1d65d21f` |
+| `c92a4dbdf9e1` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `4dcc6e4bd3f3` |
+| `b0173ebe66cc` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `521ba415bda7` |
+| `e9a499bf1a38` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | Co-authored-by trailer removed | `c5f3fbbc2d98` |
+| `e7d877cac8cd` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `76f90f46810c` |
+| `e5a4a68e7729` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `6d9409a5f160` |
+| `1a1e4e403bf5` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | GitHub <noreply@github.com> | descendant of a rewritten commit | `9be0ef861cd7` |
+| `a76b0a78b739` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | GitHub <noreply@github.com> | descendant of a rewritten commit | `a44d7a06901f` |
+| `9e2ae04ae444` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | GitHub <noreply@github.com> | descendant of a rewritten commit | `c00a5ed9cbde` |
+| `a505493ba330` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | GitHub <noreply@github.com> | descendant of a rewritten commit | `3a5fc6f852d4` |
+| `e63202d00df9` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `f5c7600c2b0f` |
+| `f656cb8fc7ce` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `e360dd9b07d2` |
+| `a77a07ef69f0` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `ab109f5f2aa7` |
+| `582f88fe695c` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `eb0f0f086911` |
+| `035c5d60515f` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `d2fba16ae014` |
+| `9f2f5665d26a` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `31d4e7b06f21` |
+| `09955350a172` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `541cbecaeae1` |
+| `ce48ce1c4fa9` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | 545e <157883046+545e@users.noreply.github.com> | descendant of a rewritten commit | `4fdb5f5a2149` |
+| `3cb48f259e52` | main | 545e <157883046+545e@users.noreply.github.com> | 157883046+545e@users.noreply.github.com | GitHub <noreply@github.com> | descendant of a rewritten commit | `b7cf61894163` |
 
 ### 4.4 Exact git commands (to be run only after approval)
 
