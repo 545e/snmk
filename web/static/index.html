@@ -7186,10 +7186,12 @@ Content-Type: application/json
         <!-- Actions & Filters Bar -->
         <div class="tool-popover-actions-bar">
             <div class="tool-filter-pills" id="popoverFilterPills">
-                <button class="tool-filter-pill active" onclick="setPopoverFilter('ALL')">All (<span id="filterCountAll">15</span>)</button>
+                <button class="tool-filter-pill active" onclick="setPopoverFilter('ALL')">All (<span id="filterCountAll">0</span>)</button>
                 <button class="tool-filter-pill" onclick="setPopoverFilter('HEALTHY')">Healthy (<span id="filterCountHealthy">0</span>)</button>
                 <button class="tool-filter-pill" onclick="setPopoverFilter('DEGRADED')">Degraded (<span id="filterCountDegraded">0</span>)</button>
                 <button class="tool-filter-pill" onclick="setPopoverFilter('UNAVAILABLE')">Unavailable (<span id="filterCountUnavailable">0</span>)</button>
+                <button class="tool-filter-pill" onclick="setPopoverFilter('CHECKING')">Checking (<span id="filterCountChecking">0</span>)</button>
+                <button class="tool-filter-pill" onclick="setPopoverFilter('DISABLED')">Disabled (<span id="filterCountDisabled">0</span>)</button>
             </div>
             <div style="display: flex; gap: 8px; align-items: center;">
                 <input type="text" class="tool-search-input" id="popoverToolSearch" placeholder="Filter tools..." oninput="handlePopoverSearch(this.value)">

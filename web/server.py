@@ -7824,6 +7824,53 @@ async def get_automation_execution_details(exec_id: str):
 
 
 
+# =====================================================================
+# Static asset cache correctness
+# =====================================================================
+
+_ASSET_VERSION_CACHE: Dict[str, Any] = {}
+
+
+@app.middleware("http")
+async def _serve_assets_with_content_version(request, call_next):
+    """Serve ``index.html`` with content-addressed asset URLs.
+
+    The static assets used to be referenced with a hand-maintained
+    ``?v=3.5.1`` query string that was never bumped when the files changed,
+    so browsers kept serving a **stale** ``app.js`` after a deployment.  The
+    symptom was a UI whose behaviour no longer matched the server - for
+    example the tool-health popover rendering tab counters that disagreed
+    with the list it displayed.
+
+    The version token is now the content hash of the referenced file, so:
+
+    * a changed asset always gets a new URL (no stale cache possible), and
+    * an unchanged asset keeps its URL (so it can be cached immutably).
+    """
+    path = request.url.path
+    if path in ("/", "/index.html") and request.method == "GET":
+        try:
+            index_path = os.path.join(STATIC_DIR, "index.html")
+            with open(index_path, "r", encoding="utf-8") as fh:
+                html = fh.read()
+            from core.asset_versions import inject_asset_versions
+
+            html = inject_asset_versions(html, STATIC_DIR, _ASSET_VERSION_CACHE)
+            return HTMLResponse(
+                content=html,
+                headers={
+                    # The document itself must never be cached, otherwise a
+                    # browser can hold on to a document that references an
+                    # asset URL that no longer exists.
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Pragma": "no-cache",
+                },
+            )
+        except OSError:
+            pass
+    return await call_next(request)
+
+
 # Mount static web UI files
 
 if os.path.exists(STATIC_DIR):

@@ -1039,7 +1039,63 @@ class ToolHealthEngine:
 
         return None
 
+    # Level descriptions used to report which verification levels passed.
+    LEVEL_DESCRIPTIONS = (
+        "Level 1: Binary availability",
+        "Level 2: Version verification",
+        "Level 3: Configuration readiness",
+        "Level 4: Dependency / template readiness",
+        "Level 5: Functional execution",
+    )
+
+    @staticmethod
+    def _finalise_checks(diag: ToolHealthDiagnostic) -> ToolHealthDiagnostic:
+        """Populate the passed/failed check lists from the level results.
+
+        ``level_passed`` was computed on every path but the per-check lists
+        were only populated on two of them, so the UI reported
+        "Checks Passed: 0/5" for tools that had in fact passed every
+        level (for example Microsoft Defender, which is HEALTHY with
+        ``level_passed == 5``).
+        """
+        passed = list(diag.checks_passed or [])
+        failed = list(diag.checks_failed or [])
+
+        reached = max(0, min(int(diag.level_passed or 0),
+                              len(ToolHealthEngine.LEVEL_DESCRIPTIONS)))
+        for idx in range(reached):
+            description = ToolHealthEngine.LEVEL_DESCRIPTIONS[idx]
+            # A tool that already reported its own description for this level
+            # (for example the native engine) must not get a second entry.
+            level_prefix = "Level %d:" % (idx + 1)
+            already_reported = any(
+                str(item).strip().startswith(level_prefix) for item in passed
+            )
+            if description not in passed and not already_reported:
+                passed.append(description)
+
+        if diag.status != ToolHealthState.HEALTHY and not failed:
+            # NOTE: ``str()`` on a str-Enum yields "ToolHealthState.X" in
+            # Python 3.11+, so the raw value is used.
+            status_value = getattr(diag.status, "value", diag.status)
+            failed.append(
+                "Level %d: %s" % (reached + 1, str(status_value).replace("_", " ").title())
+            )
+
+        diag.checks_passed = passed
+        diag.checks_failed = failed
+        return diag
+
     async def verify_tool_health(
+        self,
+        item: ToolDependencyManifestItem,
+        requested_level: int = 5
+    ) -> ToolHealthDiagnostic:
+        """Runs tiered Level 1 to 5 verification for the specified tool."""
+        diag = await self._verify_tool_health_levels(item, requested_level)
+        return self._finalise_checks(diag)
+
+    async def _verify_tool_health_levels(
         self,
         item: ToolDependencyManifestItem,
         requested_level: int = 5

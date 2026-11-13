@@ -15999,6 +15999,38 @@ async function loadToolHealthPopoverData() {
     }
 }
 
+/**
+ * Canonical mapping from a tool health status to the filter bucket it
+ * belongs to.
+ *
+ * The backend can report nine distinct statuses (HEALTHY, DEGRADED,
+ * UNAVAILABLE, MISCONFIGURED, DISABLED, CHECKING, INSTALLING, ERROR,
+ * UNKNOWN) but the popover only understood five of them.  A tool in an
+ * unhandled state was counted in the "All" pill but in no other pill - so
+ * the counters did not add up to the total - and it was rendered with the
+ * UNAVAILABLE badge and an "Install" button even when installing it was the
+ * wrong remedy.
+ *
+ * Every status now maps to exactly one bucket, and the same map drives the
+ * counters, the filters, the badge style and the action button.
+ */
+const TOOL_HEALTH_BUCKETS = {
+    HEALTHY: 'HEALTHY',
+    DEGRADED: 'DEGRADED',
+    UNAVAILABLE: 'UNAVAILABLE',
+    MISCONFIGURED: 'UNAVAILABLE',
+    ERROR: 'UNAVAILABLE',
+    UNKNOWN: 'UNAVAILABLE',
+    CHECKING: 'CHECKING',
+    INSTALLING: 'CHECKING',
+    DISABLED: 'DISABLED',
+};
+
+function toolHealthBucket(tool) {
+    const status = (tool && tool.status ? String(tool.status) : 'UNKNOWN').toUpperCase();
+    return TOOL_HEALTH_BUCKETS[status] || 'UNAVAILABLE';
+}
+
 function renderToolHealthPopover() {
     const container = document.getElementById('popoverCardsContainer');
     if (!container) return;
@@ -16007,26 +16039,32 @@ function renderToolHealthPopover() {
     const filter = window.toolHealthState.filter || 'ALL';
     const search = (window.toolHealthState.search || '').toLowerCase().trim();
 
-    // Counts for filter pills
+    // Counts for filter pills.  Every tool contributes to exactly one
+    // bucket, so the pills always add up to the "All" total.
     const countAll = tools.length;
-    const countHealthy = tools.filter(t => t.status === 'HEALTHY').length;
-    const countDegraded = tools.filter(t => t.status === 'DEGRADED').length;
-    const countUnavailable = tools.filter(t => t.status === 'UNAVAILABLE' || t.status === 'ERROR').length;
+    const countHealthy = tools.filter(t => toolHealthBucket(t) === 'HEALTHY').length;
+    const countDegraded = tools.filter(t => toolHealthBucket(t) === 'DEGRADED').length;
+    const countUnavailable = tools.filter(t => toolHealthBucket(t) === 'UNAVAILABLE').length;
+    const countChecking = tools.filter(t => toolHealthBucket(t) === 'CHECKING').length;
+    const countDisabled = tools.filter(t => toolHealthBucket(t) === 'DISABLED').length;
 
     const elAll = document.getElementById('filterCountAll');
     const elH = document.getElementById('filterCountHealthy');
     const elD = document.getElementById('filterCountDegraded');
     const elU = document.getElementById('filterCountUnavailable');
+    const elC = document.getElementById('filterCountChecking');
+    const elDis = document.getElementById('filterCountDisabled');
     if (elAll) elAll.textContent = countAll;
     if (elH) elH.textContent = countHealthy;
     if (elD) elD.textContent = countDegraded;
     if (elU) elU.textContent = countUnavailable;
+    if (elC) elC.textContent = countChecking;
+    if (elDis) elDis.textContent = countDisabled;
 
     // Filter tools
     const filtered = tools.filter(t => {
-        if (filter === 'HEALTHY' && t.status !== 'HEALTHY') return false;
-        if (filter === 'DEGRADED' && t.status !== 'DEGRADED') return false;
-        if (filter === 'UNAVAILABLE' && (t.status !== 'UNAVAILABLE' && t.status !== 'ERROR')) return false;
+        const bucket = toolHealthBucket(t);
+        if (filter !== 'ALL' && bucket !== filter) return false;
         if (search) {
             const matchName = (t.name || '').toLowerCase().includes(search);
             const matchId = (t.tool_id || '').toLowerCase().includes(search);
@@ -16042,18 +16080,28 @@ function renderToolHealthPopover() {
     }
 
     container.innerHTML = filtered.map(t => {
-        const isHealthy = t.status === 'HEALTHY';
-        const isDegraded = t.status === 'DEGRADED';
-        const isUnavailable = t.status === 'UNAVAILABLE' || t.status === 'ERROR';
-        const isChecking = t.status === 'CHECKING';
+        // The badge style, the action button and the filter bucket all come
+        // from the same mapping, so a card can never be presented as
+        // "UNAVAILABLE" while sitting under a different pill.
+        const bucket = toolHealthBucket(t);
+        const isHealthy = bucket === 'HEALTHY';
+        const isDegraded = bucket === 'DEGRADED';
+        const isUnavailable = bucket === 'UNAVAILABLE';
+        const isChecking = bucket === 'CHECKING';
+        const isDisabled = bucket === 'DISABLED';
 
-        const badgeClass = isHealthy ? 'status-badge-healthy' : (isDegraded ? 'status-badge-degraded' : (isChecking ? 'status-badge-checking' : 'status-badge-unavailable'));
-        
+        const badgeClass = isHealthy ? 'status-badge-healthy'
+            : (isDegraded ? 'status-badge-degraded'
+            : (isChecking ? 'status-badge-checking'
+            : (isDisabled ? 'status-badge-degraded' : 'status-badge-unavailable')));
+
         let actionBtnHtml = '';
         if (isUnavailable) {
             actionBtnHtml = `<button class="btn-tool-action btn-tool-install" onclick="openInstallConfirmModal(['${t.tool_id}'])">Install</button>`;
         } else if (isDegraded) {
             actionBtnHtml = `<button class="btn-tool-action btn-tool-repair" onclick="repairTool('${t.tool_id}')">Repair</button>`;
+        } else if (isDisabled) {
+            actionBtnHtml = `<span class="btn-tool-action btn-tool-recheck" style="opacity:0.7;cursor:default;">Disabled</span>`;
         } else {
             actionBtnHtml = `<button class="btn-tool-action btn-tool-recheck" onclick="recheckSingleTool('${t.tool_id}', event)">Recheck</button>`;
         }
@@ -16061,6 +16109,13 @@ function renderToolHealthPopover() {
         const checksPassedCount = (t.checks_passed || []).length;
         const checksFailedCount = (t.checks_failed || []).length;
         const totalChecks = checksPassedCount + checksFailedCount;
+        // When no check list was reported, fall back to the level counters the
+        // backend computed, so a healthy tool never renders as "0/5".
+        const levelReached = Number(t.level_reached || 0);
+        const levelPassed = Number(t.level_passed || 0);
+        const checksLabel = totalChecks > 0
+            ? `${checksPassedCount}/${totalChecks}`
+            : `${levelPassed}/${levelReached || 5}`;
 
         const detailsId = `tray_${t.tool_id}`;
 
@@ -16076,7 +16131,7 @@ function renderToolHealthPopover() {
                 </div>
                 <div class="tool-diag-meta">
                     <div>
-                        <span>Checks Passed: <strong style="color: ${checksPassedCount > 0 ? '#10b981' : 'inherit'};">${checksPassedCount}/${totalChecks || 5}</strong></span>
+                        <span>Checks Passed: <strong style="color: ${checksPassedCount > 0 ? '#10b981' : 'inherit'};">${checksLabel}</strong></span>
                         <span style="margin-left: 10px;">Latency: <strong>${(t.latency_ms || 0).toFixed(1)}ms</strong></span>
                     </div>
                     <div class="tool-diag-actions">
