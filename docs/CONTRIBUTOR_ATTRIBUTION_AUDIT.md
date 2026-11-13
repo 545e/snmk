@@ -507,6 +507,7 @@ The original procedure, kept for the record:
 | Tests passed | **DONE** — 351 local, 349 on a pristine clone, all CI jobs green |
 | Push approved | **DONE** — applied and verified |
 | GitHub attribution verified | **DONE** — the contributors graph lists `545e` only; there is no `claude` entry |
+| Home-page Contributors widget verified | **DONE** — `GET /545e/snmk/_sidebar` reports `545e` only (see §9) |
 
 ### Current `main` state
 
@@ -526,3 +527,116 @@ rewrite, and every other contributor, branch and tag is untouched.
 
 Rollback remains available: the pre-rewrite history is in the bundle in §3
 and the pre-rewrite tip was `ed07b1f427040be64b1861316a213f24970e189d`.
+
+---
+
+## Section 9 — Why the widget kept showing `claude` (root cause of the residue)
+
+The rewrite in §4 was correct and complete: `main` carried no trailers and both
+contributor APIs reported `545e` only. Yet the **Contributors widget on the
+repository home page still listed `claude` and `krishnanmk3`**.
+
+### 9.1 The widget does not read the endpoints that were being checked
+
+The repository home page renders the Contributors box client-side. Reverse
+engineering GitHub's own bundle (`assets/code-view-*.js`) shows the sidebar
+fetches `GET /<owner>/<repo>/_sidebar` and renders
+`contributors[].login` / `contributors[].profilePath` from that payload.
+That endpoint is a **different dataset** from the two that were being polled:
+
+| Endpoint | Counts co-authors? | After the rewrite |
+|---|---|---|
+| `GET /repos/545e/snmk/stats/contributors` | no (authors only) | `545e:148` — clean |
+| `GET /repos/545e/snmk/contributors` | no (authors only) | `545e` only — clean |
+| `GET /545e/snmk/graphs/contributors-data` | no (authors only) | `545e:148` — clean |
+| **`GET /545e/snmk/_sidebar`** | **yes** | **`545e`, `claude`, `krishnanmk3` — stale** |
+
+The three clean endpoints are why the residue was invisible to API polling:
+they count *authors* only, while the widget's dataset counts
+**`Co-Authored-By:` trailers as contributors**. The rewrite removed the
+trailers from `main`, but the widget dataset is computed from the **default
+branch's history** and was still carrying the pre-rewrite commits.
+
+### 9.2 The dataset is sticky — a force-push does not invalidate it
+
+Reproduced in throwaway sandbox repositories, each with a trailer-bearing
+commit and then a clean rewrite:
+
+```
+create repo, commit with "Co-Authored-By: Claude Opus 4.8 ... <noreply@anthropic.com>"
+  GET /_sidebar  ->  545e, claude                       (stale state created)
+
+force-push a fully clean main
+  GET /_sidebar  ->  545e, claude      (unchanged for 3+ minutes)
+                                    ^ a history rewrite alone does NOT clear it
+
+PATCH /repos/{owner}/{repo}  {"default_branch": "<clean branch>"}
+  GET /_sidebar  ->  545e              (cleared within ~60 s)
+
+PATCH /repos/{owner}/{repo}  {"default_branch": "main"}   (restore)
+  GET /_sidebar  ->  545e              (stays clean)
+```
+
+**Changing the default branch is the trigger that makes GitHub recompute the
+dataset.** Renaming the repository, toggling visibility, archiving, a fresh
+empty commit, and a plain force-push were all tested and none of them cleared
+it; only the default-branch change did.
+
+### 9.3 The fix applied to `545e/snmk`
+
+No history was rewritten, no commit was pushed, and no branch was created or
+deleted for this step. Only the `default_branch` repository setting was toggled
+and then restored:
+
+```
+PATCH /repos/545e/snmk  {"default_branch": "generation-2-complete-modernization"}
+   (pre-check: 0 Co-Authored-By trailers on that branch and on main)
+
+... wait for GET /545e/snmk/_sidebar to report 545e only ...
+
+PATCH /repos/545e/snmk  {"default_branch": "main"}       (restored)
+```
+
+Verification after the fix:
+
+```
+GET /545e/snmk/_sidebar                  -> count 1 -> 545e
+GET /repos/545e/snmk/stats/contributors  -> 545e:148
+GET /repos/545e/snmk/contributors         -> 545e:163
+GET /545e/snmk/graphs/contributors-data  -> 545e:148
+served repo page: 'krishnanmk3' = 0 occurrences
+```
+
+`main` is still `78b8f4809213d1160702612cf364f32120e294ae` and the remote ref
+list is byte-for-byte what it was before the fix.
+
+### 9.4 The two remaining `claude` strings in the page are legitimate
+
+The served page still contains two case-insensitive matches for `claude`, both
+from the README's feature list:
+
+> **AI Model Management**: Central model registry supporting OpenAI, Anthropic
+> Claude, Google Gemini, OpenRouter, and Local/Ollama models with availability
+> probes and fallback routing.
+
+That is the project's genuine Claude/Anthropic **model integration**, which is
+explicitly required to stay. It is a feature description, not an attribution
+entry, and it is not rendered in the Contributors widget.
+
+### 9.5 Sandbox repositories created for this diagnosis
+
+Seven throwaway repositories were used to prove the mechanism. All were renamed
+to `DELETE-ME-*` and archived; the token in use lacks the `delete_repo` scope,
+so they must be deleted manually:
+
+```
+545e/DELETE-ME-contrib-graph-sandbox-tmp
+545e/DELETE-ME-contrib-sandbox-p4
+545e/DELETE-ME-contrib-sandbox-p6
+545e/DELETE-ME-contrib-sandbox-p7
+545e/DELETE-ME-contrib-sandbox-p8
+545e/DELETE-ME-contrib-sandbox-p9
+```
+
+`545e/DELETE-ME-contrib-graph-sandbox-tmp2` was renamed to
+`DELETE-ME-contrib-graph-sandbox-tmp` and archived by the same operation.
