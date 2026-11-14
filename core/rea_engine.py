@@ -473,7 +473,7 @@ class REAEngine:
             f"[SWA Native REA Inspector] Verified artifact '{path.name}' ({meta.get('size_bytes')} bytes)\n"
             f"SHA256: {digest}\n"
             f"Detected Type: {target_type.upper()}\n"
-            f"Note: Full decompilation and dynamic tracing requires REA CLI ('npm install -g rea-agents')."
+            "Note: Full decompilation and dynamic tracing requires REA CLI ('npm install -g rea-agents')."
         )
 
         return {"metadata": meta, "findings": findings, "summary": summary}

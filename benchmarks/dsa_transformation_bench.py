@@ -181,7 +181,7 @@ def bench_database():
     print(f"  check_health()               best {best:8.3f} ms   median {med:8.3f} ms")
     best, med = timeit(lambda: db.check_health(deep=True), repeat=3, warmup=1)
     print(f"  check_health(deep=True)      best {best:8.3f} ms   median {med:8.3f} ms"
-          f"   (full PRAGMA quick_check)")
+          "   (full PRAGMA quick_check)")
     best, med = timeit(db.count_findings, repeat=20)
     print(f"  count_findings()             best {best:8.3f} ms   median {med:8.3f} ms")
     best, med = timeit(db.finding_severity_counts, repeat=20)
@@ -241,7 +241,7 @@ def bench_write_path():
                 endpoint="http://127.0.0.1/x", method="GET", description="bench"))
 
     persist()  # warm
-    best, med = timeit(persist, repeat=1, warmup=0)
+    best, _ = timeit(persist, repeat=1, warmup=0)
     print(f"  persist {n} findings      best {best:9.1f} ms   "
           f"({best / n:.2f} ms per finding)")
 

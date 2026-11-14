@@ -181,7 +181,7 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
                 if sensitive_disallow:
                     f = VulnerabilityFinding(
                         scan_id=scan_id,
-                        title=f"Sensitive Administrative Pathways Disclosed in robots.txt",
+                        title="Sensitive Administrative Pathways Disclosed in robots.txt",
                         severity=Severity.LOW,
                         cvss_score=4.3,
                         cvss_vector="CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
@@ -352,7 +352,7 @@ class PluginA02_CryptographicFailures(BaseSecurityPlugin):
                         owasp_category=self.owasp_category,
                         endpoint=http_url,
                         method="GET",
-                        description=f"The application actively serves content over unencrypted HTTP port 80 returning HTTP 200 without enforcing an automatic 301/308 redirection to HTTPS. Traffic is exposed to eavesdropping and manipulation.",
+                        description="The application actively serves content over unencrypted HTTP port 80 returning HTTP 200 without enforcing an automatic 301/308 redirection to HTTPS. Traffic is exposed to eavesdropping and manipulation.",
                         poc_curl=f"curl -i '{http_url}'",
                         poc_explanation="Connected to HTTP port 80; received HTTP 200 OK instead of HTTPS redirect.",
                         request_evidence=f"GET {http_url} HTTP/1.1",
@@ -1220,7 +1220,7 @@ class PluginA08_IntegrityFailures(BaseSecurityPlugin):
                 if unprotected_external:
                     f = VulnerabilityFinding(
                         scan_id=scan_id,
-                        title=f"External Script Loaded Without Subresource Integrity (SRI)",
+                        title="External Script Loaded Without Subresource Integrity (SRI)",
                         severity=Severity.LOW,
                         cvss_score=4.2,
                         cvss_vector="CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:L/I:L/A:N",
@@ -1278,7 +1278,7 @@ class PluginA09_LoggingMonitoring(BaseSecurityPlugin):
                         owasp_category=self.owasp_category,
                         endpoint=ep.url,
                         method="GET",
-                        description=f"Server returned an unhandled HTTP 500 error when receiving malformed query input. Applications should cleanly handle invalid encoding without crashing.",
+                        description="Server returned an unhandled HTTP 500 error when receiving malformed query input. Applications should cleanly handle invalid encoding without crashing.",
                         poc_curl=f"curl -i '{test_url}'",
                         poc_explanation="Received HTTP 500 Internal Server Error without custom error page handling.",
                         request_evidence=f"GET {test_url} HTTP/1.1",

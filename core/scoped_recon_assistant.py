@@ -21,6 +21,8 @@ from urllib.parse import urlparse
 import httpx
 from typing import Dict, List, Any, Optional
 
+from core import tls_policy
+
 ALLOWED_TARGETS = [
     "0a2f008804b73639822f564400da00ed.web-security-academy.net",
     "127.0.0.1",
@@ -157,9 +159,7 @@ class ScopedReconAssistant:
             self._log_action("Passive TLS Inspection", f"Querying SSL certificate parameters for {self.hostname}")
             tls_obs = {"type": "tls_certificate", "subject": {}, "issuer": {}, "version": "", "cipher": ""}
             try:
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
+                ctx = tls_policy.inspection_context()
                 conn_port = self.port or 443
                 with socket.create_connection((self.hostname, conn_port), timeout=5.0) as sock:
                     with ctx.wrap_socket(sock, server_hostname=self.hostname) as ssock:
@@ -177,7 +177,7 @@ class ScopedReconAssistant:
         # C. HTTP Root Response & Security Headers
         self._log_action("Passive Header Inspection", f"Inspecting root response headers from {base_url}")
         header_obs = {"type": "http_headers", "status_code": None, "headers": {}, "missing_security_headers": [], "tech_fingerprint": []}
-        async with httpx.AsyncClient(verify=False, timeout=8.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=True)) as client:
             try:
                 resp = await client.get(base_url)
                 header_obs["status_code"] = resp.status_code
@@ -201,7 +201,7 @@ class ScopedReconAssistant:
 
         # D. Robots.txt and Sitemap.xml
         self._log_action("Passive Informational Retrieval", "Checking robots.txt and sitemap.xml")
-        async with httpx.AsyncClient(verify=False, timeout=6.0) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0)) as client:
             # robots.txt
             try:
                 r_robots = await client.get(f"{base_url}/robots.txt")
@@ -230,7 +230,7 @@ class ScopedReconAssistant:
         self._log_action("Active Enumeration Initialized", f"Enumerating {len(SAFE_WORDLIST)} safe paths at rate <= 1 req/sec")
         enum_results = []
         
-        async with httpx.AsyncClient(verify=False, timeout=5.0, follow_redirects=False) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, follow_redirects=False)) as client:
             for idx, path in enumerate(SAFE_WORDLIST):
                 url = f"{base_url}{path}"
                 self._log_action(f"Rate-Limited Probe [{idx+1}/{len(SAFE_WORDLIST)}]", f"GET {url}")
@@ -330,7 +330,7 @@ class ScopedReconAssistant:
         self.next_manual_steps = [
             f"1. Manually test Clickjacking resilience on {base_url} using an iframe embedding test harness.",
             f"2. Inspect authentication flows at {base_url}/login or equivalent for anti-CSRF tokens and rate limiting.",
-            f"3. Verify whether discovered administrative routes require valid session authentication.",
+            "3. Verify whether discovered administrative routes require valid session authentication.",
             f"4. If DVWA is deployed on {base_url}, manually inspect SQL Injection, XSS, and Command Injection modules in accordance with authorized lab guidelines."
         ]
 

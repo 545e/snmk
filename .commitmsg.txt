@@ -1,0 +1,62 @@
+feat(quality): add SonarQube static analysis and fix the findings it surfaced
+
+The repository had a flake8 pass in CI but no real static analysis. This
+adds SonarQube Community Build as a first-class part of the project and
+fixes the defects the first analysis surfaced.
+
+Tooling
+- `sonar-project.properties`: project key, source layout, exclusions and
+  coverage wiring.
+- `.github/workflows/sonarqube.yml`: runs the tests with coverage, then the
+  scan, then enforces the quality gate.
+- `docs/SONARQUBE.md`: how to run a server locally, what the gate checks,
+  what was fixed and what was deliberately left.
+- The quality gate evaluates new code only (30-day window), so the existing
+  backlog is managed rather than pretended away.
+
+Real defects
+- `core/tool_dependency_manager.py`: unreachable statement after `return`
+  (Sonar `python:S1763`), left over from a refactor.
+- `core/js_intelligence.py`: ambiguous alternation in a regex
+  (`python:S5850`); the alternation is now grouped explicitly.
+- `web/static/app.js`: duplicate `'api_keys'` key in a view map
+  (`javascript:S1534`); the second copy silently overwrote the first.
+- `core/cyber_tools.py`: `SSLCertificateTool` reported `"valid": true` for
+  every certificate it inspected, including expired and self-signed ones.
+  It now performs a strictly verifying handshake and reports the real
+  outcome (`certificate_verified` / `verification_error`).
+- `agents/recon_agent.py`: the log claimed a certificate was "verified"
+  when the handshake had deliberately skipped validation.
+
+TLS policy (40 findings)
+- Certificate verification was disabled in 40 separate call sites, none of
+  which recorded why. `core/tls_policy.py` is now the single source of
+  truth: `client_kwargs()` for outbound requests and `inspection_context()`
+  for certificate inspection, with the rationale documented once.
+- SNMK is a scanner: it must be able to reach hosts whose certificates are
+  broken, because that condition is itself a finding. Unverified peers are
+  reached, never trusted. `SWA_TLS_VERIFY=1` switches the platform to
+  strict verification.
+
+Accessibility (212 findings)
+- 99 `<div>`/`<span>` elements reacted to `onclick` but could not be
+  reached or activated from the keyboard. They now carry `tabindex="0"`,
+  `role="button"` and an Enter/Space `onkeydown` handler that calls
+  `this.click()`, so the keyboard and mouse paths run the same code.
+- 71 `<label>` elements were not associated with their control; the
+  missing `for` attributes were added. One label that captions a value
+  rather than a control was rewritten as a `<span>`.
+- 6 anchors with `href="javascript:void(0)"` were used as buttons; they
+  are now real `<button type="button" class="link-btn">` elements, with a
+  CSS rule that preserves their appearance.
+- 9 `<nav>`/`<aside>` landmarks had no accessible name; 5 `<th>` elements
+  had no `scope`; 22 `font-family` declarations named no generic fallback.
+
+Code smells
+- 121 f-strings without a replacement field lost the pointless `f` prefix.
+  Verified: every string literal in the tree is byte-identical.
+- 47 unused local variables were removed, or the unused element of a tuple
+  unpacking was renamed to `_`. Class attributes and chained assignments
+  are explicitly excluded.
+
+Tests: 401 passed, 0 failed.

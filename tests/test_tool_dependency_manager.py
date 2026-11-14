@@ -140,7 +140,7 @@ def test_tool_health_tiered_verification():
 
 def test_health_summary_dynamic_calculation():
     async def _test():
-        snapshot, summary = await tool_dependency_manager.get_all_health(force_refresh=True)
+        _, summary = await tool_dependency_manager.get_all_health(force_refresh=True)
         assert summary.total_monitored == 15
         assert summary.total_monitored == (
             summary.healthy + summary.degraded + summary.unavailable +

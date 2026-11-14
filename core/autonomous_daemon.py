@@ -94,7 +94,6 @@ class AutonomousCyberDaemon:
             # 2. Compute Attack Surface Delta (New vs Previous)
             prev_hostnames = set(previous_state.get(domain, {}).get("subdomains", []))
             newly_discovered = current_hostnames - prev_hostnames
-            stale_removed = prev_hostnames - current_hostnames
 
             print(f"[✓] {domain}: Total Mapped: {len(subs)} | Live: {sum(1 for s in subs if s.get('status'))}")
             if newly_discovered:
@@ -139,10 +138,10 @@ class AutonomousCyberDaemon:
     async def start(self):
         """Starts continuous daemon loop."""
         self.running = True
-        print(f"\033[92m[⚡] SWA AI Autonomous Surveillance Daemon Started!\033[0m")
+        print("\033[92m[⚡] SWA AI Autonomous Surveillance Daemon Started!\033[0m")
         print(f"[+] Monitoring configuration: {self.targets_file}")
         print(f"[+] Frequency: Every {self.interval_seconds / 3600:.1f} hour(s)")
-        print(f"[i] Press Ctrl+C in this terminal to stop daemon.\n")
+        print("[i] Press Ctrl+C in this terminal to stop daemon.\n")
 
         while self.running:
             try:

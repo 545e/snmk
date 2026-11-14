@@ -169,7 +169,7 @@ class SWAOrchestrator:
             inventory = ScannerIntegrations.get_tool_inventory()
             if inventory.get("nuclei", {}).get("installed"):
                 await self.log("Invoking Nuclei safe detection templates...", "INFO")
-                nuclei_findings, nuclei_meta = await ScannerIntegrations.run_nuclei_safe(recon_agent.base_url, self.scan_id)
+                nuclei_findings, _ = await ScannerIntegrations.run_nuclei_safe(recon_agent.base_url, self.scan_id)
                 candidate_findings.extend(nuclei_findings)
                 await self.log(f"Nuclei completed with {len(nuclei_findings)} findings.", "SUCCESS")
 
@@ -177,7 +177,7 @@ class SWAOrchestrator:
             if getattr(self.config, "enable_sqlmap_lab", False) and getattr(self.config, "lab_mode", False):
                 await self.log("Authorized Lab Mode: Running non-destructive SQLmap detection...", "INFO")
                 target_test_url = endpoints[0].url if endpoints else recon_agent.base_url
-                sqlmap_findings, sqlmap_meta = await ScannerIntegrations.run_sqlmap_safe_detection(
+                sqlmap_findings, _ = await ScannerIntegrations.run_sqlmap_safe_detection(
                     target_test_url,
                     self.scan_id,
                     is_lab_mode_authorized=True
@@ -225,7 +225,7 @@ class SWAOrchestrator:
                         "WARN",
                     )
             await self.log(
-                f"Persisted exploit-validation and remediation enrichment "
+                "Persisted exploit-validation and remediation enrichment "
                 f"for {persisted} finding(s).",
                 "SUCCESS",
             )

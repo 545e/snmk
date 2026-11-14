@@ -1511,7 +1511,6 @@ function filterSeverity(sev) {{
         # Report
         report = ET.SubElement(root, "Report", name=data['report_name'])
 
-        target_scope = data['scan_meta']['target_scope']
         # Group by host for Nessus structure
         for host_key, hdata in data['hosts'].items():
             report_host = ET.SubElement(report, "ReportHost", name=hdata['hostname'])

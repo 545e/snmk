@@ -614,7 +614,7 @@ def validate_tool_target(target: str, *, tool_id: str) -> ScopeValidationResult:
         result.reason = (
             f"Target '{clean}' is outside the authorised scope for intrusive tool "
             f"'{tool_id}'. {result.reason} Add it to config/targets.json or enable "
-            f"lab mode to authorise it."
+            "lab mode to authorise it."
         )
     return result
 

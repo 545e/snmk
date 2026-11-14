@@ -242,7 +242,7 @@ class MapReportGenerator:
         )
 
         elements = []
-        elements.append(Paragraph(f"SNMK MAP - Network Intelligence Report", title_style))
+        elements.append(Paragraph("SNMK MAP - Network Intelligence Report", title_style))
         elements.append(Paragraph(f"<b>Report ID:</b> {data['report_id']} | <b>Date:</b> {data['generated_at']}", body_style))
         elements.append(Paragraph(f"<b>Target:</b> {data['target']} | <b>Vantage Point:</b> {data['vantage_point'].get('hostname')} ({data['vantage_point'].get('local_ipv4')})", body_style))
         elements.append(Spacer(1, 10))

@@ -1183,7 +1183,7 @@ class ScannerIntegrations:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=float(timeout))
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=float(timeout))
             output = stdout.decode("utf-8", errors="ignore")
 
             if "is vulnerable" in output.lower() or "sql injection" in output.lower():
@@ -1361,7 +1361,7 @@ class ScannerIntegrations:
                 "status": "NOT_IMPLEMENTED",
                 "reason": (
                     f"No safe command template is defined for '{canonical_id}'. "
-                    f"Use the documented command reference for this tool."
+                    "Use the documented command reference for this tool."
                 ),
                 "command_reference": "GET /api/tools/command-reference",
             }

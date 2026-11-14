@@ -592,7 +592,6 @@ class SecureToolInstaller:
                 pass
             return True
         return False
-        self._cancellation_tokens: Set[str] = set()
 
     def _get_lock(self, tool_id: str) -> asyncio.Lock:
         if tool_id not in self._locks:
@@ -812,7 +811,7 @@ class SecureToolInstaller:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await proc.communicate()
+        _, stderr = await proc.communicate()
         if proc.returncode != 0:
             err = stderr.decode("utf-8", errors="ignore").strip()
             raise RuntimeError(f"npm install failed: {err[:200]}")

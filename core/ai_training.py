@@ -134,7 +134,7 @@ class AITrainingEngine:
             os.makedirs(job_checkpoint_dir, exist_ok=True)
 
             # Ingest records
-            records, total = dataset_manager.get_dataset_records(job.config.dataset_id, limit=5000)
+            records, _ = dataset_manager.get_dataset_records(job.config.dataset_id, limit=5000)
             if not records:
                 # Generate controlled synthetic security classification dataset if records empty
                 records = [

@@ -16,6 +16,8 @@ from core.queue_manager import queue_manager
 from core.database import db
 from core.js_intelligence import GhostJsAnalyzer
 
+from core import tls_policy
+
 COMMON_API_PATHS = [
     "/api", "/api/v1", "/api/v2", "/graphql", "/auth/login",
     "/api/users", "/api/search", "/api/data", "/api/items",
@@ -41,10 +43,9 @@ class AttackSurfaceAgent:
         await self.log(f"Mapping attack surface and API routes starting from {self.base_url}...", "INFO")
         
         # 1. Crawl seed URL
-        queue = [(self.base_url, 0)]
         
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=40)
-        async with httpx.AsyncClient(verify=False, timeout=4.0, follow_redirects=True, limits=limits) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=4.0, follow_redirects=True, limits=limits)) as client:
             sem = asyncio.Semaphore(self.concurrency or 12)
 
             async def process_page(current_url: str, depth: int) -> List[str]:

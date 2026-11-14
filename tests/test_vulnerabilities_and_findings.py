@@ -164,7 +164,7 @@ def test_false_positive_review_workflow():
         lifecycle_status=FindingLifecycleStatus.CONFIRMED.value
     ))
 
-    success, msg = db.review_false_positive(
+    success, _ = db.review_false_positive(
         finding_id=test_id,
         reason="WAF blocks all reflection payloads in production",
         contradictory_evidence="HTTP 403 Forbidden with ModSecurity signature 941100",

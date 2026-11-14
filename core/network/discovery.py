@@ -92,7 +92,6 @@ class DeviceDiscoveryEngine:
             proc = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5)
             lines = proc.stdout.splitlines()
 
-            current_iface_ip = None
             for line in lines:
                 line_str = line.strip()
                 if "Interface:" in line_str:

@@ -38,6 +38,8 @@ from core.intelligence_models import (
     AgentPermissionBoundary
 )
 
+from core import tls_policy
+
 logger = logging.getLogger("swa.agent_registry")
 
 
@@ -1048,7 +1050,7 @@ class AgentRegistry:
                             path=urlparse(target).path or "/",
                             discovered_by="AgentDispatch"
                         )
-                        async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+                        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=10.0)) as client:
                             findings = await plugin.run(scan_id, client, [ep], None)
                             outputs["findings_count"] = len(findings) if findings else 0
                             outputs["findings"] = [f.title for f in findings] if findings else []
@@ -1071,13 +1073,13 @@ class AgentRegistry:
                     findings_summary = outputs.get("findings", [])
                     ai_prompt = (
                         f"Autonomous Agent Evaluation: {manifest.name} ({manifest.id})\n"
-                        f"Standard: Modern OWASP Top 10 2025 & API Security Standard (v3.0.0)\n"
+                        "Standard: Modern OWASP Top 10 2025 & API Security Standard (v3.0.0)\n"
                         f"Target: {target}\n"
                         f"Active Probe Findings: {findings_summary if findings_summary else 'No high-risk findings triggered by deterministic probe.'}\n"
                         f"Agent Capabilities: {manifest.capabilities}\n\n"
-                        f"Task: Synthesize a modern OWASP 2025 threat analysis for this target scope. "
-                        f"Evaluate bypass mechanisms (e.g. BOLA, header injection, SSRF cloud metadata), "
-                        f"provide a CVSS v3.1 estimation, a verification cURL PoC, and an enterprise remediation code patch."
+                        "Task: Synthesize a modern OWASP 2025 threat analysis for this target scope. "
+                        "Evaluate bypass mechanisms (e.g. BOLA, header injection, SSRF cloud metadata), "
+                        "provide a CVSS v3.1 estimation, a verification cURL PoC, and an enterprise remediation code patch."
                     )
                     ai_analysis = await llm_inst.reason(
                         prompt=ai_prompt,

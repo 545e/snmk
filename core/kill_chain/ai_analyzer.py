@@ -148,17 +148,17 @@ class KillChainAIAnalyzer:
         """Invokes the configured SWA AI provider via the shared LLM client."""
         llm_status = self.llm.get_status()
         prompt = (
-            f"You are the SWA AI Principal SOC Analyst. Analyze this Cyber Kill Chain event.\n"
+            "You are the SWA AI Principal SOC Analyst. Analyze this Cyber Kill Chain event.\n"
             f"Finding: {finding.title}\n"
             f"Stage: {finding.stage}\n"
             f"Severity: {finding.severity}\n"
             f"Asset: {finding.affected_host}\n"
             f"Endpoint: {finding.affected_endpoint}\n"
             f"Evidence: {finding.evidence}\n\n"
-            f"Provide answers to the 7 mandatory SOC questions:\n"
-            f"1. What happened?\n2. Which stage is involved?\n3. What evidence supports it?\n"
-            f"4. Which assets are affected?\n5. How confident is the assessment (Confirmed/Suspected/Inferred)?\n"
-            f"6. What is the potential impact?\n7. What should the analyst do next?"
+            "Provide answers to the 7 mandatory SOC questions:\n"
+            "1. What happened?\n2. Which stage is involved?\n3. What evidence supports it?\n"
+            "4. Which assets are affected?\n5. How confident is the assessment (Confirmed/Suspected/Inferred)?\n"
+            "6. What is the potential impact?\n7. What should the analyst do next?"
         )
         response_text = await self.llm.reason(prompt)
         if not response_text:

@@ -17,6 +17,8 @@ from core.database import db
 from core.models import VulnerabilityFinding
 from core.queue_manager import queue_manager
 
+from core import tls_policy
+
 
 class RemediationEngine:
     """Orchestrates vulnerability lifecycle management, tickets, assignment, and automated retest."""
@@ -123,7 +125,7 @@ class RemediationEngine:
         retest_evidence = ""
 
         try:
-            async with httpx.AsyncClient(timeout=8.0, verify=False) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
                 res = await client.request(method, test_url)
                 # Check response characteristics
                 if res.status_code in (404, 410):

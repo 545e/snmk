@@ -58,7 +58,6 @@ class AttackSurfaceIntelligenceEngine:
         prev_ips = set(prev_recon.ip_addresses or [])
         curr_ips = set(current_recon.ip_addresses or [])
         new_ips = curr_ips - prev_ips
-        removed_ips = prev_ips - curr_ips
 
         if new_ips:
             drift_events.append(AssetDriftEvent(

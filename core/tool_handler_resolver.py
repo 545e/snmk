@@ -266,7 +266,7 @@ async def invoke_handler(
         if instance_factory is None:
             raise HandlerNotExecutable(
                 f"Handler '{handler_str}' is a class-level function and needs an "
-                f"instance to run."
+                "instance to run."
             )
         instance = instance_factory(payload)
         func = getattr(instance, func.__name__)

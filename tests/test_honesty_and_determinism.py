@@ -412,7 +412,7 @@ class TestScopePolicyHardening(unittest.TestCase):
         from core import scope_policy as sp
 
         calls = []
-        real = socket_getaddrinfo = sp.socket.getaddrinfo
+        real = sp.socket.getaddrinfo
 
         def counting_getaddrinfo(*args, **kwargs):
             calls.append(args[0] if args else kwargs.get("host"))

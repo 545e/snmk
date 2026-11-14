@@ -350,7 +350,7 @@ class PostDeploymentChecklistEngine:
             return "# Post-Deployment Acceptance Checklist\nNo checklist data available."
 
         md = [
-            f"# SWA AI — Post-Deployment Acceptance Checklist (§52)",
+            "# SWA AI — Post-Deployment Acceptance Checklist (§52)",
             f"**Deployment ID:** `{data['deployment_id']}`  ",
             f"**Release ID:** `{data['release_id']}`  ",
             f"**Environment:** `{data['environment'].upper()}`  ",

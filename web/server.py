@@ -101,6 +101,8 @@ from reports.generator import ReportGenerator
 
 from plugins.plugin_manager import plugin_manager
 
+from core import tls_policy
+
 
 
 
@@ -855,7 +857,7 @@ async def create_chat_completion(req: ChatCompletionRequest):
 
             f"Task: {last_user_msg[:150]}\n\n"
 
-            f"Status: SNMK core engine active. Cyber Export, Cyber Test, and Cyber Deploy modules are operational."
+            "Status: SNMK core engine active. Cyber Export, Cyber Test, and Cyber Deploy modules are operational."
 
         )
 
@@ -2862,11 +2864,11 @@ async def get_scan_forensic_profile(scan_id: str):
 
 
 
-            "grep_command": f'grep -iE "nikto|sqlmap|nmap|gobuster|ffuf" /var/log/nginx/access.log',
+            "grep_command": 'grep -iE "nikto|sqlmap|nmap|gobuster|ffuf" /var/log/nginx/access.log',
 
 
 
-            "powershell_command": f'Get-Content "C:\\inetpub\\logs\\LogFiles\\W3SVC1\\*.log" | Select-String "nikto|sqlmap|gobuster"'
+            "powershell_command": 'Get-Content "C:\\inetpub\\logs\\LogFiles\\W3SVC1\\*.log" | Select-String "nikto|sqlmap|gobuster"'
 
 
 
@@ -3602,7 +3604,7 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
 
         # only the authorised initial target is fetched.
 
-        async with httpx.AsyncClient(verify=False, timeout=8.0, follow_redirects=False) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=False)) as client:
 
             resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
 
@@ -4508,7 +4510,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
             param = options.get("param_name", options.get("parameter", "id"))
 
-            async with httpx.AsyncClient(verify=False, timeout=5.0) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0)) as client:
 
                 findings_res = await engine.audit_url_parameter(
 
@@ -4889,12 +4891,12 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         report_data = {
             "id": rep_uuid,
             "report_id": rep_uuid,
-            "download_url": f"/api/reports/vulnerability-assessment/latest/download",
-            "pdf_url": f"/api/reports/vulnerability-assessment/latest/download?format=pdf",
-            "html_url": f"/api/reports/vulnerability-assessment/latest/download?format=html",
-            "csv_url": f"/api/reports/vulnerability-assessment/latest/download?format=csv",
-            "nessus_xml_url": f"/api/reports/vulnerability-assessment/latest/download?format=nessus_xml",
-            "sarif_url": f"/api/reports/vulnerability-assessment/latest/download?format=sarif",
+            "download_url": "/api/reports/vulnerability-assessment/latest/download",
+            "pdf_url": "/api/reports/vulnerability-assessment/latest/download?format=pdf",
+            "html_url": "/api/reports/vulnerability-assessment/latest/download?format=html",
+            "csv_url": "/api/reports/vulnerability-assessment/latest/download?format=csv",
+            "nessus_xml_url": "/api/reports/vulnerability-assessment/latest/download?format=nessus_xml",
+            "sarif_url": "/api/reports/vulnerability-assessment/latest/download?format=sarif",
         }
 
     report_id = report_data.get("id") or report_data.get("report_id")
@@ -7330,13 +7332,13 @@ async def ai_status(probe: bool = False):
 
             result["reachability"] = "ERROR"
 
-            result["error"] = f"endpoint not found (HTTP 404)"
+            result["error"] = "endpoint not found (HTTP 404)"
 
         elif resp.status_code == 429:
 
             result["reachability"] = "AVAILABLE"
 
-            result["note"] = f"HTTP 429 rate-limited"
+            result["note"] = "HTTP 429 rate-limited"
 
         elif resp.status_code >= 500:
 

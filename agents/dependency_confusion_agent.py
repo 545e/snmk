@@ -15,6 +15,8 @@ from core.models import VulnerabilityFinding, Severity, LogEvent
 from core.queue_manager import queue_manager
 from core.database import db
 
+from core import tls_policy
+
 # Common public generic packages to ignore (reduces noise)
 POPULAR_PUBLIC_PACKAGES = {
     "react", "react-dom", "vue", "angular", "lodash", "axios", "jquery",
@@ -76,7 +78,7 @@ class DependencyConfusionAgent:
     async def run(self) -> List[VulnerabilityFinding]:
         await self.log("Starting autonomous Dependency Confusion & Supply-Chain audit across client assets...", "INFO")
         
-        async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
             # 1. Download and extract package candidates from JS files
             for js_url in self.js_urls:
                 try:
@@ -125,7 +127,7 @@ class DependencyConfusionAgent:
                             "2. If using a private npm organization scope, enforce scope mapping in .npmrc (`@org:registry=https://private-npm.corp`).\\n"
                             "3. Configure your internal package proxy (Verdaccio / Artifactory / Nexus) to disallow public uplink fallback for internal scopes."
                         ),
-                        remediation_patch=f"# .npmrc configuration:\\n@your-org:registry=https://internal-npm.yourdomain.com/\\nalways-auth=true"
+                        remediation_patch="# .npmrc configuration:\\n@your-org:registry=https://internal-npm.yourdomain.com/\\nalways-auth=true"
                     )
                     db.save_finding(finding)
                     await queue_manager.emit_finding(finding)

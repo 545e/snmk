@@ -1492,7 +1492,6 @@ const VIEW_CONTAINER_MAP = {
     'deployment_history': 'viewCyberDeploy',
     'acceptance_checklist': 'viewCyberDeploy',
     'ai_models': 'viewSettings',
-    'api_keys': 'viewApiKeys',
     'integrations_mgmt': 'viewApiKeys',
     'agent_config': 'viewAgents',
     'system_settings': 'viewSettings',

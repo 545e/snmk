@@ -27,6 +27,8 @@ import httpx
 from core.models import VulnerabilityFinding, Severity
 from core.pattern_gating import GateFilter
 
+from core import tls_policy
+
 
 # =====================================================================
 # 0. Line index helpers
@@ -201,7 +203,7 @@ class ShannonEntropyFilter:
         if min_entropy > 0.0:
             if re.search(r"\s", v):
                 return True
-            core = re.sub(r"^['\"`]+|['\"`]+$", "", v)
+            core = re.sub(r"^(?:['\"`]+)|(?:['\"`]+$)", "", v)
             if "_" in core:
                 core = core.split("_")[-1]
             if len(core) >= 12 and cls.shannon_entropy(core) < min_entropy:
@@ -2019,7 +2021,7 @@ class GhostJsAnalyzer:
         all_source_maps = []
         scanned_assets = []
 
-        async with httpx.AsyncClient(verify=False, timeout=self.timeout, follow_redirects=True, headers=headers) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=True, headers=headers)) as client:
             # 1. Fetch initial target
             try:
                 resp = await client.get(target_url)

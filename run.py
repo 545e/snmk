@@ -74,14 +74,14 @@ if __name__ == "__main__":
     
     display_host = "127.0.0.1" if host == "0.0.0.0" else host
     server_url = f"http://{display_host}:{actual_port}"
-    print(f"[+] Launching SNMK Security Operations Center Dashboard...")
+    print("[+] Launching SNMK Security Operations Center Dashboard...")
     print(f"[✓] Web Interface available at: {server_url} (Listening on {host}:{actual_port})")
     
     # Auto-open browser if not running in container or headless mode
     if not os.environ.get("DOCKER_CONTAINER") and not os.environ.get("HEADLESS"):
         print(f"[+] Opening browser automatically at {server_url} ...")
         open_browser(server_url)
-    print(f"[i] Keep this terminal window open while using SWA.\n")
+    print("[i] Keep this terminal window open while using SWA.\n")
 
     pid_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".swa.pid")
     try:

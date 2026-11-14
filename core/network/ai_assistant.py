@@ -112,34 +112,34 @@ class MapAiAssistant:
 
         if "origin" in q or "where is" in q or "ip" in q:
             return (
-                f"### Network Origin Assessment\n\n"
+                "### Network Origin Assessment\n\n"
                 f"- **Vantage Point:** Local interface `{local['primary_interface']}` on host `{local['hostname']}` (`{local['local_ip']}`).\n"
                 f"- **Default Gateway:** Next-hop router `{local['gateway_ip'] or 'Unspecified'}` handles LAN egress.\n"
                 f"- **Captured Endpoints:** Currently observing {cap['total_flows']} active flows across {cap['total_packets']} frames.\n\n"
-                f"**Attribution Finding:** Outbound connections route through the default gateway router into the ISP's regional aggregation network before reaching target destinations. Public IP allocations reflect ISP Point-of-Presence (PoP) routing, not end-user physical identity."
+                "**Attribution Finding:** Outbound connections route through the default gateway router into the ISP's regional aggregation network before reaching target destinations. Public IP allocations reflect ISP Point-of-Presence (PoP) routing, not end-user physical identity."
             )
         elif "packet" in q or "capture" in q or "wireshark" in q:
             return (
-                f"### Packet Capture Forensics Summary\n\n"
+                "### Packet Capture Forensics Summary\n\n"
                 f"- **Captured Frames:** {cap['total_packets']} packets logged in bounded memory ring buffer.\n"
                 f"- **Active Flows:** {cap['total_flows']} bidirectional conversations tracked.\n"
                 f"- **Capture Driver:** `{local['driver']}`.\n\n"
-                f"**Forensic Integrity:** Packet decoding verified layer-by-layer (Ethernet, IPv4/IPv6, TCP/UDP/ICMP/DNS). No malformed checksums or unauthorized fragmentation observed in recent frames."
+                "**Forensic Integrity:** Packet decoding verified layer-by-layer (Ethernet, IPv4/IPv6, TCP/UDP/ICMP/DNS). No malformed checksums or unauthorized fragmentation observed in recent frames."
             )
         elif "suspicious" in q or "anomaly" in q or "threat" in q:
             return (
-                f"### Threat & Anomaly Triage\n\n"
+                "### Threat & Anomaly Triage\n\n"
                 f"- **Flow Inspection:** Analyzed {cap['total_flows']} active network connections.\n"
-                f"- **Port Signatures:** Checked for unauthorized listening services (Metasploit 4444, IRC botnets, exposed Telnet).\n\n"
-                f"**Conclusion:** Normal operational network posture. No high-entropy DNS tunneling or cleartext credential leaks detected."
+                "- **Port Signatures:** Checked for unauthorized listening services (Metasploit 4444, IRC botnets, exposed Telnet).\n\n"
+                "**Conclusion:** Normal operational network posture. No high-entropy DNS tunneling or cleartext credential leaks detected."
             )
         else:
             return (
-                f"### MAP Network Intelligence Assessment\n\n"
+                "### MAP Network Intelligence Assessment\n\n"
                 f"Analyzed query `{query}` in relation to active monitoring session.\n"
                 f"- Host: `{local['hostname']}` (`{local['local_ip']}`)\n"
                 f"- Network State: {cap['total_packets']} frames captured, {cap['total_flows']} communication flows established.\n\n"
-                f"All observations are verifiable through the Packet Analyzer, Geolocation, and Traffic Flow panels."
+                "All observations are verifiable through the Packet Analyzer, Geolocation, and Traffic Flow panels."
             )
 
 

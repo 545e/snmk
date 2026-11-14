@@ -22,6 +22,8 @@ from plugins.owasp_plugins import (
     PluginA10_SSRF,
 )
 
+from core import tls_policy
+
 class SecurityPluginManager:
     """Manages lifecycle, registration, and parallel execution of audit plugins."""
 
@@ -95,7 +97,7 @@ class SecurityPluginManager:
             await log_callback(f"Dispatching {len(enabled_plugins)} OWASP security plugins across {len(endpoints)} target endpoints...", "INFO")
 
         limits = httpx.Limits(max_keepalive_connections=30, max_connections=60)
-        async with httpx.AsyncClient(verify=False, timeout=5.0, follow_redirects=True, limits=limits) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, follow_redirects=True, limits=limits)) as client:
             async def run_single_plugin(plugin: BaseSecurityPlugin):
                 try:
                     res = await asyncio.wait_for(
@@ -130,7 +132,7 @@ class SecurityPluginManager:
         
         limits = httpx.Limits(max_keepalive_connections=10, max_connections=20)
         findings = []
-        async with httpx.AsyncClient(verify=False, timeout=8.0, follow_redirects=True, limits=limits) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=True, limits=limits)) as client:
             try:
                 res = await asyncio.wait_for(
                     plugin.run(scan_id or "adhoc_plugin_scan", client, [endpoint], {}),
