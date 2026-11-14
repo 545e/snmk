@@ -6,14 +6,15 @@ Supports PDF (print-ready executive HTML/PDF), CSV, JSON, HTML, and XLSX/TSV for
 Enforces sensitive data redaction, SHA-256 artifact verification, and audit logging.
 """
 
-import os
-import io
-import re
 import csv
-import json
-import hashlib
 import datetime
-from typing import List, Dict, Any, Optional
+import hashlib
+import io
+import json
+import os
+import re
+from typing import Any
+
 from core.database import db
 
 EXPORT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "exports")
@@ -46,21 +47,21 @@ class CyberExportEngine:
         self,
         export_type: str,
         format_type: str,
-        title: Optional[str] = None,
-        scan_id: Optional[str] = None,
-        severity_filter: Optional[List[str]] = None,
-        category_filter: Optional[str] = None,
-        asset_filter: Optional[str] = None,
+        title: str | None = None,
+        scan_id: str | None = None,
+        severity_filter: list[str] | None = None,
+        category_filter: str | None = None,
+        asset_filter: str | None = None,
         include_evidence: bool = True,
         include_remediation: bool = True,
         actor: str = "system"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Execute export workflow across database models:
         export_type: 'findings', 'executive', 'technical', 'assets', 'compliance', 'test_results', 'deployments', 'audit_logs'
         format_type: 'json', 'csv', 'html', 'pdf', 'xlsx'
         """
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
         export_id = f"exp_{timestamp}_{os.urandom(3).hex()}"
         safe_format = format_type.lower()
         if safe_format not in ["json", "csv", "html", "pdf", "xlsx"]:
@@ -118,7 +119,7 @@ class CyberExportEngine:
             "status": "COMPLETED",
             "sha256": sha256,
             "download_url": download_url,
-            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "created_at": datetime.datetime.now(datetime.UTC).isoformat()
         }
 
         # 4. Save metadata to DB & audit log
@@ -134,11 +135,11 @@ class CyberExportEngine:
     def _gather_export_data(
         self,
         export_type: str,
-        scan_id: Optional[str] = None,
-        severity_filter: Optional[List[str]] = None,
-        category_filter: Optional[str] = None,
-        asset_filter: Optional[str] = None
-    ) -> Dict[str, Any]:
+        scan_id: str | None = None,
+        severity_filter: list[str] | None = None,
+        category_filter: str | None = None,
+        asset_filter: str | None = None
+    ) -> dict[str, Any]:
         """Query real SQLite database tables for live operational data."""
         with db.get_connection() as conn:
             cursor = conn.cursor()
@@ -255,12 +256,12 @@ class CyberExportEngine:
         format_type: str,
         export_type: str,
         title: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         include_evidence: bool,
         include_remediation: bool
     ) -> tuple[bytes, str, str]:
         """Convert data dictionary into targeted byte deliverables."""
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
         if format_type == "json":
             payload = {
@@ -332,7 +333,7 @@ class CyberExportEngine:
         self,
         title: str,
         export_type: str,
-        data: Dict[str, Any],
+        data: dict[str, Any],
         include_evidence: bool,
         include_remediation: bool,
         is_pdf_print: bool
@@ -436,7 +437,7 @@ class CyberExportEngine:
   <div class="header">
     <div>
       <h1 style="margin: 0; font-size: 22px; color: #38bdf8;">SWA AI — Autonomous Enterprise Security Auditor</h1>
-      <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">{title} | Generated: {datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
+      <p style="margin: 4px 0 0 0; color: #94a3b8; font-size: 13px;">{title} | Generated: {datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d %H:%M:%S UTC")}</p>
     </div>
     <div style="text-align: right;">
       <div style="font-size: 28px; font-weight: 800; color: {score_color};">{grade} ({score}/100)</div>

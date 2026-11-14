@@ -9,14 +9,23 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-import io
 import json
 import logging
 import uuid
-from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, File, HTTPException, Query, Request, Response, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse, PlainTextResponse, StreamingResponse
-from pydantic import BaseModel
+from typing import Any
+
+from fastapi import (
+    APIRouter,
+    File,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
+from fastapi.responses import HTMLResponse
 
 from core.app_security import authenticate_request
 from core.network.ai_assistant import map_ai_assistant
@@ -24,7 +33,11 @@ from core.network.discovery import discovery_engine
 from core.network.dns_engine import dns_engine
 from core.network.geo_engine import geo_engine
 from core.network.infrastructure import infra_engine
-from core.network.interfaces import check_capture_drivers, get_local_network_info, get_network_interfaces
+from core.network.interfaces import (
+    check_capture_drivers,
+    get_local_network_info,
+    get_network_interfaces,
+)
 from core.network.models import (
     AiQueryRequest,
     CaptureStartRequest,
@@ -48,8 +61,8 @@ logger = logging.getLogger("snmk.map.api")
 router = APIRouter(prefix="/api/network", tags=["Network Intelligence (MAP)"])
 
 # In-memory storage for active assessment sessions and generated reports
-_active_sessions: Dict[str, Dict[str, Any]] = {}
-_saved_reports: Dict[str, Dict[str, Any]] = {}
+_active_sessions: dict[str, dict[str, Any]] = {}
+_saved_reports: dict[str, dict[str, Any]] = {}
 
 
 # --- Interface & Host Posture Endpoints ---
@@ -88,7 +101,7 @@ async def get_public_ip_address(request: Request):
 # --- IP, ISP, ASN, Geolocation & Infrastructure ---
 
 @router.get("/ip-intelligence")
-async def get_ip_intelligence(request: Request, ip: Optional[str] = Query(None)):
+async def get_ip_intelligence(request: Request, ip: str | None = Query(None)):
     """Correlates ISP, ASN, BGP prefix, reverse DNS, and geolocation for an IP address."""
     authenticate_request(request)
     target_ip = ip
@@ -140,7 +153,7 @@ async def forward_geocode(request: Request, body: GeocodeRequest):
 
 
 @router.post("/geolocation/reverse")
-async def reverse_geocode(request: Request, body: Dict[str, float]):
+async def reverse_geocode(request: Request, body: dict[str, float]):
     """Reverse geocode: Lat + Lon -> Address."""
     authenticate_request(request)
     lat = body.get("latitude")
@@ -315,7 +328,7 @@ async def investigate_network_origin(request: Request, body: OriginInvestigation
 
 
 @router.post("/threat/investigate")
-async def evaluate_threat_intelligence(request: Request, body: Dict[str, Any]):
+async def evaluate_threat_intelligence(request: Request, body: dict[str, Any]):
     """Evaluates IP endpoint against AbuseIPDB / VirusTotal threat reputation feeds."""
     authenticate_request(request)
     ip = body.get("ip")
@@ -339,7 +352,7 @@ async def query_map_ai_assistant(request: Request, body: AiQueryRequest):
 # --- Evidence Reports & Exports ---
 
 @router.post("/report/generate")
-async def generate_map_report(request: Request, body: Dict[str, Any]):
+async def generate_map_report(request: Request, body: dict[str, Any]):
     """Compiles complete network assessment intelligence into an auditable report."""
     authenticate_request(request)
     assessment_id = body.get("assessment_id", f"MAP-{uuid.uuid4().hex[:6].upper()}")
@@ -490,7 +503,7 @@ async def map_websocket_stream(websocket: WebSocket):
             status = live_capture.get_status()
             await websocket.send_json({
                 "type": "CAPTURE_STATUS",
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
                 "status": status
             })
             await asyncio.sleep(1.0)

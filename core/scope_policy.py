@@ -10,7 +10,7 @@ import os
 import re
 import socket
 from urllib.parse import urlparse
-from typing import Dict, List, Optional, Tuple, Set
+
 from pydantic import BaseModel
 
 DEFAULT_ALLOWED_LAB_TARGETS = [
@@ -42,23 +42,23 @@ class ScopeValidationResult(BaseModel):
     is_allowed: bool
     target: str
     hostname: str
-    resolved_ip: Optional[str] = None
+    resolved_ip: str | None = None
     is_lab_target: bool = False
     reason: str
-    error_code: Optional[str] = None
+    error_code: str | None = None
 
     @property
     def allowed(self) -> bool:
         return self.is_allowed
 
 class ScopePolicy:
-    def __init__(self, targets_config_path: Optional[str] = None, allow_lab_mode: bool = False):
+    def __init__(self, targets_config_path: str | None = None, allow_lab_mode: bool = False):
         self.config_path = targets_config_path or os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "config", "targets.json"
         )
         self.allow_lab_mode = allow_lab_mode
-        self.allowed_domains: Set[str] = set()
-        self.allowed_ips: Set[str] = set()
+        self.allowed_domains: set[str] = set()
+        self.allowed_ips: set[str] = set()
         self._last_mtime: float = 0.0
         self._load_config()
 
@@ -128,10 +128,7 @@ class ScopePolicy:
         except ValueError:
             pass
 
-        if "://" in t:
-            parsed = urlparse(t)
-            t = parsed.hostname or t
-        elif t.startswith("//"):
+        if "://" in t or t.startswith("//"):
             parsed = urlparse(t)
             t = parsed.hostname or t
         else:
@@ -178,7 +175,7 @@ class ScopePolicy:
             return False
         return ip.is_loopback
 
-    def is_private_or_restricted(self, ip_str: str) -> Tuple[bool, str]:
+    def is_private_or_restricted(self, ip_str: str) -> tuple[bool, str]:
         """Checks whether an IP address belongs to loopback, RFC1918, link-local, or cloud metadata."""
         try:
             ip_obj = ipaddress.ip_address(ip_str)
@@ -204,7 +201,7 @@ class ScopePolicy:
         except ValueError:
             return False, "Invalid IP string"
 
-    def validate_target(self, target_input: str, explicit_lab_authorization: bool = False, lab_mode: Optional[bool] = None, auto_authorize: bool = True) -> ScopeValidationResult:
+    def validate_target(self, target_input: str, explicit_lab_authorization: bool = False, lab_mode: bool | None = None, auto_authorize: bool = True) -> ScopeValidationResult:
         if lab_mode is not None:
             explicit_lab_authorization = lab_mode
         """
@@ -277,7 +274,7 @@ class ScopePolicy:
                 is_allowed=False,
                 target=clean_target,
                 hostname=hostname,
-                reason=f"Failed to resolve DNS for target '{hostname}': {str(e)}",
+                reason=f"Failed to resolve DNS for target '{hostname}': {e!s}",
                 error_code="DNS_RESOLUTION_FAILURE"
             )
 
@@ -375,7 +372,7 @@ INTRUSIVE_TOOL_IDS = {
 }
 
 
-def _restricted_reason(hostname: str) -> Optional[str]:
+def _restricted_reason(hostname: str) -> str | None:
     """Return a reason string when *hostname* resolves to a restricted address."""
     if not hostname:
         return "Empty target."

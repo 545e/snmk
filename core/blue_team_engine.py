@@ -7,21 +7,22 @@ Synthesizes enterprise defensive countermeasures:
 - Infrastructure Hardening: Nginx and Apache security configuration blocks
 """
 
-import re
 import json
-from typing import List, Dict, Any, Optional
+from typing import Any
 from urllib.parse import urlparse
-from core.models import ScanJob, VulnerabilityFinding, Severity
+
+from core.models import ScanJob, Severity, VulnerabilityFinding
+
 
 class BlueTeamDefenseEngine:
-    def __init__(self, scan: Optional[ScanJob] = None, findings: Optional[List[VulnerabilityFinding]] = None, target_url: Optional[str] = None):
+    def __init__(self, scan: ScanJob | None = None, findings: list[VulnerabilityFinding] | None = None, target_url: str | None = None):
         self.scan = scan
         self.findings = findings or []
         self.target = target_url or (scan.target_url if scan else "target.local")
         self.parsed = urlparse(self.target if "://" in self.target else f"https://{self.target}")
         self.domain = self.parsed.hostname or self.target.replace("https://", "").replace("http://", "").split("/")[0]
 
-    def generate_all(self) -> Dict[str, Any]:
+    def generate_all(self) -> dict[str, Any]:
         waf_rules = self.generate_waf_rules()
         ids_rules = self.generate_ids_signatures()
         siem_rules = self.generate_siem_rules()
@@ -44,22 +45,22 @@ class BlueTeamDefenseEngine:
         }
 
     @classmethod
-    def generate_custom(cls, target_url: str, threat_categories: Optional[List[str]] = None) -> Dict[str, Any]:
+    def generate_custom(cls, target_url: str, threat_categories: list[str] | None = None) -> dict[str, Any]:
         """Generate defensive countermeasures on demand for any domain, IP, or network perimeter."""
         engine = cls(target_url=target_url)
         return engine.generate_all()
 
-    def generate_waf_rules(self) -> List[Dict[str, str]]:
+    def generate_waf_rules(self) -> list[dict[str, str]]:
         """Generates ModSecurity (OWASP CRS), Cloudflare WAF, AWS WAF v2, and Nginx WAF rules."""
         rules = []
 
         # 1. ModSecurity Rule (OWASP CRS 3.3.x compatible)
         sid_counter = 2000001
         modsec_lines = [
-            f"# ========================================================",
+            "# ========================================================",
             f"# SWA AI Automated Blue Team - ModSecurity Ruleset for {self.domain}",
-            f"# Generated automatically based on verified security audit",
-            f"# ========================================================\n"
+            "# Generated automatically based on verified security audit",
+            "# ========================================================\n"
         ]
 
         for f in self.findings:
@@ -206,14 +207,14 @@ server {{
 
         return rules
 
-    def generate_ids_signatures(self) -> List[Dict[str, str]]:
+    def generate_ids_signatures(self) -> list[dict[str, str]]:
         """Generates Suricata and Snort 3 network inspection signatures."""
         signatures = []
         suricata_lines = [
-            f"# ----------------------------------------------------",
-            f"# SWA AI Blue Team IDS/IPS Rules for Suricata 6.x / 7.x",
+            "# ----------------------------------------------------",
+            "# SWA AI Blue Team IDS/IPS Rules for Suricata 6.x / 7.x",
             f"# Target: {self.domain}",
-            f"# ----------------------------------------------------\n"
+            "# ----------------------------------------------------\n"
         ]
 
         sid = 3000001
@@ -265,13 +266,13 @@ server {{
 
         # Snort 3 Rules
         snort_lines = [
-            f"# ----------------------------------------------------",
-            f"# SWA AI Blue Team IDS/IPS Rules for Snort 3",
+            "# ----------------------------------------------------",
+            "# SWA AI Blue Team IDS/IPS Rules for Snort 3",
             f"# Target: {self.domain}",
-            f"# ----------------------------------------------------\n",
-            f'alert tcp $EXTERNAL_NET any -> $HOME_NET [80,443] ( msg:"SWA-SNORT: Sensitive .env File Probe"; flow:to_server,established; http_uri; content:"/.env",nocase; sid:4000001; rev:1; )',
-            f'alert tcp $EXTERNAL_NET any -> $HOME_NET [80,443] ( msg:"SWA-SNORT: Directory Traversal Pattern"; flow:to_server,established; http_uri; content:"/..",nocase; sid:4000002; rev:1; )',
-            f'alert tcp $EXTERNAL_NET any -> $HOME_NET [80,443] ( msg:"SWA-SNORT: SQL Injection Keywords"; flow:to_server,established; http_uri; content:"union",nocase; content:"select",nocase; sid:4000003; rev:1; )'
+            "# ----------------------------------------------------\n",
+            'alert tcp $EXTERNAL_NET any -> $HOME_NET [80,443] ( msg:"SWA-SNORT: Sensitive .env File Probe"; flow:to_server,established; http_uri; content:"/.env",nocase; sid:4000001; rev:1; )',
+            'alert tcp $EXTERNAL_NET any -> $HOME_NET [80,443] ( msg:"SWA-SNORT: Directory Traversal Pattern"; flow:to_server,established; http_uri; content:"/..",nocase; sid:4000002; rev:1; )',
+            'alert tcp $EXTERNAL_NET any -> $HOME_NET [80,443] ( msg:"SWA-SNORT: SQL Injection Keywords"; flow:to_server,established; http_uri; content:"union",nocase; content:"select",nocase; sid:4000003; rev:1; )'
         ]
         signatures.append({
             "type": "Snort 3 Network Signatures",
@@ -282,7 +283,7 @@ server {{
 
         return signatures
 
-    def generate_siem_rules(self) -> List[Dict[str, str]]:
+    def generate_siem_rules(self) -> list[dict[str, str]]:
         """Generates Sigma YAML rules, Splunk SPL, Elastic KQL, and Microsoft Sentinel queries."""
         siem = []
         scan_id_short = self.scan.id[:8] if self.scan else "custom"
@@ -385,7 +386,7 @@ level: high
 
         return siem
 
-    def generate_server_hardening(self) -> List[Dict[str, str]]:
+    def generate_server_hardening(self) -> list[dict[str, str]]:
         """Generates drop-in Nginx and Apache server hardening configuration blocks."""
         configs = []
 

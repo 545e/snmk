@@ -5,18 +5,18 @@ IP Addresses, Network Services, Applications, API Endpoints, Technologies, Certi
 Vulnerabilities, Findings, Evidence, Mitigations, and Asset Owners.
 """
 
-from typing import List, Dict, Any, Optional
-import uuid
 import datetime
+from typing import Any
 from urllib.parse import urlparse
-from core.intelligence_models import (
-    GraphNode,
-    GraphEdge,
-    GraphNodeType,
-    SecurityKnowledgeGraph
-)
+
 from core.database import db
-from core.models import ScanJob, VulnerabilityFinding, ReconResult
+from core.intelligence_models import (
+    GraphEdge,
+    GraphNode,
+    GraphNodeType,
+    SecurityKnowledgeGraph,
+)
+from core.models import ReconResult, ScanJob, VulnerabilityFinding
 
 
 class SecurityKnowledgeGraphEngine:
@@ -25,7 +25,7 @@ class SecurityKnowledgeGraphEngine:
     def __init__(self):
         pass
 
-    def ingest_scan(self, scan_job: ScanJob, findings: List[VulnerabilityFinding], recon_data: Optional[ReconResult] = None):
+    def ingest_scan(self, scan_job: ScanJob, findings: list[VulnerabilityFinding], recon_data: ReconResult | None = None):
         """Ingests a completed security assessment into the persistent knowledge graph."""
         target = scan_job.target_url
         parsed = urlparse(target if "://" in target else f"http://{target}")
@@ -49,7 +49,7 @@ class SecurityKnowledgeGraphEngine:
             "source_id": project_id,
             "target_id": domain_id,
             "relationship": "OWNS",
-            "properties": {"added_at": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+            "properties": {"added_at": datetime.datetime.now(datetime.UTC).isoformat()}
         })
 
         # 2. Application Node
@@ -246,12 +246,12 @@ class SecurityKnowledgeGraphEngine:
             summary=raw.get("summary", {})
         )
 
-    def query_exposed_assets(self) -> List[Dict[str, Any]]:
+    def query_exposed_assets(self) -> list[dict[str, Any]]:
         """Finds all assets with open network services or active findings."""
         graph = self.get_full_graph()
         exposed = []
         # Adjacency index: node_id -> list of relationships (O(E) once)
-        adj: Dict[str, List[str]] = {}
+        adj: dict[str, list[str]] = {}
         for e in graph.edges:
             adj.setdefault(e.source_id, []).append(e.relationship)
             adj.setdefault(e.target_id, []).append(e.relationship)
@@ -272,12 +272,12 @@ class SecurityKnowledgeGraphEngine:
                     })
         return exposed
 
-    def query_shared_vulnerabilities(self) -> List[Dict[str, Any]]:
+    def query_shared_vulnerabilities(self) -> list[dict[str, Any]]:
         """Identifies vulnerabilities or CWEs that affect multiple applications or endpoints."""
         graph = self.get_full_graph()
         vuln_nodes = [n for n in graph.nodes if n.type == GraphNodeType.VULNERABILITY]
         # Edge histogram per target_id over CLASSIFIED_AS relationships (O(E) once)
-        classified_count: Dict[str, int] = {}
+        classified_count: dict[str, int] = {}
         for e in graph.edges:
             if e.relationship == "CLASSIFIED_AS":
                 classified_count[e.target_id] = classified_count.get(e.target_id, 0) + 1

@@ -6,14 +6,12 @@ Prevents remote code execution (RCE) via public package hijacking.
 """
 
 import re
-import asyncio
-import httpx
-from typing import List, Dict, Any, Set
-from urllib.parse import urlparse
 
-from core.models import VulnerabilityFinding, Severity, LogEvent
-from core.queue_manager import queue_manager
+import httpx
+
 from core.database import db
+from core.models import LogEvent, Severity, VulnerabilityFinding
+from core.queue_manager import queue_manager
 
 # Common public generic packages to ignore (reduces noise)
 POPULAR_PUBLIC_PACKAGES = {
@@ -24,18 +22,18 @@ POPULAR_PUBLIC_PACKAGES = {
 }
 
 class DependencyConfusionAgent:
-    def __init__(self, scan_id: str, js_urls: List[str], base_url: str):
+    def __init__(self, scan_id: str, js_urls: list[str], base_url: str):
         self.scan_id = scan_id
         self.js_urls = js_urls[:20]  # Analyze up to 20 representative JS bundles
         self.base_url = base_url
-        self.discovered_packages: Set[str] = set()
-        self.findings: List[VulnerabilityFinding] = []
+        self.discovered_packages: set[str] = set()
+        self.findings: list[VulnerabilityFinding] = []
 
     async def log(self, message: str, level: str = "INFO"):
         event = LogEvent(scan_id=self.scan_id, agent="DependencyConfusionAgent", level=level, message=message)
         await queue_manager.emit_log(event)
 
-    def extract_package_candidates(self, js_code: str) -> Set[str]:
+    def extract_package_candidates(self, js_code: str) -> set[str]:
         """Extract npm package names from webpack/vite bundles, import statements, and source maps."""
         candidates = set()
 
@@ -73,7 +71,7 @@ class DependencyConfusionAgent:
         except Exception:
             return False
 
-    async def run(self) -> List[VulnerabilityFinding]:
+    async def run(self) -> list[VulnerabilityFinding]:
         await self.log("Starting autonomous Dependency Confusion & Supply-Chain audit across client assets...", "INFO")
         
         async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
@@ -125,7 +123,7 @@ class DependencyConfusionAgent:
                             "2. If using a private npm organization scope, enforce scope mapping in .npmrc (`@org:registry=https://private-npm.corp`).\\n"
                             "3. Configure your internal package proxy (Verdaccio / Artifactory / Nexus) to disallow public uplink fallback for internal scopes."
                         ),
-                        remediation_patch=f"# .npmrc configuration:\\n@your-org:registry=https://internal-npm.yourdomain.com/\\nalways-auth=true"
+                        remediation_patch="# .npmrc configuration:\\n@your-org:registry=https://internal-npm.yourdomain.com/\\nalways-auth=true"
                     )
                     db.save_finding(finding)
                     await queue_manager.emit_finding(finding)

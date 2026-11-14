@@ -6,14 +6,11 @@ resolves MAC OUI vendors and hostnames, and performs baseline change comparisons
 
 from __future__ import annotations
 
-import datetime
 import ipaddress
 import logging
 import re
-import socket
 import subprocess
-import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from core.network.interfaces import get_local_network_info
 from core.network.models import DiscoveredDevice
@@ -42,7 +39,7 @@ OUI_VENDORS = {
 }
 
 
-def lookup_mac_vendor(mac: Optional[str]) -> str:
+def lookup_mac_vendor(mac: str | None) -> str:
     """Looks up hardware vendor name from MAC address OUI prefix."""
     if not mac:
         return "Unknown Vendor"
@@ -63,15 +60,15 @@ class DeviceDiscoveryEngine:
     """Authorized Local Network Asset Discovery & Snapshot Differencing."""
 
     def __init__(self):
-        self._last_snapshot: Dict[str, DiscoveredDevice] = {}
+        self._last_snapshot: dict[str, DiscoveredDevice] = {}
 
-    def discover_local_devices(self, authorized_subnet: Optional[str] = None) -> List[DiscoveredDevice]:
+    def discover_local_devices(self, authorized_subnet: str | None = None) -> list[DiscoveredDevice]:
         """Discovers devices visible on local subnet through ARP tables and safe probe."""
         local_info = get_local_network_info()
         gateway_ip = local_info.gateway_ip
         local_ip = local_info.local_ipv4
 
-        devices: Dict[str, DiscoveredDevice] = {}
+        devices: dict[str, DiscoveredDevice] = {}
 
         # 1. Add Local Host Device
         devices[local_ip] = DiscoveredDevice(
@@ -168,7 +165,7 @@ class DeviceDiscoveryEngine:
 
         return results
 
-    def compare_snapshots(self, current: List[DiscoveredDevice]) -> Dict[str, Any]:
+    def compare_snapshots(self, current: list[DiscoveredDevice]) -> dict[str, Any]:
         """Compares current inventory with baseline to identify delta."""
         curr_map = {d.ip: d for d in current}
         new_devices = []

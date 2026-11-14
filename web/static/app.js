@@ -1,3 +1,37 @@
+function renderSubdomains(subs) {
+    const container = document.getElementById("subdomainsContainer");
+    if (!container) return;
+    if (!subs || subs.length === 0) {
+        container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted);">No subdomains discovered for this target.</div>';
+        return;
+    }
+    container.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${subs.map(s => {
+                const name = typeof s === 'string' ? s : (s.subdomain || s.name || '');
+                const ip = (typeof s === 'object' && s.ip) ? s.ip : '';
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px;">
+                        <span style="font-family: var(--mono); font-size: 13px; color: var(--text-title);">${escapeHtml(name)}</span>
+                        ${ip ? `<span style="font-family: var(--mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(ip)}</span>` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleString();
+    } catch (err) {
+        return String(dateStr);
+    }
+}
+
 
 function openAiCopilotDrawer() {
     const drawer = document.getElementById("aiCopilotDrawer") || document.getElementById("copilotDrawer");
@@ -252,6 +286,8 @@ let __swaPollInFlight = false;
 function pollScanStatus(scanId) {
     if (scanPollInterval) clearInterval(scanPollInterval);
     scanPollInterval = setInterval(async () => {
+        if (__swaPollInFlight) return;
+        __swaPollInFlight = true;
         try {
             const res = await fetch(`/api/scans/${scanId}`);
             if (!res.ok) return;
@@ -1492,7 +1528,6 @@ const VIEW_CONTAINER_MAP = {
     'deployment_history': 'viewCyberDeploy',
     'acceptance_checklist': 'viewCyberDeploy',
     'ai_models': 'viewSettings',
-    'api_keys': 'viewApiKeys',
     'integrations_mgmt': 'viewApiKeys',
     'agent_config': 'viewAgents',
     'system_settings': 'viewSettings',
@@ -1589,7 +1624,7 @@ function navToView(view, updateHash = true) {
 
     // 6. Trigger live data loaders for the active view
     if (targetContainerId === 'viewMap') {
-        if (typeof initMapView === 'function') initMapView();
+        if (typeof initMapView === 'function') if (typeof window.initMapView === 'function') window.initMapView();
     } else if (targetContainerId === 'viewDashboard') {
         loadScans();
         loadRecentActivity();
@@ -3136,7 +3171,7 @@ function globalSearch(query) {
     const input = document.getElementById('vulnSearchInput');
     if (input) {
         input.value = query;
-        if (typeof filterFindings === 'function') filterFindings();
+        if (typeof window.filterFindings === 'function') window.filterFindings();
     }
 }
 
@@ -3781,8 +3816,8 @@ async function loadDefenses() {
 }
 
 function escapeHtml(text) {
-    if (!text) return "";
-    return text
+    if (text === null || text === undefined) return "";
+    return String(text)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -7602,7 +7637,7 @@ window.authorizeAndRerunTarget = async function(domain) {
             alert('Failed to authorize target: ' + (data.detail || res.statusText));
             return;
         }
-        atRunAllTools();
+        runAllTools();
     } catch (e) {
         alert('Error authorizing target: ' + e.message);
     }
@@ -11322,6 +11357,9 @@ async function loadAcceptanceChecklist(deploymentId = null) {
         const data = await resp.json();
         currentChecklistData = data;
         renderAcceptanceChecklist(data);
+        if (typeof loadAcceptanceCategoriesChecklist === 'function') {
+            loadAcceptanceCategoriesChecklist();
+        }
     } catch (e) {
         if (container) {
             const standby = document.createElement('div');
@@ -12365,7 +12403,7 @@ async function launchAssessmentFromView() {
 // 🚀 CYBER DEPLOY & ACCEPTANCE CHECKLIST MODULE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function loadAcceptanceChecklist() {
+async function loadAcceptanceCategoriesChecklist() {
     const container = document.getElementById('checklistCategoriesContainer');
     if (!container) return;
     try {
@@ -16156,10 +16194,11 @@ function toggleToolDetailsTray(trayId) {
     if (tray) tray.classList.toggle('open');
 }
 
-function setPopoverFilter(filter) {
+function setPopoverFilter(filter, evt) {
     window.toolHealthState.filter = filter;
     document.querySelectorAll('.tool-filter-pill').forEach(p => p.classList.remove('active'));
-    event.target.classList.add('active');
+    const target = (evt || window.event)?.target;
+    if (target && target.classList) target.classList.add('active');
     renderToolHealthPopover();
 }
 

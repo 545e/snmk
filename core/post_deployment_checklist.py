@@ -20,17 +20,16 @@ Strict Rules:
 - Checklists are persisted against deployment ID and exportable to PDF, JSON, and Markdown.
 """
 
-import os
-import logging
-import json
 import datetime
+import json
+import logging
+import os
 import subprocess
-from typing import Dict, Any, Optional
+from typing import Any
 
+from core.antivirus_edr_manager import antivirus_edr_manager
 from core.database import db
 from core.scanner_integrations import ScannerIntegrations
-from core.antivirus_edr_manager import antivirus_edr_manager
-
 
 logger = logging.getLogger('swa.checklist')
 
@@ -41,7 +40,7 @@ class PostDeploymentChecklistEngine:
     def __init__(self):
         self.repo_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-    def _get_git_metadata(self) -> Dict[str, str]:
+    def _get_git_metadata(self) -> dict[str, str]:
         branch = "generation-2-complete-modernization"
         commit = "3ee8c90"
         try:
@@ -55,15 +54,15 @@ class PostDeploymentChecklistEngine:
             logger.debug("Non-fatal checklist evaluation note: %s", e)
         return {"branch": branch, "commit": commit}
 
-    def generate_checklist(self, deployment_id: str) -> Dict[str, Any]:
+    def generate_checklist(self, deployment_id: str) -> dict[str, Any]:
         """Generates comprehensive Section 52 acceptance checklist for a deployment."""
         dep = db.get_cyber_deployment(deployment_id)
         if not dep:
             # Fallback mock/synthetic deployment record for testing if not yet in DB
-            now_str = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_str = datetime.datetime.now(datetime.UTC).isoformat()
             dep = {
                 "id": deployment_id,
-                "release_id": f"rel_v2.2.{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+                "release_id": f"rel_v2.2.{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}",
                 "environment": "production",
                 "method": "local_process",
                 "status": "COMPLETED",
@@ -254,7 +253,7 @@ class PostDeploymentChecklistEngine:
             "release_id": dep["release_id"],
             "environment": dep["environment"],
             "overall_status": overall_verdict,
-            "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
             "summary": summary,
             "metrics": {
                 "total_checks": len(all_items),
@@ -282,7 +281,7 @@ class PostDeploymentChecklistEngine:
 
         return checklist_payload
 
-    def _save_to_database(self, payload: Dict[str, Any]):
+    def _save_to_database(self, payload: dict[str, Any]):
         """Persists post-deployment checklist JSON to SQLite."""
         try:
             with db.get_connection() as conn:
@@ -313,7 +312,7 @@ class PostDeploymentChecklistEngine:
         except Exception as e:
             logger.debug("Non-fatal checklist evaluation note: %s", e)
 
-    def get_checklist(self, deployment_id: str) -> Optional[Dict[str, Any]]:
+    def get_checklist(self, deployment_id: str) -> dict[str, Any] | None:
         """Retrieves saved checklist from DB or generates a fresh one."""
         try:
             with db.get_connection() as conn:
@@ -326,7 +325,7 @@ class PostDeploymentChecklistEngine:
             logger.debug("Non-fatal checklist evaluation note: %s", e)
         return self.generate_checklist(deployment_id)
 
-    def get_latest_checklist(self) -> Optional[Dict[str, Any]]:
+    def get_latest_checklist(self) -> dict[str, Any] | None:
         """Retrieves the most recent deployment acceptance checklist."""
         try:
             with db.get_connection() as conn:
@@ -350,7 +349,7 @@ class PostDeploymentChecklistEngine:
             return "# Post-Deployment Acceptance Checklist\nNo checklist data available."
 
         md = [
-            f"# SWA AI — Post-Deployment Acceptance Checklist (§52)",
+            "# SWA AI — Post-Deployment Acceptance Checklist (§52)",
             f"**Deployment ID:** `{data['deployment_id']}`  ",
             f"**Release ID:** `{data['release_id']}`  ",
             f"**Environment:** `{data['environment'].upper()}`  ",

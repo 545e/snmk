@@ -35,16 +35,16 @@ Architecture:
 """
 
 import asyncio
-import re
-import socket
-import shutil
-import json
-import os
-import html
-import uuid
 import datetime
-from typing import List, Dict, Any, Optional, Set, Tuple
+import html
+import os
+import re
+import shutil
+import socket
+import uuid
+from typing import Any
 from urllib.parse import urlparse
+
 import httpx
 
 try:
@@ -54,7 +54,7 @@ try:
 except ImportError:
     HAS_DNSPYTHON = False
 
-from core.models import LogEvent, VulnerabilityFinding, Severity
+from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 # Comprehensive 350+ Curated Enterprise, Microservices & Cloud Infrastructure Wordlist
@@ -242,7 +242,7 @@ DEFAULT_HEADERS = {
 PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8", "9.9.9.9", "208.67.222.222"]
 
 # In-memory TTL cache for DNS and live resolution
-_SUBDOMAIN_DNS_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_SUBDOMAIN_DNS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 DNS_CACHE_TTL_SECONDS = 300
 
 
@@ -262,8 +262,8 @@ class AmassSubdomainEngine:
         concurrency: int = 20,
         timeout: int = 5,
         recursive: bool = True,
-        custom_resolvers: Optional[List[str]] = None,
-        wordlist: Optional[List[str]] = None
+        custom_resolvers: list[str] | None = None,
+        wordlist: list[str] | None = None
     ):
         self.scan_id = scan_id
         self.raw_target = base_domain.strip().lower()
@@ -277,16 +277,16 @@ class AmassSubdomainEngine:
         self.subfinder_binary_path = self._locate_subfinder_binary()
         
         # Discovered hostnames -> set of discovery source strings
-        self.discovered_subs: Dict[str, Set[str]] = {}
+        self.discovered_subs: dict[str, set[str]] = {}
         # Structured asset inventory records
-        self.detailed_results: List[Dict[str, Any]] = []
-        self.takeover_findings: List[VulnerabilityFinding] = []
-        self.provider_errors: Dict[str, str] = {}
+        self.detailed_results: list[dict[str, Any]] = []
+        self.takeover_findings: list[VulnerabilityFinding] = []
+        self.provider_errors: dict[str, str] = {}
         
         # Wildcard DNS Detection state
         self.wildcard_detected: bool = False
-        self.wildcard_ips: Set[str] = set()
-        self.wildcard_cnames: Set[str] = set()
+        self.wildcard_ips: set[str] = set()
+        self.wildcard_cnames: set[str] = set()
         
         # Performance & triage metrics
         self.start_time: float = 0.0
@@ -330,7 +330,7 @@ class AmassSubdomainEngine:
             return ".".join(parts[-2:])
         return d
 
-    def _locate_amass_binary(self) -> Optional[str]:
+    def _locate_amass_binary(self) -> str | None:
         """Auto-detects native OWASP Amass binary if installed on the host."""
         which_path = shutil.which("amass")
         if which_path:
@@ -350,7 +350,7 @@ class AmassSubdomainEngine:
                 return c
         return None
 
-    def _locate_subfinder_binary(self) -> Optional[str]:
+    def _locate_subfinder_binary(self) -> str | None:
         """Auto-detects native ProjectDiscovery Subfinder binary if installed on the host."""
         which_path = shutil.which("subfinder")
         if which_path:
@@ -441,7 +441,7 @@ class AmassSubdomainEngine:
         if not resolver:
             return
 
-        wildcard_hits: List[Set[str]] = []
+        wildcard_hits: list[set[str]] = []
         for _ in range(3):
             rnd_sub = f"swa-wc-{uuid.uuid4().hex[:10]}.{self.base_domain}"
             ips = set()
@@ -478,7 +478,7 @@ class AmassSubdomainEngine:
     # Main Execution Flow
     # =====================================================================
 
-    async def run(self) -> Tuple[List[Dict[str, Any]], List[VulnerabilityFinding]]:
+    async def run(self) -> tuple[list[dict[str, Any]], list[VulnerabilityFinding]]:
         """
         Executes layered autonomous discovery:
         1. Wildcard DNS baseline detection
@@ -507,7 +507,7 @@ class AmassSubdomainEngine:
         try:
             await self._detect_wildcard_dns()
         except Exception as e:
-            await self.log(f"Wildcard detection notice: {str(e)}", "WARN")
+            await self.log(f"Wildcard detection notice: {e!s}", "WARN")
 
         if self._check_cancelled():
             return self.detailed_results, self.takeover_findings
@@ -541,7 +541,7 @@ class AmassSubdomainEngine:
         try:
             await self._probe_dictionary_wordlist(self.base_domain)
         except Exception as e:
-            await self.log(f"Active dictionary probing notice: {str(e)}", "WARN")
+            await self.log(f"Active dictionary probing notice: {e!s}", "WARN")
 
         if self._check_cancelled():
             return self.detailed_results, self.takeover_findings
@@ -550,14 +550,14 @@ class AmassSubdomainEngine:
         try:
             await self._generate_and_probe_permutations()
         except Exception as e:
-            await self.log(f"AltDNS permutation notice: {str(e)}", "WARN")
+            await self.log(f"AltDNS permutation notice: {e!s}", "WARN")
 
         # Step 5: Recursive Subdomain Mining (Depth 2)
         if self.recursive and not self._check_cancelled():
             try:
                 await self._run_recursive_discovery()
             except Exception as e:
-                await self.log(f"Recursive mining notice: {str(e)}", "WARN")
+                await self.log(f"Recursive mining notice: {e!s}", "WARN")
 
         self.metrics["discovered"] = len(self.discovered_subs)
         await self.log(f"Total discovered candidates before live probing: {len(self.discovered_subs)}", "INFO")
@@ -567,7 +567,7 @@ class AmassSubdomainEngine:
         try:
             await self._resolve_and_verify_subdomains()
         except Exception as e:
-            await self.log(f"Live probing notice: {str(e)}", "WARN")
+            await self.log(f"Live probing notice: {e!s}", "WARN")
 
         # Sort results: live assets first, then by subdomain name
         self.detailed_results.sort(key=lambda x: (x.get("status") is None, x.get("subdomain", "")))
@@ -781,7 +781,7 @@ class AmassSubdomainEngine:
             await self.log(f"[OWASP Amass CLI] Harvested {len(lines)} discovered assets.", "SUCCESS")
         except Exception as e:
             self.provider_errors["AmassCLI"] = str(e)
-            await self.log(f"Amass CLI notice: {str(e)}", "INFO")
+            await self.log(f"Amass CLI notice: {e!s}", "INFO")
 
     async def _run_subfinder_cli(self):
         """Invokes external Subfinder binary if present on host."""
@@ -809,7 +809,7 @@ class AmassSubdomainEngine:
             await self.log(f"[Subfinder CLI] Harvested {len(lines)} discovered assets.", "SUCCESS")
         except Exception as e:
             self.provider_errors["SubfinderCLI"] = str(e)
-            await self.log(f"Subfinder CLI notice: {str(e)}", "INFO")
+            await self.log(f"Subfinder CLI notice: {e!s}", "INFO")
 
     # =====================================================================
     # Active Wordlist & Permutation Engines
@@ -958,16 +958,16 @@ class AmassSubdomainEngine:
         resolver = self._create_resolver()
         sem = asyncio.Semaphore(self.concurrency)
         all_hosts = list(self.discovered_subs.keys())
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
         async def inspect_single(sub: str):
             if self._check_cancelled():
                 return None
             async with sem:
-                ip_list: List[str] = []
-                aaaa_list: List[str] = []
+                ip_list: list[str] = []
+                aaaa_list: list[str] = []
                 cname = ""
-                aliases: List[str] = []
+                aliases: list[str] = []
                 dns_confirmed = False
 
                 # 1. DNS Resolution (Async resolver or socket fallback)
@@ -1085,7 +1085,7 @@ class AmassSubdomainEngine:
                         description=f"Host '{sub}' has a dangling CNAME pointer to {cname or provider_name}. {reason}",
                         reproduction_steps=f"1. Resolve CNAME for '{sub}': points to '{cname}'.\n2. Send HTTP request to '{sub}': returned cloud error signature from {provider_name}.\n3. Claim resource under provider.",
                         impact="Full compromise of domain asset, ability to serve malicious content, steal session cookies, and perform credential harvesting.",
-                        remediation_advice=f"Immediately remove or update the dangling DNS CNAME record for '{sub}' pointing to {provider_name}, or reclaim the orphaned asset in your cloud account.",
+                        remediation_advice=f"Immediately remove or update the dangling DNS CNAME record for '{sub}' pointing to {provider_name}, or reclaim the orphaned asset in your cloud account.",  # nosec B608 - false positive DNS zone remediation text
                         remediation_patch=f"; DNS zone update for {self.base_domain}\n; Remove dangling alias:\n{sub}. IN CNAME [REMOVE-DANGLING-RECORD]"
                     )
                     self.takeover_findings.append(finding)
@@ -1150,7 +1150,7 @@ class AmassSubdomainEngine:
         tasks = [inspect_single(s) for s in all_hosts[:500]]
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    def _check_takeover(self, sub: str, cname: str, aliases: List[str], body: str) -> Tuple[bool, str, str]:
+    def _check_takeover(self, sub: str, cname: str, aliases: list[str], body: str) -> tuple[bool, str, str]:
         """Detects whether a dangling CNAME matches an unclaimed cloud resource."""
         all_targets = [cname] + aliases
         for target in all_targets:

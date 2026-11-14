@@ -4,7 +4,8 @@ Central registry and execution manager for modular security audit plugins.
 """
 
 import asyncio
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 import httpx
 
 from core.models import DiscoveredEndpoint, VulnerabilityFinding
@@ -22,11 +23,12 @@ from plugins.owasp_plugins import (
     PluginA10_SSRF,
 )
 
+
 class SecurityPluginManager:
     """Manages lifecycle, registration, and parallel execution of audit plugins."""
 
     def __init__(self):
-        self.plugins: Dict[str, BaseSecurityPlugin] = {}
+        self.plugins: dict[str, BaseSecurityPlugin] = {}
         self._register_default_plugins()
 
     def _register_default_plugins(self):
@@ -46,13 +48,13 @@ class SecurityPluginManager:
             instance = cls()
             self.plugins[instance.plugin_id] = instance
 
-    def list_plugins(self) -> List[Dict[str, Any]]:
+    def list_plugins(self) -> list[dict[str, Any]]:
         return [p.to_dict() for p in self.plugins.values()]
 
-    def get_plugin(self, plugin_id: str) -> Optional[BaseSecurityPlugin]:
+    def get_plugin(self, plugin_id: str) -> BaseSecurityPlugin | None:
         return self.plugins.get(plugin_id)
 
-    def toggle_plugin(self, plugin_id: str, enabled: Optional[bool] = None) -> bool:
+    def toggle_plugin(self, plugin_id: str, enabled: bool | None = None) -> bool:
         p = self.plugins.get(plugin_id)
         if not p:
             return False
@@ -62,7 +64,7 @@ class SecurityPluginManager:
             p.enabled = enabled
         return p.enabled
 
-    def get_owasp_matrix(self) -> List[Dict[str, Any]]:
+    def get_owasp_matrix(self) -> list[dict[str, Any]]:
         matrix = []
         for p in self.plugins.values():
             matrix.append({
@@ -79,13 +81,13 @@ class SecurityPluginManager:
     async def execute_all(
         self,
         scan_id: str,
-        endpoints: List[DiscoveredEndpoint],
+        endpoints: list[DiscoveredEndpoint],
         recon_data: Any,
         log_callback=None,
-        active_plugins: Optional[List[str]] = None
-    ) -> List[VulnerabilityFinding]:
+        active_plugins: list[str] | None = None
+    ) -> list[VulnerabilityFinding]:
         """Run all enabled security plugins concurrently."""
-        findings: List[VulnerabilityFinding] = []
+        findings: list[VulnerabilityFinding] = []
         enabled_plugins = [
             p for p in self.plugins.values()
             if p.enabled and (active_plugins is None or p.plugin_id in active_plugins)
@@ -105,7 +107,7 @@ class SecurityPluginManager:
                     return res or []
                 except Exception as e:
                     if log_callback:
-                        await log_callback(f"Plugin {plugin.name} error: {str(e)}", "WARN")
+                        await log_callback(f"Plugin {plugin.name} error: {e!s}", "WARN")
                     return []
 
             tasks = [run_single_plugin(p) for p in enabled_plugins]
@@ -119,7 +121,7 @@ class SecurityPluginManager:
 
 # Singleton plugin manager instance
 
-    async def run_single_plugin(self, plugin_id: str, target: str, scan_id: Optional[str] = None) -> Dict[str, Any]:
+    async def run_single_plugin(self, plugin_id: str, target: str, scan_id: str | None = None) -> dict[str, Any]:
         """Executes a single specified OWASP plugin against the target URL."""
         plugin = self.get_plugin(plugin_id)
         if not plugin:
@@ -166,7 +168,7 @@ class SecurityPluginManager:
             "passed": len(findings) == 0
         }
 
-    async def run_all_enabled_plugins(self, target: str, scan_id: Optional[str] = None) -> Dict[str, Any]:
+    async def run_all_enabled_plugins(self, target: str, scan_id: str | None = None) -> dict[str, Any]:
         """Runs all enabled OWASP Top 10 plugins against the target URL."""
         target_clean = target if target.startswith("http") else f"https://{target}"
         endpoint = DiscoveredEndpoint(url=target_clean, method="GET")

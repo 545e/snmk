@@ -6,12 +6,13 @@ token budgeting, compression, and strict project/workspace isolation.
 
 from __future__ import annotations
 
-import re
-import uuid
+import datetime
 import json
 import logging
-import datetime
-from typing import Dict, Any, List, Optional
+import re
+import uuid
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from core.database import db
@@ -20,7 +21,7 @@ logger = logging.getLogger("snmk.agent_memory")
 
 
 def _utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 # Regex patterns for detecting and redacting sensitive credentials in memory.
@@ -96,7 +97,7 @@ class MemoryRecord(BaseModel):
     memory_tier: str = "episodic"
     role: str = "assistant"
     content: str
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     token_count: int = 0
     created_at: str = Field(default_factory=_utc_now)
 
@@ -116,7 +117,7 @@ class AgentMemoryStore:
         content: str,
         memory_tier: str = "episodic",
         project_id: str = "proj_default",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> MemoryRecord:
         """Records an interaction turn with automatic secret scrubbing and token accounting."""
         clean_content = redact_secrets_from_text(content)
@@ -169,8 +170,8 @@ class AgentMemoryStore:
         session_id: str,
         project_id: str = "proj_default",
         limit: int = 20,
-        budget_tokens: Optional[int] = None
-    ) -> List[MemoryRecord]:
+        budget_tokens: int | None = None
+    ) -> list[MemoryRecord]:
         """Retrieves conversational and episodic memory for a session within token budget."""
         budget = budget_tokens or self.max_context_tokens
 
@@ -190,7 +191,7 @@ class AgentMemoryStore:
             """, (session_id, project_id, limit))
             rows = cursor.fetchall()
 
-        records: List[MemoryRecord] = []
+        records: list[MemoryRecord] = []
         cumulative_tokens = 0
         for r in rows:
             tokens = r["token_count"] or 1
@@ -220,10 +221,10 @@ class AgentMemoryStore:
         system_prompt: str,
         current_user_message: str,
         project_id: str = "proj_default"
-    ) -> List[Dict[str, str]]:
+    ) -> list[dict[str, str]]:
         """Compiles clean, scrubbed message list with system prompt, history, and current turn."""
         history = self.get_session_history(session_id, project_id=project_id, limit=10)
-        messages: List[Dict[str, str]] = [{"role": "system", "content": system_prompt}]
+        messages: list[dict[str, str]] = [{"role": "system", "content": system_prompt}]
 
         for h in history:
             messages.append({"role": h.role, "content": h.content})

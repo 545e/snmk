@@ -7,16 +7,12 @@ for AI models across OpenAI, Anthropic, Google Gemini, OpenRouter, and Local/Oll
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import sqlite3
-import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 import uuid
-
-import httpx
+from datetime import UTC, datetime
+from typing import Any
 
 from core.database import db
 from core.integrations.registry import integration_registry
@@ -25,11 +21,11 @@ logger = logging.getLogger("swa.ai_models")
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 # Curated catalog of production-tested LLM models per provider
-KNOWN_PROVIDER_MODELS: Dict[str, List[Dict[str, Any]]] = {
+KNOWN_PROVIDER_MODELS: dict[str, list[dict[str, Any]]] = {
     "openai": [
         {"model_id": "gpt-4o", "name": "GPT-4o (Omni)", "context_window": 128000, "description": "High-intelligence flagship model for complex exploit validation and report drafting."},
         {"model_id": "gpt-4o-mini", "name": "GPT-4o Mini", "context_window": 128000, "description": "Fast, cost-efficient model for real-time asset classification and IOC lookup."},
@@ -120,19 +116,19 @@ class AIModelManager:
                 )
             conn.commit()
 
-    def list_models(self) -> List[Dict[str, Any]]:
+    def list_models(self) -> list[dict[str, Any]]:
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
             rows = conn.execute("SELECT * FROM ai_models ORDER BY is_default DESC, provider, display_name").fetchall()
             return [dict(r) for r in rows]
 
-    def get_model(self, model_pk: str) -> Optional[Dict[str, Any]]:
+    def get_model(self, model_pk: str) -> dict[str, Any] | None:
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
             r = conn.execute("SELECT * FROM ai_models WHERE id = ? OR model_id = ?", (model_pk, model_pk)).fetchone()
             return dict(r) if r else None
 
-    def get_default_model(self) -> Optional[Dict[str, Any]]:
+    def get_default_model(self) -> dict[str, Any] | None:
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
             r = conn.execute("SELECT * FROM ai_models WHERE is_default = 1 AND enabled = 1 LIMIT 1").fetchone()
@@ -145,15 +141,15 @@ class AIModelManager:
         provider: str,
         model_id: str,
         display_name: str,
-        description: Optional[str] = None,
+        description: str | None = None,
         max_tokens: int = 4096,
         temperature: float = 0.2,
         timeout_seconds: int = 30,
         is_default: bool = False,
-        fallback_model_id: Optional[str] = None,
+        fallback_model_id: str | None = None,
         enabled: bool = True,
-        model_pk: Optional[str] = None
-    ) -> Dict[str, Any]:
+        model_pk: str | None = None
+    ) -> dict[str, Any]:
         now = _utc_now()
         pk = model_pk or f"mod_{uuid.uuid4().hex[:10]}"
         with db.get_connection() as conn:
@@ -194,14 +190,14 @@ class AIModelManager:
             conn.commit()
             return res.rowcount > 0
 
-    def set_default(self, model_pk: str) -> Optional[Dict[str, Any]]:
+    def set_default(self, model_pk: str) -> dict[str, Any] | None:
         with db.get_connection() as conn:
             conn.execute("UPDATE ai_models SET is_default = 0")
             conn.execute("UPDATE ai_models SET is_default = 1, updated_at = ? WHERE id = ?", (_utc_now(), model_pk))
             conn.commit()
         return self.get_model(model_pk)
 
-    async def test_model_availability(self, model_pk: str) -> Dict[str, Any]:
+    async def test_model_availability(self, model_pk: str) -> dict[str, Any]:
         """Runs a live reachability test for the specified model."""
         model = self.get_model(model_pk)
         if not model:
@@ -270,7 +266,7 @@ class AIModelManager:
         res["display_name"] = model["display_name"]
         return res
 
-    def get_known_catalog(self) -> Dict[str, List[Dict[str, Any]]]:
+    def get_known_catalog(self) -> dict[str, list[dict[str, Any]]]:
         return KNOWN_PROVIDER_MODELS
 
 

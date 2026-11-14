@@ -22,17 +22,13 @@ WebSocket live feeds, and full report download endpoints.
 
 
 
-import os
-
+import asyncio
+import datetime
 import json
-
+import logging
+import os
 import time
 
-import datetime
-
-import asyncio
-
-import logging
 # NOTE: .env is loaded by the launchers (run.py, swa_cli.py) before they import
 # the app, NOT here — importing this module directly (e.g. tests) must not
 # silently change behavior based on developer .env contents.
@@ -43,69 +39,49 @@ logger = logging.getLogger("swa_server")
 
 
 
-from typing import List, Optional, Literal, Dict, Any, Tuple
+from typing import Any, Literal
 
-
-
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, BackgroundTasks, UploadFile, File, Form
-
-
-
-from fastapi.staticfiles import StaticFiles
-
-
-
-from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, JSONResponse
-
-
-
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
-
-
-
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+)
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-
-
-
-
-
-
-
-from core.models import ScanJob, ScanConfig, ScanStatus, VulnerabilityFinding, LogEvent, ScanProfile
-
-from core.version import __version__
-
-from core.integrations.registry import integration_registry
-
-from core.ai_models import ai_model_manager
-
-from core.audit import audit
-
-
-
-from core.database import db
-
-
-
-from core.queue_manager import queue_manager
-
-
+from starlette.middleware.gzip import GZipMiddleware
 
 from agents.orchestrator import SWAOrchestrator
-
-
-
-from reports.generator import ReportGenerator
-
-
-
+from core.ai_models import ai_model_manager
+from core.audit import audit
+from core.database import db
+from core.integrations.registry import integration_registry
+from core.models import (
+    LogEvent,
+    ScanConfig,
+    ScanJob,
+    ScanProfile,
+    ScanStatus,
+    VulnerabilityFinding,
+)
+from core.queue_manager import queue_manager
+from core.version import __version__
 from plugins.plugin_manager import plugin_manager
-
-
-
-
-
-
+from reports.generator import ReportGenerator
 
 app = FastAPI(
 
@@ -180,6 +156,8 @@ app.add_middleware(
     max_age=86400,
 
 )
+
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 _SERVER_START_TIME = time.time()
 
@@ -257,7 +235,10 @@ async def auth_enforcement_middleware(request: Request, call_next):
     docs) and non-API routes (static UI) pass through.
     Accepts: Bearer or X-API-Key matching the master key, or a session token from /api/auth/login.
     """
-    from core.app_security import SWA_AUTH_ENABLED as _auth_on, SWA_MASTER_API_KEY as _master_key, PUBLIC_PATHS as _PUBLIC, authenticate_request
+    from core.app_security import PUBLIC_PATHS as _PUBLIC
+    from core.app_security import SWA_AUTH_ENABLED as _auth_on
+    from core.app_security import SWA_MASTER_API_KEY as _master_key
+    from core.app_security import authenticate_request
     _placeholder_markers = ("change_me", "your_api_key", "your_key", "placeholder", "dummy", "example", "none", "null")
     _mk = (_master_key or "").strip()
     _mk_is_real = bool(_mk) and len(_mk) >= 16 and not any(m in _mk.lower() for m in _placeholder_markers)
@@ -300,7 +281,7 @@ async def add_security_headers(request: Request, call_next):
 
     response.headers["Content-Security-Policy"] = (
 
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://*.tile.openstreetmap.org data: blob: ws: wss:; "
+        "default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://*.tile.openstreetmap.org data: blob: ws: wss:; "
 
         "frame-ancestors 'self'; "
 
@@ -366,7 +347,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 # --- Tool-Endpoint Scope Enforcement (SSRF + authorisation gate) ---
 
-async def enforce_scope(target: Optional[str], tool_id: str) -> str:
+async def enforce_scope(target: str | None, tool_id: str) -> str:
 
     """
 
@@ -438,9 +419,9 @@ class LoginPayload(BaseModel):
 
     username: str = "operator"
 
-    password: Optional[str] = ""
+    password: str | None = ""
 
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
 
 
@@ -452,7 +433,7 @@ async def auth_login(req: LoginPayload):
 
     import hmac
 
-    from core.app_security import create_session, SWA_MASTER_API_KEY
+    from core.app_security import SWA_MASTER_API_KEY, create_session
 
     if SWA_MASTER_API_KEY and req.api_key:
 
@@ -478,7 +459,11 @@ async def auth_status(request: Request):
 
     """Check current application authentication and role status."""
 
-    from core.app_security import authenticate_request, SWA_AUTH_ENABLED, SWA_MASTER_API_KEY
+    from core.app_security import (
+        SWA_AUTH_ENABLED,
+        SWA_MASTER_API_KEY,
+        authenticate_request,
+    )
 
     try:
 
@@ -538,7 +523,7 @@ async def health_check():
 
         "database": db_health,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
     }
 
@@ -570,7 +555,7 @@ async def health_liveness():
 
         "version": __version__,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
         "uptime_sec": round(time.time() - _SERVER_START_TIME, 2),
 
@@ -602,7 +587,7 @@ async def health_readiness():
 
         "readiness": is_ready,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
     }
 
@@ -617,10 +602,8 @@ async def health_dependencies():
     """Dependency status endpoint: checks core subsystems without leaking secrets or tokens."""
 
     from core.integrations.registry import integration_registry
-
-    from web.enterprise_api import list_agents as get_enterprise_agents
-
     from core.tool_registry import tool_registry
+    from web.enterprise_api import list_agents as get_enterprise_agents
 
 
 
@@ -642,7 +625,7 @@ async def health_dependencies():
 
         "version": __version__,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
         "dependencies": {
 
@@ -788,15 +771,15 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
 
-    model: Optional[str] = "swa-native-security-agent"
+    model: str | None = "swa-native-security-agent"
 
-    messages: List[ChatMessage]
+    messages: list[ChatMessage]
 
-    temperature: Optional[float] = 0.7
+    temperature: float | None = 0.7
 
-    stream: Optional[bool] = False
+    stream: bool | None = False
 
-    max_tokens: Optional[int] = 2048
+    max_tokens: int | None = 2048
 
 
 
@@ -858,7 +841,7 @@ async def create_chat_completion(req: ChatCompletionRequest):
 
     completion_id = f"chatcmpl-swa-{uuid.uuid4().hex[:12]}"
 
-    created_ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    created_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
 
     return {
 
@@ -920,13 +903,13 @@ class CopilotChatRequest(BaseModel):
 
     message: str
 
-    target: Optional[str] = "127.0.0.1:8000"
+    target: str | None = "127.0.0.1:8000"
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
-    agent_id: Optional[str] = None
+    agent_id: str | None = None
 
-    conversation_history: Optional[List[Dict[str, str]]] = None
+    conversation_history: list[dict[str, str]] | None = None
 
 
 
@@ -955,9 +938,7 @@ async def copilot_chat_endpoint(req: CopilotChatRequest):
 
 
     from core.database import db
-
     from core.llm_client import SWALLMClient
-
     from web.ai_agent_api import _decrypt_key
 
 
@@ -1374,7 +1355,7 @@ async def launch_scan(config: ScanConfig):
 
 
 
-@app.get("/api/scans", response_model=List[ScanJob])
+@app.get("/api/scans", response_model=list[ScanJob])
 
 
 
@@ -1490,7 +1471,7 @@ async def delete_scan(scan_id: str):
 
 
 
-@app.get("/api/scans/{scan_id}/findings", response_model=List[VulnerabilityFinding])
+@app.get("/api/scans/{scan_id}/findings", response_model=list[VulnerabilityFinding])
 
 
 
@@ -1526,9 +1507,9 @@ class FindingTransitionRequest(BaseModel):
 
     reason: str
 
-    changed_by: Optional[str] = "Security Lead"
+    changed_by: str | None = "Security Lead"
 
-    evidence: Optional[str] = None
+    evidence: str | None = None
 
 
 
@@ -1536,9 +1517,9 @@ class FalsePositiveReviewRequest(BaseModel):
 
     reason: str
 
-    contradictory_evidence: Optional[str] = None
+    contradictory_evidence: str | None = None
 
-    reviewed_by: Optional[str] = "Senior Security Analyst"
+    reviewed_by: str | None = "Senior Security Analyst"
 
 
 
@@ -1558,15 +1539,15 @@ async def export_findings_data(
 
     format: str = Query("json", pattern="^(json|csv|html|pdf|markdown)$"),
 
-    severity: Optional[str] = None,
+    severity: str | None = None,
 
-    lifecycle_status: Optional[str] = None,
+    lifecycle_status: str | None = None,
 
-    remediation_status: Optional[str] = None,
+    remediation_status: str | None = None,
 
-    poc_state: Optional[str] = None,
+    poc_state: str | None = None,
 
-    search: Optional[str] = None
+    search: str | None = None
 
 ):
 
@@ -1612,7 +1593,7 @@ async def get_vulnerability_report(
 
     format: str = Query("html", pattern="^(html|pdf|json|csv|markdown)$"),
 
-    finding_id: Optional[str] = None,
+    finding_id: str | None = None,
 
     target: str = "127.0.0.1:8000"
 
@@ -1679,22 +1660,22 @@ async def get_vulnerability_report(
 # Professional Nessus-Style Vulnerability Assessment Report Engine Endpoints
 # =============================================================================
 class VulnAssessmentPreviewReq(BaseModel):
-    scan_id: Optional[str] = None
-    target: Optional[str] = "127.0.0.1:8000"
+    scan_id: str | None = None
+    target: str | None = "127.0.0.1:8000"
     report_type: str = "detailed_technical"
     template_type: str = "template_b"
     grouping_mode: str = "host"
-    filters: Optional[Dict[str, Any]] = None
+    filters: dict[str, Any] | None = None
 
 class VulnAssessmentGenerateReq(BaseModel):
-    scan_id: Optional[str] = None
-    target: Optional[str] = "127.0.0.1:8000"
+    scan_id: str | None = None
+    target: str | None = "127.0.0.1:8000"
     report_type: str = "detailed_technical"
     template_type: str = "template_b"
     grouping_mode: str = "host"
     format_type: str = "pdf"
-    filters: Optional[Dict[str, Any]] = None
-    created_by: Optional[str] = "SWA Vulnerability Assessment Engine"
+    filters: dict[str, Any] | None = None
+    created_by: str | None = "SWA Vulnerability Assessment Engine"
 
 @app.get("/api/reports/vulnerability-assessment/templates")
 async def list_vuln_assessment_templates():
@@ -1769,7 +1750,7 @@ async def generate_vuln_assessment_report(req: VulnAssessmentGenerateReq):
     }
 
 @app.get("/api/reports/vulnerability-assessment/history")
-async def list_vuln_assessment_history(limit: int = 50, scan_id: Optional[str] = None):
+async def list_vuln_assessment_history(limit: int = 50, scan_id: str | None = None):
     """Retrieves generated vulnerability assessment report history."""
     if hasattr(db, "list_vuln_assessment_reports"):
         return db.list_vuln_assessment_reports(limit=limit, scan_id=scan_id)
@@ -1850,8 +1831,8 @@ async def delete_vuln_assessment_report(report_id: str):
 
 @app.post("/api/reports/vulnerability-assessment/import/nessus")
 async def import_nessus_report(
-    scan_id: Optional[str] = None,
-    file: Optional[UploadFile] = File(None)
+    scan_id: str | None = None,
+    file: UploadFile | None = File(None)
 ):
     """Imports findings from standard Nessus XML (.nessus v2) into SWA platform with data provenance."""
     from reports.nessus_report_engine import NessusVulnerabilityReportEngine
@@ -1868,7 +1849,7 @@ async def import_nessus_report(
             "message": f"Successfully imported {len(imported)} findings from Nessus XML"
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse Nessus XML: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse Nessus XML: {e!s}")
 
 
 
@@ -1878,17 +1859,17 @@ async def list_all_findings(
 
     response: Response,
 
-    scan_id: Optional[str] = None,
+    scan_id: str | None = None,
 
-    search: Optional[str] = None,
+    search: str | None = None,
 
-    severity: Optional[str] = None,
+    severity: str | None = None,
 
-    lifecycle_status: Optional[str] = None,
+    lifecycle_status: str | None = None,
 
-    remediation_status: Optional[str] = None,
+    remediation_status: str | None = None,
 
-    poc_state: Optional[str] = None,
+    poc_state: str | None = None,
 
     limit: int = 100,
 
@@ -2098,7 +2079,7 @@ async def get_finding_history(finding_id: str):
 
 
 
-@app.get("/api/scans/{scan_id}/logs", response_model=List[LogEvent])
+@app.get("/api/scans/{scan_id}/logs", response_model=list[LogEvent])
 
 
 
@@ -2126,7 +2107,7 @@ async def export_report(
 
     format: Literal["html", "json", "sarif", "markdown", "csv", "pdf", "docx"] = "html",
 
-    download: Optional[bool] = False
+    download: bool | None = False
 
 ):
 
@@ -2241,12 +2222,12 @@ async def export_report(
 
 
 class AmassPayload(BaseModel):
-    domain: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
-    url: Optional[str] = None
-    recursive: Optional[bool] = True
-    concurrency: Optional[int] = 25
+    domain: str | None = None
+    target: str | None = None
+    host: str | None = None
+    url: str | None = None
+    recursive: bool | None = True
+    concurrency: int | None = 25
 
 @app.post("/api/recon/amass")
 @app.post("/api/tools/subdomains")
@@ -2276,11 +2257,9 @@ async def run_amass_standalone(payload: AmassPayload):
             "takeover_findings": []
         }
 
-    from agents.amass_engine import AmassSubdomainEngine
-
-
-
     import uuid
+
+    from agents.amass_engine import AmassSubdomainEngine
 
 
 
@@ -2357,7 +2336,7 @@ class DefenseGeneratePayload(BaseModel):
 
 
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
 
 
@@ -2465,11 +2444,11 @@ class ForensicsPayload(BaseModel):
 
 
 
-    raw_logs: Optional[str] = ""
+    raw_logs: str | None = ""
 
 
 
-    sample_key: Optional[str] = None
+    sample_key: str | None = None
 
 
 
@@ -2857,11 +2836,11 @@ async def get_scan_forensic_profile(scan_id: str):
 
 
 
-            "grep_command": f'grep -iE "nikto|sqlmap|nmap|gobuster|ffuf" /var/log/nginx/access.log',
+            "grep_command": 'grep -iE "nikto|sqlmap|nmap|gobuster|ffuf" /var/log/nginx/access.log',
 
 
 
-            "powershell_command": f'Get-Content "C:\\inetpub\\logs\\LogFiles\\W3SVC1\\*.log" | Select-String "nikto|sqlmap|gobuster"'
+            "powershell_command": 'Get-Content "C:\\inetpub\\logs\\LogFiles\\W3SVC1\\*.log" | Select-String "nikto|sqlmap|gobuster"'
 
 
 
@@ -2929,19 +2908,19 @@ class SettingsPayload(BaseModel):
 
 
 
-    ai_provider: Optional[str] = None
+    ai_provider: str | None = None
 
 
 
-    ai_model: Optional[str] = None
+    ai_model: str | None = None
 
 
 
-    ai_api_key: Optional[str] = None
+    ai_api_key: str | None = None
 
 
 
-    ai_base_url: Optional[str] = None
+    ai_base_url: str | None = None
 
 
 
@@ -3071,7 +3050,7 @@ async def list_plugins():
 
 
 
-async def toggle_plugin(plugin_id: str, enabled: Optional[bool] = None):
+async def toggle_plugin(plugin_id: str, enabled: bool | None = None):
 
 
 
@@ -3105,7 +3084,7 @@ async def toggle_plugin(plugin_id: str, enabled: Optional[bool] = None):
 
 
 @app.post("/api/plugins/run")
-async def run_all_plugins_endpoint(payload: Optional[Dict[str, Any]] = None):
+async def run_all_plugins_endpoint(payload: dict[str, Any] | None = None):
     """Executes all enabled OWASP Top 10 security plugins against a target URL."""
     payload = payload or {}
     target = payload.get("target") or "127.0.0.1:8000"
@@ -3119,7 +3098,7 @@ async def run_all_plugins_endpoint(payload: Optional[Dict[str, Any]] = None):
 
 
 @app.post("/api/plugins/{plugin_id}/run")
-async def run_single_plugin_endpoint(plugin_id: str, payload: Optional[Dict[str, Any]] = None):
+async def run_single_plugin_endpoint(plugin_id: str, payload: dict[str, Any] | None = None):
     """Executes a single specified OWASP Top 10 security plugin against a target."""
     payload = payload or {}
     target = payload.get("target") or "127.0.0.1:8000"
@@ -3169,10 +3148,10 @@ async def get_owasp_matrix():
 
 
 class DNSLookupPayload(BaseModel):
-    domain: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
-    url: Optional[str] = None
+    domain: str | None = None
+    target: str | None = None
+    host: str | None = None
+    url: str | None = None
 
 @app.post("/api/tools/dns")
 async def run_dns_lookup(payload: DNSLookupPayload):
@@ -3184,10 +3163,10 @@ async def run_dns_lookup(payload: DNSLookupPayload):
     return await DNSLookupTool.resolve(clean_host)
 
 class SecurityHeadersPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    host: str | None = None
 
 @app.post("/api/tools/headers")
 async def run_security_headers(payload: SecurityHeadersPayload):
@@ -3199,11 +3178,11 @@ async def run_security_headers(payload: SecurityHeadersPayload):
     return await SecurityHeadersTool.evaluate(target_url)
 
 class SSLPayload(BaseModel):
-    target: Optional[str] = None
-    host: Optional[str] = None
-    domain: Optional[str] = None
-    url: Optional[str] = None
-    port: Optional[int] = 443
+    target: str | None = None
+    host: str | None = None
+    domain: str | None = None
+    url: str | None = None
+    port: int | None = 443
 
 @app.post("/api/tools/ssl")
 async def run_ssl_inspect(payload: SSLPayload):
@@ -3215,12 +3194,12 @@ async def run_ssl_inspect(payload: SSLPayload):
     return await SSLCertificateTool.inspect(clean_host, port=payload.port or 443)
 
 class PortScanPayload(BaseModel):
-    target: Optional[str] = None
-    host: Optional[str] = None
-    domain: Optional[str] = None
-    ip: Optional[str] = None
-    url: Optional[str] = None
-    ports: Optional[List[int]] = None
+    target: str | None = None
+    host: str | None = None
+    domain: str | None = None
+    ip: str | None = None
+    url: str | None = None
+    ports: list[int] | None = None
 
 @app.post("/api/tools/ports")
 async def run_port_scan(payload: PortScanPayload):
@@ -3233,11 +3212,11 @@ async def run_port_scan(payload: PortScanPayload):
     return await PortProberTool.scan(clean_host, ports=ports_list)
 
 class WhoisPayload(BaseModel):
-    target: Optional[str] = None
-    host: Optional[str] = None
-    domain: Optional[str] = None
-    ip: Optional[str] = None
-    url: Optional[str] = None
+    target: str | None = None
+    host: str | None = None
+    domain: str | None = None
+    ip: str | None = None
+    url: str | None = None
 
 @app.post("/api/tools/whois")
 async def run_whois_lookup(payload: WhoisPayload):
@@ -3303,10 +3282,10 @@ async def run_crypto_encoder(payload: CryptoEncoderPayload):
 
 
 class HashPayload(BaseModel):
-    text: Optional[str] = None
-    input: Optional[str] = None
-    hash_value: Optional[str] = None
-    data: Optional[str] = None
+    text: str | None = None
+    input: str | None = None
+    hash_value: str | None = None
+    data: str | None = None
 
 @app.post("/api/tools/hashes")
 async def run_calculate_hashes(payload: HashPayload):
@@ -3394,11 +3373,11 @@ async def run_subnet_calc(payload: SubnetPayload):
 
 
 class TargetedProbePayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    vuln_type: Optional[str] = "sqli"
-    parameter: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    vuln_type: str | None = "sqli"
+    parameter: str | None = None
 
 @app.post("/api/tools/probe")
 async def run_targeted_probe(payload: TargetedProbePayload):
@@ -3427,7 +3406,7 @@ class ShellPayload(BaseModel):
 
 
 
-    shell_type: Optional[str] = "all"
+    shell_type: str | None = "all"
 
 
 
@@ -3460,13 +3439,13 @@ async def run_revshell_gen(payload: ShellPayload):
 
 
 class JsScanPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    content: Optional[str] = None
-    code: Optional[str] = None
-    raw_js: Optional[str] = None
-    active_fetch: Optional[bool] = True
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    content: str | None = None
+    code: str | None = None
+    raw_js: str | None = None
+    active_fetch: bool | None = True
 
 @app.post("/api/tools/js-scan")
 async def run_js_scan(payload: JsScanPayload):
@@ -3505,7 +3484,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 await websocket.send_json(event)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
 
                 await websocket.send_json({
 
@@ -3513,7 +3492,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     "status": "HEALTHY",
 
-                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
                 })
 
@@ -3537,17 +3516,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 
-from core.waf_bypass_engine import WAFBypassEngine
-
 from core.bug_bounty_hub import BugBountyHub
-
 from core.notifier import NotificationDispatcher
-
+from core.waf_bypass_engine import WAFBypassEngine
 
 
 @app.get("/api/bounty/programs")
 
-async def get_bug_bounty_programs(query: Optional[str] = None):
+async def get_bug_bounty_programs(query: str | None = None):
 
     """Built-in Directory of 90+ Bug Bounty Programs, VDP policies, scopes & platforms."""
 
@@ -3562,10 +3538,10 @@ async def get_bug_bounty_programs(query: Optional[str] = None):
 
 
 class WAFCheckPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    host: str | None = None
 
 
 
@@ -3629,9 +3605,9 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
 
 class FileScanPayload(BaseModel):
 
-    filename: Optional[str] = "upload.js"
+    filename: str | None = "upload.js"
 
-    content: Optional[str] = ""
+    content: str | None = ""
 
 
 
@@ -3650,9 +3626,9 @@ async def scan_uploaded_file(payload: FileScanPayload):
 
 
 class DepCheckPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
 
 @app.post("/api/tools/dependency-check")
 async def check_dependency_confusion(payload: DepCheckPayload):
@@ -3708,7 +3684,7 @@ class WebhookPayload(BaseModel):
 
     webhook_url: str
 
-    channel_type: Optional[str] = "slack"
+    channel_type: str | None = "slack"
 
 
 
@@ -3768,9 +3744,9 @@ class AddScopeTargetPayload(BaseModel):
 
     domain: str
 
-    description: Optional[str] = "Authorized target domain"
+    description: str | None = "Authorized target domain"
 
-    profile: Optional[str] = "standard"
+    profile: str | None = "standard"
 
 
 
@@ -3786,7 +3762,7 @@ async def get_scope_targets():
 
     """Returns configured approved scope targets and default authorized lab targets."""
 
-    from core.scope_policy import scope_policy, DEFAULT_ALLOWED_LAB_TARGETS
+    from core.scope_policy import DEFAULT_ALLOWED_LAB_TARGETS, scope_policy
 
     scope_policy.check_reload()
 
@@ -3888,11 +3864,11 @@ class REAAnalyzePayload(BaseModel):
 
     target_path: str
 
-    target_type: Optional[str] = None
+    target_type: str | None = None
 
     authorized: bool = False
 
-    timeout_sec: Optional[int] = 30
+    timeout_sec: int | None = 30
 
 
 
@@ -3952,7 +3928,7 @@ async def run_rea_analysis(payload: REAAnalyzePayload):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"REA analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"REA analysis failed: {e!s}")
 
 
 
@@ -3962,7 +3938,7 @@ async def upload_and_analyze_rea(
 
     file: UploadFile = File(...),
 
-    target_type: Optional[str] = Form(None),
+    target_type: str | None = Form(None),
 
     authorized: bool = Form(False)
 
@@ -3971,7 +3947,6 @@ async def upload_and_analyze_rea(
     """Securely uploads an artifact and runs REA reverse engineering inspection."""
 
     import re
-
     import uuid
 
     from core.rea_engine import rea_engine
@@ -4028,7 +4003,7 @@ async def upload_and_analyze_rea(
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Upload analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload analysis failed: {e!s}")
 
 
 
@@ -4060,7 +4035,7 @@ async def get_rea_job(job_id: str):
 
 @app.get("/api/tools/registry")
 
-async def list_tool_registry(category: Optional[str] = None):
+async def list_tool_registry(category: str | None = None):
 
     """Returns the complete catalog of all implemented offensive and defensive tools."""
 
@@ -4100,15 +4075,15 @@ async def get_tool_metadata(tool_id: str):
 
 class ToolExecuteRequest(BaseModel):
 
-    target: Optional[str] = Field(default=None, description="Target domain, URL, or IP address")
+    target: str | None = Field(default=None, description="Target domain, URL, or IP address")
 
-    url: Optional[str] = Field(default=None, description="Target URL")
+    url: str | None = Field(default=None, description="Target URL")
 
-    domain: Optional[str] = Field(default=None, description="Target domain")
+    domain: str | None = Field(default=None, description="Target domain")
 
-    host: Optional[str] = Field(default=None, description="Target host")
+    host: str | None = Field(default=None, description="Target host")
 
-    options: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    options: dict[str, Any] | None = Field(default_factory=dict)
 
     authorized: bool = Field(default=True)
 
@@ -4132,8 +4107,8 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
     """
 
-    from core.scope_policy import scope_policy
     from core.scanner_integrations import ScannerIntegrations
+    from core.scope_policy import scope_policy
     from core.tool_registry import tool_registry
 
     effective_target = (
@@ -4314,9 +4289,9 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
         elif tool_id_clean in ["sqli", "websec_sqli_suite"]:
 
-            from core.sqli_engine import SQLiEngine
-
             import httpx
+
+            from core.sqli_engine import SQLiEngine
 
             engine = SQLiEngine()
 
@@ -4424,7 +4399,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
             "result": result_data,
 
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
         }
 
@@ -4436,7 +4411,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
         logger.error(f"Error executing tool {tool_id}: {e}")
 
-        raise HTTPException(status_code=500, detail=f"Tool execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Tool execution failed: {e!s}")
 
 
 
@@ -4444,7 +4419,7 @@ class RunAllToolsRequest(BaseModel):
 
     target: str = Field(..., description="Target domain, URL, or IP address")
 
-    tools: Optional[List[str]] = Field(default_factory=lambda: ["recon", "pentest", "fuzzer", "waf", "forensics", "siem"])
+    tools: list[str] | None = Field(default_factory=lambda: ["recon", "pentest", "fuzzer", "waf", "forensics", "siem"])
 
     lab_mode: bool = Field(default=False)
 
@@ -4475,11 +4450,19 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             )
         raise HTTPException(status_code=403, detail=f"Scope Policy Refusal: {scope_res.reason}")
 
-    from core.models import ScanJob, ScanProfile, ScanConfig, ScanStatus, VulnerabilityFinding, Severity
-    from core.scanner_integrations import ScannerIntegrations
+    from core.models import (
+        ScanConfig,
+        ScanJob,
+        ScanProfile,
+        ScanStatus,
+        Severity,
+        VulnerabilityFinding,
+    )
     from reports.nessus_report_engine import NessusVulnerabilityReportEngine
     nessus_report_engine = NessusVulnerabilityReportEngine()
-    import uuid, time, datetime
+    import datetime
+    import time
+    import uuid
 
     scan_id = f"all_tools_{uuid.uuid4().hex[:10]}"
     t_start = time.time()
@@ -4492,7 +4475,12 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     # Run active probers & integrations safely
     hostname = scope_res.hostname or req.target.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
     try:
-        from core.cyber_tools import SecurityHeadersTool, SSLCertificateTool, DNSLookupTool, PortProberTool
+        from core.cyber_tools import (
+            DNSLookupTool,
+            PortProberTool,
+            SecurityHeadersTool,
+            SSLCertificateTool,
+        )
         # 1. DNS Lookup
         try:
             dns_res = await DNSLookupTool().resolve(hostname)
@@ -4621,7 +4609,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             timeout=10.0
         )
         executed_tools.append("owasp_top10_plugins")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("OWASP plugins timed out after 10s budget")
     except Exception as e:
         logger.warning(f"OWASP plugins execution notice: {e}")
@@ -4637,7 +4625,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             ),
             timeout=20.0
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Agent workforce reached 20s budget; finalizing unified report")
     except Exception as e:
         logger.warning(f"Agent workforce execution notice: {e}")
@@ -4645,7 +4633,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     # Mark Scan as COMPLETED
     t_dur = round(time.time() - t_start, 2)
     job.status = ScanStatus.COMPLETED
-    job.completed_at = datetime.datetime.now(datetime.timezone.utc)
+    job.completed_at = datetime.datetime.now(datetime.UTC)
     db.save_scan(job)
 
     # Retrieve all findings for scan (or fallback to existing scan findings)
@@ -4692,12 +4680,12 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         report_data = {
             "id": rep_uuid,
             "report_id": rep_uuid,
-            "download_url": f"/api/reports/vulnerability-assessment/latest/download",
-            "pdf_url": f"/api/reports/vulnerability-assessment/latest/download?format=pdf",
-            "html_url": f"/api/reports/vulnerability-assessment/latest/download?format=html",
-            "csv_url": f"/api/reports/vulnerability-assessment/latest/download?format=csv",
-            "nessus_xml_url": f"/api/reports/vulnerability-assessment/latest/download?format=nessus_xml",
-            "sarif_url": f"/api/reports/vulnerability-assessment/latest/download?format=sarif",
+            "download_url": "/api/reports/vulnerability-assessment/latest/download",
+            "pdf_url": "/api/reports/vulnerability-assessment/latest/download?format=pdf",
+            "html_url": "/api/reports/vulnerability-assessment/latest/download?format=html",
+            "csv_url": "/api/reports/vulnerability-assessment/latest/download?format=csv",
+            "nessus_xml_url": "/api/reports/vulnerability-assessment/latest/download?format=nessus_xml",
+            "sarif_url": "/api/reports/vulnerability-assessment/latest/download?format=sarif",
         }
 
     report_id = report_data.get("id") or report_data.get("report_id")
@@ -4753,7 +4741,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         "json_url": report_data.get("json_url") or f"/api/reports/vulnerability-assessment/{report_id}/download?format=json",
         "nessus_xml_url": report_data.get("nessus_xml_url") or f"/api/reports/vulnerability-assessment/{report_id}/download?format=nessus_xml",
         "sarif_url": report_data.get("sarif_url") or f"/api/reports/vulnerability-assessment/{report_id}/download?format=sarif",
-        "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "completed_at": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
 
@@ -4791,7 +4779,6 @@ async def update_all_tools_endpoint():
     """
 
     from core.scanner_integrations import ScannerIntegrations
-
     from core.tool_registry import tool_registry
 
 
@@ -4812,7 +4799,7 @@ async def update_all_tools_endpoint():
 
         "registry_updates": registry_updates,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
     }
 
@@ -4840,7 +4827,7 @@ async def update_single_tool_endpoint(tool_id: str):
 
         "result": result,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
     }
 
@@ -4852,16 +4839,16 @@ async def update_single_tool_endpoint(tool_id: str):
 # =====================================================================
 
 class ToolHealthCheckPayload(BaseModel):
-    tool_id: Optional[str] = None
+    tool_id: str | None = None
     level: int = 5
 
 class ToolInstallPayload(BaseModel):
     tool_id: str
-    target_version: Optional[str] = None
+    target_version: str | None = None
     isolated: bool = True
 
 class ToolInstallAllPayload(BaseModel):
-    tool_ids: Optional[List[str]] = None
+    tool_ids: list[str] | None = None
     skip_healthy: bool = True
 
 class ToolCancelPayload(BaseModel):
@@ -4900,7 +4887,7 @@ async def get_single_tool_health(tool_id: str, level: int = 5, force_refresh: bo
 
 
 @app.post("/api/tools/health/check")
-async def run_tool_health_check(payload: Optional[ToolHealthCheckPayload] = None, tool_id: Optional[str] = None):
+async def run_tool_health_check(payload: ToolHealthCheckPayload | None = None, tool_id: str | None = None):
     """Executes on-demand health check for a specific tool and broadcasts update."""
     t_id = (payload.tool_id if payload else None) or tool_id
     if not t_id:
@@ -4981,7 +4968,7 @@ async def install_tool_endpoint(payload: ToolInstallPayload, background_tasks: B
 
 
 @app.post("/api/tools/install-all")
-async def install_all_tools_endpoint(payload: Optional[ToolInstallAllPayload] = None):
+async def install_all_tools_endpoint(payload: ToolInstallAllPayload | None = None):
     """Installs all missing or degraded tools in topological dependency order."""
     from core.tool_dependency_manager import tool_dependency_manager
 
@@ -5023,7 +5010,7 @@ async def cancel_install_endpoint(payload: ToolCancelPayload):
 
 
 @app.get("/api/tools/install/status")
-async def get_install_status(job_id: Optional[str] = None, tool_id: Optional[str] = None):
+async def get_install_status(job_id: str | None = None, tool_id: str | None = None):
     """Retrieves real-time progress and status of installation jobs."""
     from core.tool_dependency_manager import tool_dependency_manager
     if job_id:
@@ -5157,7 +5144,7 @@ async def compare_scans(req: CompareScansRequest):
 
 async def list_assets(
 
-    parent_domain: Optional[str] = None,
+    parent_domain: str | None = None,
 
     limit: int = Query(default=100, ge=1, le=500),
 
@@ -5193,9 +5180,8 @@ async def export_assets(format: str = Query(default="json")):
 
     """Exports external asset inventory in JSON or CSV format."""
 
-    import io
-
     import csv
+    import io
 
     assets = db.get_assets(limit=5000)
 
@@ -5255,13 +5241,13 @@ async def upload_dataset(
 
     file: UploadFile = File(...),
 
-    name: Optional[str] = Form(None),
+    name: str | None = Form(None),
 
-    source: Optional[str] = Form("Security Audit"),
+    source: str | None = Form("Security Audit"),
 
-    license: Optional[str] = Form("Proprietary / Research"),
+    license: str | None = Form("Proprietary / Research"),
 
-    target_label: Optional[str] = Form(None)
+    target_label: str | None = Form(None)
 
 ):
 
@@ -5305,7 +5291,7 @@ async def upload_dataset(
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Upload processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload processing failed: {e!s}")
 
 
 
@@ -5471,7 +5457,7 @@ async def start_ai_training(config: dict):
 
     """Enqueues a reproducible model training experiment."""
 
-    from core.ai_training import ai_trainer, TrainingConfig
+    from core.ai_training import TrainingConfig, ai_trainer
 
     try:
 
@@ -5487,7 +5473,7 @@ async def start_ai_training(config: dict):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Failed to start training: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start training: {e!s}")
 
 
 
@@ -5549,15 +5535,15 @@ class RunEvaluationRequest(BaseModel):
 
     model_name: str
 
-    baseline_model_name: Optional[str] = "heuristic-baseline-v1"
+    baseline_model_name: str | None = "heuristic-baseline-v1"
 
-    dataset_id: Optional[str] = None
+    dataset_id: str | None = None
 
     task_type: str = "classification"  # "classification" or "llm_inference"
 
     test_sample_count: int = 150
 
-    provider: Optional[str] = "auto"
+    provider: str | None = "auto"
 
 
 
@@ -5601,7 +5587,7 @@ async def run_ai_evaluation(req: RunEvaluationRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Model evaluation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Model evaluation failed: {e!s}")
 
 
 
@@ -5647,13 +5633,13 @@ class RunRedteamRequest(BaseModel):
 
     target_provider: str = "auto"
 
-    target_model: Optional[str] = None
+    target_model: str | None = None
 
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
-    base_url: Optional[str] = None
+    base_url: str | None = None
 
-    category: Optional[str] = None
+    category: str | None = None
 
 
 
@@ -5685,13 +5671,13 @@ async def run_redteam_suite(req: RunRedteamRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Red-team execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Red-team execution failed: {e!s}")
 
 
 
 @app.get("/api/ai/redteam/runs")
 
-async def list_redteam_runs(run_id: Optional[str] = None):
+async def list_redteam_runs(run_id: str | None = None):
 
     """Retrieves saved test cases, evidence, and pass/fail statuses from LLM security evaluations."""
 
@@ -5709,15 +5695,16 @@ async def list_redteam_runs(run_id: Optional[str] = None):
 # 🧠 RAG KNOWLEDGE BASE & AGENT MEMORY API SUITE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from core.rag_engine import rag_engine, RAGDocument
 from core.agent_memory import agent_memory_store
+from core.rag_engine import rag_engine
+
 
 class RAGIngestRequest(BaseModel):
     title: str
     content: str
     source_type: str = "security_advisory"
     project_id: str = "proj_default"
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 class RAGQueryRequest(BaseModel):
     query: str
@@ -5730,11 +5717,11 @@ class MemoryClearRequest(BaseModel):
 
 class AIReasonRequest(BaseModel):
     prompt: str
-    system_instruction: Optional[str] = None
-    session_id: Optional[str] = None
+    system_instruction: str | None = None
+    session_id: str | None = None
     project_id: str = "proj_default"
     use_rag: bool = False
-    rag_query: Optional[str] = None
+    rag_query: str | None = None
 
 @app.post("/api/ai/rag/ingest")
 async def api_rag_ingest(req: RAGIngestRequest):
@@ -5824,7 +5811,7 @@ async def api_ai_reason(req: AIReasonRequest):
         "session_id": req.session_id,
         "project_id": req.project_id,
         "rag_used": req.use_rag or bool(req.rag_query),
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
 
@@ -5832,14 +5819,9 @@ async def api_ai_reason(req: AIReasonRequest):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from core.cyber_export import cyber_exporter
-
-from core.cyber_test import cyber_tester
-
 from core.cyber_deploy import cyber_deployer
-
-import datetime
-
+from core.cyber_export import cyber_exporter
+from core.cyber_test import cyber_tester
 
 
 class CyberExportRequest(BaseModel):
@@ -5848,15 +5830,15 @@ class CyberExportRequest(BaseModel):
 
     format_type: str = "json"      # json, csv, html, pdf, xlsx
 
-    title: Optional[str] = None
+    title: str | None = None
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
-    severity_filter: Optional[List[str]] = None
+    severity_filter: list[str] | None = None
 
-    category_filter: Optional[str] = None
+    category_filter: str | None = None
 
-    asset_filter: Optional[str] = None
+    asset_filter: str | None = None
 
     include_evidence: bool = True
 
@@ -5878,9 +5860,9 @@ class CyberDeployRequest(BaseModel):
 
     method: str = "local_process"
 
-    release_id: Optional[str] = None
+    release_id: str | None = None
 
-    approved_by: Optional[str] = None
+    approved_by: str | None = None
 
 
 
@@ -5932,7 +5914,7 @@ async def generate_cyber_export(req: CyberExportRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Export generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export generation failed: {e!s}")
 
 
 
@@ -6012,7 +5994,7 @@ async def run_cyber_tests(req: CyberTestRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Cyber test execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cyber test execution failed: {e!s}")
 
 
 
@@ -6070,7 +6052,7 @@ async def initiate_cyber_deploy(req: CyberDeployRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Deployment initiation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Deployment initiation failed: {e!s}")
 
 
 
@@ -6088,7 +6070,7 @@ async def approve_cyber_deploy(deployment_id: str, req: CyberDeployApprovalReque
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Deployment approval failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Deployment approval failed: {e!s}")
 
 
 
@@ -6106,7 +6088,7 @@ async def rollback_cyber_deploy(deployment_id: str, req: CyberDeployRollbackRequ
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Rollback failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Rollback failed: {e!s}")
 
 
 
@@ -6139,7 +6121,6 @@ async def get_cyber_deploy_status(deployment_id: str):
 # --- Mandatory Post-Deployment Acceptance Checklist Endpoints (§52) ---
 
 from core.post_deployment_checklist import post_deployment_checklist_engine
-
 
 
 @app.get("/api/cyber/deploy/{deployment_id}/acceptance-checklist")
@@ -6219,13 +6200,7 @@ async def get_cyber_audit_logs(limit: int = 100):
 # --- Expanded Cybersecurity Endpoints (Antivirus, Identity, SQLi & Multi-Injection) ---
 
 from core.antivirus_edr_manager import antivirus_edr_manager
-
 from core.identity_access_auditor import identity_access_auditor
-
-from core.sqli_engine import sqli_engine
-
-from core.injection_suite import injection_suite
-
 
 
 @app.get("/api/cyber/antivirus/status")
@@ -6299,10 +6274,12 @@ app.include_router(v1_router, prefix="/api/v1")
 
 # Include Cyber Kill Chain Intelligence & Attack Lifecycle Analyzer Router
 from web.kill_chain_router import kill_chain_router
+
 app.include_router(kill_chain_router)
 
 # Include MAP — Enterprise AI-Powered Network Intelligence & Forensics Router
 from web.network_api import router as network_router
+
 app.include_router(network_router)
 
 
@@ -6331,7 +6308,7 @@ app.include_router(network_router)
 
 def _now() -> str:
 
-    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    return datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
 
 
 
@@ -6341,7 +6318,7 @@ def _component(cid: str, name: str, state: str, reason: str, *,
 
                correction: str = "", retry: bool = False,
 
-               evidence: Optional[dict] = None) -> dict:
+               evidence: dict | None = None) -> dict:
 
     return {
 
@@ -6369,7 +6346,7 @@ def _component(cid: str, name: str, state: str, reason: str, *,
 
 
 
-def _is_valid_api_key(k: Optional[str]) -> bool:
+def _is_valid_api_key(k: str | None) -> bool:
 
     if not k or not isinstance(k, str):
 
@@ -6711,7 +6688,7 @@ async def system_status():
 
     """Aggregate honest per-component health with full diagnostics."""
 
-    components: List[dict] = []
+    components: list[dict] = []
 
 
 
@@ -7129,13 +7106,13 @@ async def ai_status(probe: bool = False):
 
             result["reachability"] = "ERROR"
 
-            result["error"] = f"endpoint not found (HTTP 404)"
+            result["error"] = "endpoint not found (HTTP 404)"
 
         elif resp.status_code == 429:
 
             result["reachability"] = "AVAILABLE"
 
-            result["note"] = f"HTTP 429 rate-limited"
+            result["note"] = "HTTP 429 rate-limited"
 
         elif resp.status_code >= 500:
 
@@ -7249,24 +7226,24 @@ async def ai_status(probe: bool = False):
 
 class IntegrationCreateRequest(BaseModel):
     provider_id: str
-    display_name: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    credentials: Dict[str, str] = {}
-    config: Optional[Dict[str, Any]] = None
+    display_name: str | None = None
+    endpoint_url: str | None = None
+    credentials: dict[str, str] = {}
+    config: dict[str, Any] | None = None
     enabled: bool = True
-    integration_id: Optional[str] = None
+    integration_id: str | None = None
 
 class IntegrationTestRequest(BaseModel):
     provider_id: str
-    credentials: Dict[str, str] = {}
-    endpoint_url: Optional[str] = None
+    credentials: dict[str, str] = {}
+    endpoint_url: str | None = None
 
 class IntegrationRotateRequest(BaseModel):
-    credentials: Dict[str, str] = {}
+    credentials: dict[str, str] = {}
 
 class DefaultAIProviderRequest(BaseModel):
     provider_id: str
-    model: Optional[str] = None
+    model: str | None = None
 
 @app.get("/api/integrations/providers")
 
@@ -7446,7 +7423,7 @@ class AIModelCreateRequest(BaseModel):
 
     display_name: str
 
-    description: Optional[str] = None
+    description: str | None = None
 
     max_tokens: int = 4096
 
@@ -7456,11 +7433,11 @@ class AIModelCreateRequest(BaseModel):
 
     is_default: bool = False
 
-    fallback_model_id: Optional[str] = None
+    fallback_model_id: str | None = None
 
     enabled: bool = True
 
-    model_pk: Optional[str] = None
+    model_pk: str | None = None
 
 
 
@@ -7598,9 +7575,8 @@ async def enterprise_agents_dispatch_alias(req: Request):
 
     role = body.get("agent_role", "supervisor")
 
-    from web.enterprise_api import dispatch_agent_task
-
     from core.models import AgentTaskRequest
+    from web.enterprise_api import dispatch_agent_task
 
     task_req = AgentTaskRequest(task=body.get("task", ""), context=body.get("context", {}))
 
@@ -7657,12 +7633,11 @@ async def enterprise_remediation_tickets_alias():
 from core.automation_engine import automation_engine
 
 
-
 class WorkflowRunPayload(BaseModel):
 
     target: str = "http://127.0.0.1:8000"
 
-    initiated_by: Optional[str] = "Security_Operator"
+    initiated_by: str | None = "Security_Operator"
 
 
 
@@ -7828,7 +7803,7 @@ async def get_automation_execution_details(exec_id: str):
 # Static asset cache correctness
 # =====================================================================
 
-_ASSET_VERSION_CACHE: Dict[str, Any] = {}
+_ASSET_VERSION_CACHE: dict[str, Any] = {}
 
 
 @app.middleware("http")

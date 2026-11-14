@@ -1,4 +1,5 @@
 from urllib.parse import urlparse
+
 """
 SWA AI LLM Client & Reasoning Engine
 Provides autonomous multi-agent reasoning, payload synthesis, PoC verification,
@@ -6,15 +7,17 @@ and remediation patching across OpenAI, Anthropic, Gemini, OpenRouter, and local
 Includes a comprehensive heuristic fallback when no LLM key is configured.
 """
 
-import os
 import json
 import logging
+import os
+
 import httpx
 
 logger = logging.getLogger("swa.llm_client")
-from typing import Optional, Dict, Any, List
+from typing import Any
 
-def _is_valid_api_key(key: Optional[str]) -> bool:
+
+def _is_valid_api_key(key: str | None) -> bool:
     if not key or not isinstance(key, str):
         return False
     k = key.strip().lower()
@@ -36,7 +39,7 @@ def _is_valid_api_key(key: Optional[str]) -> bool:
 
 
 class SWALLMClient:
-    def __init__(self, provider: str = "auto", model: Optional[str] = None, api_key: Optional[str] = None, base_url: Optional[str] = None):
+    def __init__(self, provider: str = "auto", model: str | None = None, api_key: str | None = None, base_url: str | None = None):
         self.provider = provider or "auto"
         self.model = model
         self.base_url = base_url or os.getenv("LLM_API_BASE")
@@ -103,7 +106,7 @@ class SWALLMClient:
         elif self.provider != "ollama" and not self.api_key:
             self.provider = "heuristic"
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Returns truthful operational diagnostic state for the AI reasoning engine."""
         return {
             "provider": self.provider,
@@ -114,7 +117,7 @@ class SWALLMClient:
             "base_url": self.base_url
         }
 
-    async def analyze_vulnerability_poc(self, finding_title: str, endpoint: str, request_data: str, response_data: str) -> Dict[str, Any]:
+    async def analyze_vulnerability_poc(self, finding_title: str, endpoint: str, request_data: str, response_data: str) -> dict[str, Any]:
         """Use LLM reasoning to confirm exploitability, generate a minimal cURL PoC, and score CVSS."""
         if self.provider == "heuristic" or not self.api_key:
             return self._heuristic_poc_analysis(finding_title, endpoint, request_data, response_data)
@@ -156,7 +159,7 @@ Return ONLY valid JSON with keys:
         except Exception:
             return self._heuristic_poc_analysis(finding_title, endpoint, request_data, response_data)
 
-    async def generate_remediation(self, finding_title: str, endpoint: str, tech_stack: List[str]) -> Dict[str, str]:
+    async def generate_remediation(self, finding_title: str, endpoint: str, tech_stack: list[str]) -> dict[str, str]:
         """Generate high-fidelity code patches, WAF rules, and defensive remediation."""
         if self.provider == "heuristic" or not self.api_key:
             return self._heuristic_remediation(finding_title, tech_stack)
@@ -184,11 +187,11 @@ Return ONLY valid JSON with:
     async def reason(
         self,
         prompt: str,
-        system_instruction: Optional[str] = None,
-        session_id: Optional[str] = None,
+        system_instruction: str | None = None,
+        session_id: str | None = None,
         project_id: str = "proj_default",
         use_rag: bool = False,
-        rag_query: Optional[str] = None
+        rag_query: str | None = None
     ) -> str:
         """Executes AI threat reasoning with optional RAG grounding, memory persistence, and heuristic fallback."""
         grounding_context = ""
@@ -245,7 +248,7 @@ Return ONLY valid JSON with:
 
         return response
 
-    async def _call_llm(self, prompt: str, history: Optional[List[Dict[str, str]]] = None, system_instruction: Optional[str] = None) -> str:
+    async def _call_llm(self, prompt: str, history: list[dict[str, str]] | None = None, system_instruction: str | None = None) -> str:
         if self.provider == "heuristic" or not self.api_key:
             if system_instruction and "--- VERIFIED REPOSITORY SECURITY CONTEXT ---" in system_instruction:
                 extracted = system_instruction.split("--- VERIFIED REPOSITORY SECURITY CONTEXT ---")[1].split("--- END REPOSITORY CONTEXT ---")[0].strip()
@@ -362,7 +365,7 @@ Return ONLY valid JSON with:
                     "Deterministic security reasoning active. Findings evaluated against OWASP Top 10 standards."
                 )
 
-    def _heuristic_poc_analysis(self, finding_title: str, endpoint: str, request_data: str, response_data: str) -> Dict[str, Any]:
+    def _heuristic_poc_analysis(self, finding_title: str, endpoint: str, request_data: str, response_data: str) -> dict[str, Any]:
         """Autonomous deterministic heuristic classification and CVSS scoring.
 
         HONESTY NOTE
@@ -390,11 +393,7 @@ Return ONLY valid JSON with:
         vector = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N"
         owasp = "A05:2021-Security Misconfiguration"
 
-        if "sql" in title_lower or "injection" in title_lower:
-            cvss = 9.8
-            vector = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
-            owasp = "A03:2021-Injection"
-        elif "remote code" in title_lower or "command execution" in title_lower:
+        if "sql" in title_lower or "injection" in title_lower or "remote code" in title_lower or "command execution" in title_lower:
             cvss = 9.8
             vector = "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H"
             owasp = "A03:2021-Injection"
@@ -441,7 +440,7 @@ Return ONLY valid JSON with:
             "patch_suggestion": "Apply strict input validation, principle of least privilege, and sanitize user-controllable input."
         }
 
-    def _heuristic_remediation(self, finding_title: str, tech_stack: List[str]) -> Dict[str, str]:
+    def _heuristic_remediation(self, finding_title: str, tech_stack: list[str]) -> dict[str, str]:
         title_lower = finding_title.lower()
         if "sql" in title_lower:
             return {

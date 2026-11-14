@@ -1,3 +1,4 @@
+/* global L */
 /**
  * SNMK MAP — Enterprise Network Intelligence, Wireshark Forensics & Geolocation Controller
  * Real-time packet inspection, traffic flow correlation, speed benchmarking, Leaflet mapping & AI

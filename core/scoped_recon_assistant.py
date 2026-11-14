@@ -10,16 +10,15 @@ Hard Rules:
 - Full structured audit logging with timestamp, target, and purpose.
 """
 
-import sys
-import os
+import asyncio
+import datetime
 import json
 import socket
 import ssl
-import asyncio
-import datetime
+from typing import Any
 from urllib.parse import urlparse
+
 import httpx
-from typing import Dict, List, Any, Optional
 
 ALLOWED_TARGETS = [
     "0a2f008804b73639822f564400da00ed.web-security-academy.net",
@@ -41,15 +40,15 @@ SAFE_WORDLIST = [
 ]
 
 class ScopedReconAssistant:
-    def __init__(self, target: str, port: Optional[int] = None, use_https: Optional[bool] = None):
+    def __init__(self, target: str, port: int | None = None, use_https: bool | None = None):
         self.raw_target = target.strip()
         self.hostname = self._extract_hostname(self.raw_target)
         self.port = port
         self.use_https = use_https
-        self.audit_log: List[Dict[str, str]] = []
-        self.observations: List[Dict[str, Any]] = []
-        self.candidate_weaknesses: List[Dict[str, Any]] = []
-        self.next_manual_steps: List[str] = []
+        self.audit_log: list[dict[str, str]] = []
+        self.observations: list[dict[str, Any]] = []
+        self.candidate_weaknesses: list[dict[str, Any]] = []
+        self.next_manual_steps: list[str] = []
 
     def _extract_hostname(self, target: str) -> str:
         t = target
@@ -62,7 +61,7 @@ class ScopedReconAssistant:
 
     def _log_action(self, purpose: str, details: str = ""):
         entry = {
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             "target": self.hostname,
             "purpose": purpose,
             "details": details
@@ -81,7 +80,7 @@ class ScopedReconAssistant:
         self._log_action("Scope Verification - ACCEPTED", f"Target '{self.hostname}' verified in authorized scope.")
         return True
 
-    async def execute_plan(self) -> Dict[str, Any]:
+    async def execute_plan(self) -> dict[str, Any]:
         """Runs the authorized 4-stage non-destructive recon plan."""
         if not self.validate_scope():
             return {
@@ -126,7 +125,7 @@ class ScopedReconAssistant:
         return {
             "target": self.hostname,
             "base_url": base_url,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             "authorized_scope_verified": True,
             "audit_log": self.audit_log,
             "observations": self.observations,
@@ -196,7 +195,7 @@ class ScopedReconAssistant:
                 if "set-cookie" in h_lower:
                     header_obs["tech_fingerprint"].append(f"Cookie Flags: {h_lower['set-cookie']}")
             except Exception as e:
-                header_obs["notice"] = f"Root connection notice: {str(e)}"
+                header_obs["notice"] = f"Root connection notice: {e!s}"
         self.observations.append(header_obs)
 
         # D. Robots.txt and Sitemap.xml
@@ -330,7 +329,7 @@ class ScopedReconAssistant:
         self.next_manual_steps = [
             f"1. Manually test Clickjacking resilience on {base_url} using an iframe embedding test harness.",
             f"2. Inspect authentication flows at {base_url}/login or equivalent for anti-CSRF tokens and rate limiting.",
-            f"3. Verify whether discovered administrative routes require valid session authentication.",
+            "3. Verify whether discovered administrative routes require valid session authentication.",
             f"4. If DVWA is deployed on {base_url}, manually inspect SQL Injection, XSS, and Command Injection modules in accordance with authorized lab guidelines."
         ]
 

@@ -9,10 +9,11 @@ from __future__ import annotations
 import logging
 import math
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
+import dns.dnssec
 import dns.resolver
 import dns.reversename
-import dns.dnssec
 
 from core.network.models import DnsRecord
 
@@ -35,17 +36,17 @@ def calculate_shannon_entropy(data: str) -> float:
 class DnsIntelligenceEngine:
     """Enterprise DNS intelligence and query analyzer."""
 
-    def __init__(self, nameservers: Optional[List[str]] = None):
+    def __init__(self, nameservers: list[str] | None = None):
         self.resolver = dns.resolver.Resolver()
         self.resolver.timeout = 1.0
         self.resolver.lifetime = 1.5
         if nameservers:
             self.resolver.nameservers = nameservers
 
-    async def resolve_all(self, domain_or_ip: str) -> Dict[str, Any]:
+    async def resolve_all(self, domain_or_ip: str) -> dict[str, Any]:
         """Resolves comprehensive DNS records for domain or PTR for IP."""
         target = domain_or_ip.strip()
-        records: List[DnsRecord] = []
+        records: list[DnsRecord] = []
         is_ip = False
 
         # Check if target is an IP for reverse PTR lookup

@@ -4,11 +4,13 @@ Sends real-time findings and scan completion events to Slack, Discord,
 or custom HMAC-signed webhooks.
 """
 
-import hmac
 import hashlib
+import hmac
 import json
+from typing import Any
+
 import httpx
-from typing import Dict, Any, Optional
+
 
 class NotificationDispatcher:
     @staticmethod
@@ -48,7 +50,7 @@ class NotificationDispatcher:
             return False
 
     @staticmethod
-    async def send_custom_webhook(webhook_url: str, event_type: str, data: Dict[str, Any], secret: Optional[str] = None) -> bool:
+    async def send_custom_webhook(webhook_url: str, event_type: str, data: dict[str, Any], secret: str | None = None) -> bool:
         """Dispatches an HMAC-SHA256 signed JSON payload to an enterprise SIEM / SOAR endpoint."""
         if not webhook_url:
             return False

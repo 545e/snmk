@@ -14,18 +14,17 @@ Never executes destructive SQL statements (DROP, DELETE, UPDATE, ALTER, TRUNCATE
 Uses controlled verification with mathematical invariants (1=1, 47*47=2209) and safe error signatures.
 """
 
-import re
 import time
-import asyncio
-from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 import httpx
 
-from core.models import VulnerabilityFinding, Severity
+from core.models import Severity, VulnerabilityFinding
 from core.signature_matching import SignatureMatcher
 
 # Detailed database error signatures mapped to vendor engines
-DB_ENGINE_SIGNATURES: Dict[str, List[str]] = {
+DB_ENGINE_SIGNATURES: dict[str, list[str]] = {
     "MySQL / MariaDB": [
         r"SQL syntax.*MySQL",
         r"Warning.*mysql_.*",
@@ -72,10 +71,10 @@ DB_ENGINE_SIGNATURES: Dict[str, List[str]] = {
 # scan to the lines that can contain a match, which removes the quadratic
 # backtracking of patterns such as ``Warning.*mysql_.*`` on attacker
 # controlled response bodies (see core.signature_matching).
-_SQLI_SIGNATURE_PATTERNS: List[str] = [
+_SQLI_SIGNATURE_PATTERNS: list[str] = [
     p for pats in DB_ENGINE_SIGNATURES.values() for p in pats
 ]
-_SQLI_SIGNATURE_ENGINES: List[str] = [
+_SQLI_SIGNATURE_ENGINES: list[str] = [
     engine for engine, pats in DB_ENGINE_SIGNATURES.items() for _ in pats
 ]
 _SQLI_SIGNATURE_MATCHER = SignatureMatcher(_SQLI_SIGNATURE_PATTERNS)
@@ -127,7 +126,7 @@ class SQLiEngine:
     def __init__(self, timeout_sec: float = 3.0):
         self.timeout_sec = timeout_sec
 
-    def detect_db_engine(self, response_text: str) -> Optional[str]:
+    def detect_db_engine(self, response_text: str) -> str | None:
         """Identifies specific database management system from response text error signatures."""
         idx = _SQLI_SIGNATURE_MATCHER.search_index(response_text)
         if idx is None:
@@ -141,7 +140,7 @@ class SQLiEngine:
         target_url: str,
         param_name: str,
         method: str = "GET"
-    ) -> List[VulnerabilityFinding]:
+    ) -> list[VulnerabilityFinding]:
         """Performs rigorous, safe SQL injection evaluation on a specific parameter."""
         findings = []
         parsed = urlparse(target_url)
@@ -296,8 +295,8 @@ class SQLiEngine:
         client: httpx.AsyncClient,
         scan_id: str,
         target_url: str,
-        json_data: Dict[str, Any]
-    ) -> List[VulnerabilityFinding]:
+        json_data: dict[str, Any]
+    ) -> list[VulnerabilityFinding]:
         """Evaluates REST API JSON input properties for SQL injection vulnerabilities."""
         findings = []
         for key, val in json_data.items():

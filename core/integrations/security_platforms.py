@@ -8,8 +8,10 @@ Qualys, Rapid7, Tenable, and DefectDojo.
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
+
 from core.integrations.base import BaseIntegrationAdapter
 
 
@@ -25,14 +27,14 @@ class WazuhAdapter(BaseIntegrationAdapter):
         "2. Provide the Wazuh Manager HTTPS endpoint (port 55000), username, and password."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "endpoint_url", "label": "Manager Endpoint", "type": "url", "required": True, "placeholder": "https://wazuh-manager.internal:55000"},
             {"key": "username", "label": "API Username", "type": "text", "required": True, "placeholder": "wazuh-api"},
             {"key": "password", "label": "API Password", "type": "password", "required": True, "placeholder": "Password"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = (endpoint_url or credentials.get("endpoint_url", "")).rstrip("/")
         username = credentials.get("username", "").strip()
         password = credentials.get("password", "").strip()
@@ -62,13 +64,13 @@ class SplunkAdapter(BaseIntegrationAdapter):
     required_permissions = ["HEC (HTTP Event Collector) Token or REST API User"]
     setup_instructions = "1. Create an HEC token in Splunk Settings -> Data Inputs -> HTTP Event Collector.\n2. Enter your Splunk host URL and HEC token."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "endpoint_url", "label": "Splunk URL", "type": "url", "required": True, "placeholder": "https://splunk.internal:8088"},
             {"key": "hec_token", "label": "HEC Token", "type": "password", "required": True, "placeholder": "Splunk HEC Token"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = (endpoint_url or credentials.get("endpoint_url", "")).rstrip("/")
         token = credentials.get("hec_token", "").strip()
         if not url or not token:
@@ -94,13 +96,13 @@ class ElasticSecurityAdapter(BaseIntegrationAdapter):
     required_permissions = ["Kibana / Elasticsearch API Key (read_security_rules, write_alerts)"]
     setup_instructions = "1. In Kibana, go to Stack Management -> API Keys -> Create API Key.\n2. Paste your Elasticsearch / Kibana URL and Key."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "endpoint_url", "label": "Elasticsearch URL", "type": "url", "required": True, "placeholder": "https://elastic.internal:9200"},
             {"key": "api_key", "label": "Elastic API Key", "type": "password", "required": True, "placeholder": "API Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = (endpoint_url or credentials.get("endpoint_url", "")).rstrip("/")
         api_key = credentials.get("api_key", "").strip()
         if not url or not api_key:
@@ -127,7 +129,7 @@ class MicrosoftSentinelAdapter(BaseIntegrationAdapter):
     required_permissions = ["Azure Sentinel Contributor / Reader on Log Analytics Workspace"]
     setup_instructions = "1. Register an App in Entra ID (Azure AD).\n2. Grant Sentinel Contributor role on your workspace.\n3. Enter Tenant ID, Client ID, Client Secret, and Workspace ID."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "tenant_id", "label": "Azure Tenant ID", "type": "text", "required": True, "placeholder": "00000000-0000-0000-0000-000000000000"},
             {"key": "client_id", "label": "App (Client) ID", "type": "text", "required": True, "placeholder": "Client GUID"},
@@ -135,7 +137,7 @@ class MicrosoftSentinelAdapter(BaseIntegrationAdapter):
             {"key": "workspace_id", "label": "Workspace ID", "type": "text", "required": True, "placeholder": "Log Analytics Workspace GUID"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         tenant = credentials.get("tenant_id", "").strip()
         client_id = credentials.get("client_id", "").strip()
         secret = credentials.get("client_secret", "").strip()
@@ -170,14 +172,14 @@ class CrowdStrikeAdapter(BaseIntegrationAdapter):
     required_permissions = ["Detections: Read", "Hosts: Read", "Incidents: Read"]
     setup_instructions = "1. In Falcon console -> Support and resources -> API Clients and Keys.\n2. Create API client and enter Client ID and Secret."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "client_id", "label": "Client ID", "type": "text", "required": True, "placeholder": "CrowdStrike Client ID"},
             {"key": "client_secret", "label": "Client Secret", "type": "password", "required": True, "placeholder": "CrowdStrike Secret"},
             {"key": "base_url", "label": "API Cloud Base", "type": "text", "required": False, "placeholder": "https://api.crowdstrike.com"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         cid = credentials.get("client_id", "").strip()
         secret = credentials.get("client_secret", "").strip()
         base = (credentials.get("base_url") or "https://api.crowdstrike.com").rstrip("/")
@@ -207,13 +209,13 @@ class DefectDojoAdapter(BaseIntegrationAdapter):
     required_permissions = ["Product / Engagement Management", "Import Scan Findings"]
     setup_instructions = "1. In DefectDojo -> User Profile -> API v2 Key.\n2. Paste your instance URL and Key."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "endpoint_url", "label": "DefectDojo URL", "type": "url", "required": True, "placeholder": "https://defectdojo.internal/api/v2"},
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "Token <key>"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = (endpoint_url or credentials.get("endpoint_url", "")).rstrip("/")
         key = credentials.get("api_key", "").strip()
         if not url or not key:
@@ -240,13 +242,13 @@ class TenableAdapter(BaseIntegrationAdapter):
     required_permissions = ["Scan API Permissions", "Vulnerability Read"]
     setup_instructions = "1. Generate API Keys in Tenable.io -> Settings -> My Account -> API Keys.\n2. Enter Access Key and Secret Key."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "access_key", "label": "Access Key", "type": "text", "required": True, "placeholder": "Tenable Access Key"},
             {"key": "secret_key", "label": "Secret Key", "type": "password", "required": True, "placeholder": "Tenable Secret Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         acc = credentials.get("access_key", "").strip()
         sec = credentials.get("secret_key", "").strip()
         if not acc or not sec:

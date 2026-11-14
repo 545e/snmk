@@ -3,11 +3,13 @@ SWA AI Autonomous Security Agent - Core Data Models
 Pydantic schemas for targets, configs, findings, and scan jobs.
 """
 
-from enum import Enum
-from typing import List, Dict, Optional, Any
-from pydantic import BaseModel, Field
-import uuid
 import datetime
+import uuid
+from enum import Enum
+from typing import Any
+
+from pydantic import BaseModel, Field
+
 
 class Severity(str, Enum):
     CRITICAL = "CRITICAL"
@@ -40,19 +42,19 @@ class ScanConfig(BaseModel):
     max_depth: int = Field(default=2, ge=1, le=5)
     concurrency: int = Field(default=15, ge=1, le=50)
     timeout_sec: int = Field(default=10, ge=2, le=60)
-    custom_headers: Dict[str, str] = Field(default_factory=dict)
-    auth_bearer_token: Optional[str] = None
-    in_scope_regex: Optional[str] = None
+    custom_headers: dict[str, str] = Field(default_factory=dict)
+    auth_bearer_token: str | None = None
+    in_scope_regex: str | None = None
     enable_exploit_validation: bool = Field(default=True, description="Active PoC verification")
     enable_subdomain_enum: bool = Field(default=True, description="Perform passive and active subdomain enumeration")
     enable_fuzzing: bool = Field(default=True, description="Perform path and parameter fuzzing")
     fuzzing_wordlist_size: str = Field(default="medium", description="fast, medium, or deep")
     lab_mode: bool = Field(default=False, description="Authorize local lab testing (localhost, DVWA, PortSwigger)")
     enable_sqlmap_lab: bool = Field(default=False, description="Optional safe non-destructive SQLmap detection in lab mode")
-    ai_provider: Optional[str] = Field(default="auto", description="openai, anthropic, gemini, openrouter, ollama, or auto")
-    ai_model: Optional[str] = None
-    ai_api_key: Optional[str] = None
-    ai_base_url: Optional[str] = None
+    ai_provider: str | None = Field(default="auto", description="openai, anthropic, gemini, openrouter, ollama, or auto")
+    ai_model: str | None = None
+    ai_api_key: str | None = None
+    ai_base_url: str | None = None
 
 class VulnerabilityFinding(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
@@ -60,68 +62,68 @@ class VulnerabilityFinding(BaseModel):
     title: str
     severity: Severity
     cvss_score: float = 0.0
-    cvss_vector: Optional[str] = None
-    cwe_id: Optional[str] = None
-    owasp_category: Optional[str] = None
+    cvss_vector: str | None = None
+    cwe_id: str | None = None
+    owasp_category: str | None = None
     endpoint: str
     method: str = "GET"
-    parameter: Optional[str] = None
+    parameter: str | None = None
     description: str
     poc_curl: str = ""
     poc_explanation: str = ""
     request_evidence: str = ""
     response_evidence: str = ""
     remediation_advice: str = ""
-    remediation_patch: Optional[str] = None
+    remediation_patch: str | None = None
     verified: bool = True
     confidence: str = Field(default="HIGH", description="Confidence level: CONFIRMED, HIGH, MEDIUM, LOW")
     detection_method: str = Field(default="AUTOMATED_PROBE", description="Method or source of detection")
-    affected_asset: Optional[str] = Field(default=None, description="Affected host, asset, or component")
-    reproduction_steps: Optional[str] = Field(default=None, description="Step-by-step reproduction guide")
-    impact: Optional[str] = Field(default=None, description="Security and business impact assessment")
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    affected_asset: str | None = Field(default=None, description="Affected host, asset, or component")
+    reproduction_steps: str | None = Field(default=None, description="Step-by-step reproduction guide")
+    impact: str | None = Field(default=None, description="Security and business impact assessment")
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
     lifecycle_status: str = Field(default="NEW", description="Finding lifecycle status code")
     verification_status: str = Field(default="NEEDS_VALIDATION", description="Independent verification status")
     remediation_status: str = Field(default="OPEN", description="Remediation lifecycle status")
     cvss_version: str = Field(default="3.1", description="CVSS version (e.g. 3.1, 4.0)")
-    cve_id: Optional[str] = Field(default=None, description="CVE identifier")
-    cisco_sir: Optional[str] = Field(default=None, description="Cisco Security Intelligence Rating")
-    epss_score: Optional[float] = Field(default=None, description="EPSS exploit prediction scoring probability")
-    cisa_kev: Optional[int] = Field(default=0, description="CISA Known Exploited Vulnerability indicator")
+    cve_id: str | None = Field(default=None, description="CVE identifier")
+    cisco_sir: str | None = Field(default=None, description="Cisco Security Intelligence Rating")
+    epss_score: float | None = Field(default=None, description="EPSS exploit prediction scoring probability")
+    cisa_kev: int | None = Field(default=0, description="CISA Known Exploited Vulnerability indicator")
     poc_verification_state: str = Field(default="SCANNER DETECTED", description="PoC verification state badge")
-    poc_verification_evidence: Optional[str] = Field(default=None, description="Supporting PoC execution evidence")
-    reviewer: Optional[str] = Field(default=None, description="Analyst or agent reviewer")
-    false_positive_reason: Optional[str] = Field(default=None, description="Reason if marked false positive")
-    last_status_change: Optional[str] = Field(default=None, description="Timestamp of last status transition")
+    poc_verification_evidence: str | None = Field(default=None, description="Supporting PoC execution evidence")
+    reviewer: str | None = Field(default=None, description="Analyst or agent reviewer")
+    false_positive_reason: str | None = Field(default=None, description="Reason if marked false positive")
+    last_status_change: str | None = Field(default=None, description="Timestamp of last status transition")
 
 class DiscoveredEndpoint(BaseModel):
     url: str
     method: str = "GET"
-    parameters: List[str] = Field(default_factory=list)
-    status_code: Optional[int] = None
-    content_type: Optional[str] = None
-    title: Optional[str] = None
+    parameters: list[str] = Field(default_factory=list)
+    status_code: int | None = None
+    content_type: str | None = None
+    title: str | None = None
     is_api: bool = False
 
 class ReconResult(BaseModel):
     target: str
-    ip_addresses: List[str] = Field(default_factory=list)
-    dns_records: Dict[str, List[str]] = Field(default_factory=dict)
-    open_ports: List[Dict[str, Any]] = Field(default_factory=list)
-    technologies: List[Dict[str, str]] = Field(default_factory=list)
-    security_headers: Dict[str, Any] = Field(default_factory=dict)
-    ssl_info: Dict[str, Any] = Field(default_factory=dict)
-    subdomains: List[Dict[str, Any]] = Field(default_factory=list)
-    subdomain_metrics: Dict[str, Any] = Field(default_factory=lambda: {
+    ip_addresses: list[str] = Field(default_factory=list)
+    dns_records: dict[str, list[str]] = Field(default_factory=dict)
+    open_ports: list[dict[str, Any]] = Field(default_factory=list)
+    technologies: list[dict[str, str]] = Field(default_factory=list)
+    security_headers: dict[str, Any] = Field(default_factory=dict)
+    ssl_info: dict[str, Any] = Field(default_factory=dict)
+    subdomains: list[dict[str, Any]] = Field(default_factory=list)
+    subdomain_metrics: dict[str, Any] = Field(default_factory=lambda: {
         "discovered": 0,
         "resolved": 0,
         "wildcard_filtered": 0,
         "failed_resolution": 0,
         "live_http": 0
     })
-    fuzzing_results: List[Dict[str, Any]] = Field(default_factory=list)
-    fuzzed_parameters: List[Dict[str, Any]] = Field(default_factory=list)
-    sensitive_files: List[Dict[str, Any]] = Field(default_factory=list)
+    fuzzing_results: list[dict[str, Any]] = Field(default_factory=list)
+    fuzzed_parameters: list[dict[str, Any]] = Field(default_factory=list)
+    sensitive_files: list[dict[str, Any]] = Field(default_factory=list)
 
 class ScanJob(BaseModel):
     id: str = Field(default_factory=lambda: f"scan_{uuid.uuid4().hex[:10]}")
@@ -136,17 +138,17 @@ class ScanJob(BaseModel):
     medium_count: int = 0
     low_count: int = 0
     info_count: int = 0
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    duration_seconds: Optional[float] = None
-    error_message: Optional[str] = None
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_seconds: float | None = None
+    error_message: str | None = None
     config: ScanConfig
-    recon_data: Optional[ReconResult] = None
+    recon_data: ReconResult | None = None
     endpoints_count: int = 0
 
 class LogEvent(BaseModel):
-    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).strftime("%H:%M:%S"))
+    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).strftime("%H:%M:%S"))
     scan_id: str
     level: str = "INFO" # INFO, WARN, ERROR, SUCCESS, FINDING, AGENT
     agent: str = "Orchestrator"

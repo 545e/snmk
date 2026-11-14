@@ -21,9 +21,8 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from typing import Dict, Optional
 
-__all__ = ["asset_versions", "version_for", "inject_asset_versions"]
+__all__ = ["asset_versions", "inject_asset_versions", "version_for"]
 
 _VERSION_RE = re.compile(
     r"([A-Za-z0-9_.\-/]+\.(?:js|css))(\?v=[0-9A-Za-z._-]+)?"
@@ -33,7 +32,7 @@ _VERSION_RE = re.compile(
 _VERSIONED_EXTENSIONS = (".js", ".css")
 
 
-def _hash_file(path: str) -> Optional[str]:
+def _hash_file(path: str) -> str | None:
     try:
         with open(path, "rb") as fh:
             return hashlib.sha256(fh.read()).hexdigest()[:12]
@@ -41,9 +40,9 @@ def _hash_file(path: str) -> Optional[str]:
         return None
 
 
-def asset_versions(static_dir: str) -> Dict[str, str]:
+def asset_versions(static_dir: str) -> dict[str, str]:
     """Return ``{filename: short content hash}`` for the versioned assets."""
-    versions: Dict[str, str] = {}
+    versions: dict[str, str] = {}
     try:
         names = sorted(os.listdir(static_dir))
     except OSError:
@@ -57,7 +56,7 @@ def asset_versions(static_dir: str) -> Dict[str, str]:
     return versions
 
 
-def version_for(static_dir: str, filename: str, cache: Optional[Dict[str, str]] = None) -> str:
+def version_for(static_dir: str, filename: str, cache: dict[str, str] | None = None) -> str:
     """Return the version token for ``filename``.
 
     ``cache`` may be a dict used to memoise the per-file hashes; it is keyed by
@@ -80,7 +79,7 @@ def version_for(static_dir: str, filename: str, cache: Optional[Dict[str, str]] 
     return digest
 
 
-def inject_asset_versions(html: str, static_dir: str, cache: Optional[Dict[str, str]] = None) -> str:
+def inject_asset_versions(html: str, static_dir: str, cache: dict[str, str] | None = None) -> str:
     """Rewrite the ``?v=...`` token on local script/link tags.
 
     A reference that already carries a version token has it replaced; a
@@ -88,7 +87,7 @@ def inject_asset_versions(html: str, static_dir: str, cache: Optional[Dict[str, 
     content hash of the referenced file.
     """
 
-    def repl(match: "re.Match[str]") -> str:
+    def repl(match: re.Match[str]) -> str:
         path = match.group(1)
         filename = path.rsplit("/", 1)[-1]
         if not filename.endswith(_VERSIONED_EXTENSIONS):

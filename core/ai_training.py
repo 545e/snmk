@@ -4,15 +4,15 @@ Executes hardware-aware training jobs, manages checkpoint artifacts, tracks reso
 and trains verifiable security classification and vulnerability detection models.
 """
 
-import os
-import sys
-import time
-import json
-import uuid
 import asyncio
 import datetime
+import json
 import math
-from typing import Dict, Any, List, Optional
+import os
+import time
+import uuid
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 CHECKPOINT_DIR = os.getenv("SWA_CHECKPOINT_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "model_checkpoints"))
@@ -40,28 +40,28 @@ class TrainingJob(BaseModel):
     progress_percent: int = 0
     current_epoch: int = 0
     total_epochs: int = 3
-    loss_history: List[float] = Field(default_factory=list)
-    accuracy_history: List[float] = Field(default_factory=list)
-    val_loss_history: List[float] = Field(default_factory=list)
-    val_accuracy_history: List[float] = Field(default_factory=list)
-    resource_usage: Dict[str, Any] = Field(default_factory=lambda: {"cpu_percent": 0.0, "memory_mb": 0.0, "device": "CPU"})
-    logs: List[str] = Field(default_factory=list)
-    checkpoint_path: Optional[str] = None
-    model_artifact_path: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
+    loss_history: list[float] = Field(default_factory=list)
+    accuracy_history: list[float] = Field(default_factory=list)
+    val_loss_history: list[float] = Field(default_factory=list)
+    val_accuracy_history: list[float] = Field(default_factory=list)
+    resource_usage: dict[str, Any] = Field(default_factory=lambda: {"cpu_percent": 0.0, "memory_mb": 0.0, "device": "CPU"})
+    logs: list[str] = Field(default_factory=list)
+    checkpoint_path: str | None = None
+    model_artifact_path: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
     duration_seconds: float = 0.0
-    error_message: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    error_message: str | None = None
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class AITrainingEngine:
     def __init__(self, checkpoint_dir: str = CHECKPOINT_DIR):
         self.checkpoint_dir = checkpoint_dir
-        self.active_jobs: Dict[str, asyncio.Task] = {}
+        self.active_jobs: dict[str, asyncio.Task] = {}
         self.hardware_info = self._detect_hardware()
 
-    def _detect_hardware(self) -> Dict[str, Any]:
+    def _detect_hardware(self) -> dict[str, Any]:
         """Inspects local system compute hardware (CUDA/MPS/CPU/RAM)."""
         info = {
             "device": "CPU",
@@ -106,8 +106,8 @@ class AITrainingEngine:
             status="QUEUED",
             resource_usage={"device": self.hardware_info["device"], "device_name": self.hardware_info["device_name"]}
         )
-        job.logs.append(f"[{datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S')}] Job enqueued with target dataset '{dataset_meta.name}' ({dataset_meta.record_count} samples).")
-        job.logs.append(f"[{datetime.datetime.now(datetime.timezone.utc).strftime('%H:%M:%S')}] Compute Device: {self.hardware_info['device']} ({self.hardware_info['device_name']}, {self.hardware_info['cpu_cores']} cores).")
+        job.logs.append(f"[{datetime.datetime.now(datetime.UTC).strftime('%H:%M:%S')}] Job enqueued with target dataset '{dataset_meta.name}' ({dataset_meta.record_count} samples).")
+        job.logs.append(f"[{datetime.datetime.now(datetime.UTC).strftime('%H:%M:%S')}] Compute Device: {self.hardware_info['device']} ({self.hardware_info['device_name']}, {self.hardware_info['cpu_cores']} cores).")
 
         db.save_training_job(job)
 
@@ -117,8 +117,8 @@ class AITrainingEngine:
         return job
 
     async def _run_training_lifecycle(self, job_id: str):
-        from core.database import db
         from core.data_management import dataset_manager
+        from core.database import db
 
         job = db.get_training_job(job_id)
         if not job:
@@ -126,7 +126,7 @@ class AITrainingEngine:
 
         start_time = time.time()
         job.status = "RUNNING"
-        job.started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        job.started_at = datetime.datetime.now(datetime.UTC).isoformat()
         db.save_training_job(job)
 
         try:
@@ -181,7 +181,7 @@ class AITrainingEngine:
                         "accuracy": epoch_acc,
                         "val_loss": val_loss,
                         "val_accuracy": val_acc,
-                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
                     }, f, indent=2)
 
                 job.checkpoint_path = ckpt_path
@@ -196,23 +196,23 @@ class AITrainingEngine:
 
                 job.status = "COMPLETED"
                 job.model_artifact_path = final_model_path
-                job.completed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
                 job.duration_seconds = round(time.time() - start_time, 2)
                 job.logs.append(f"Training completed successfully in {job.duration_seconds}s. Model artifact saved to: {final_model_path}")
                 db.save_training_job(job)
 
         except asyncio.CancelledError:
             job.status = "CANCELLED"
-            job.completed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
             job.duration_seconds = round(time.time() - start_time, 2)
             job.logs.append("Training job task cancelled.")
             db.save_training_job(job)
         except Exception as e:
             job.status = "FAILED"
             job.error_message = str(e)
-            job.completed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
             job.duration_seconds = round(time.time() - start_time, 2)
-            job.logs.append(f"Fatal error during training: {str(e)}")
+            job.logs.append(f"Fatal error during training: {e!s}")
             db.save_training_job(job)
         finally:
             self.active_jobs.pop(job_id, None)

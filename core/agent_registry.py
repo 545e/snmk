@@ -23,20 +23,18 @@ depended on them.  Use ``agent_registry.get_summary()["total_discovered"]``
 rather than a literal.
 """
 
+import asyncio
+import datetime
 import logging
 import os
 import time
-import datetime
-import asyncio
 import uuid
+from typing import Any
 from urllib.parse import urlparse
-from typing import Dict, Any, List, Optional
+
 from pydantic import BaseModel, Field
 
-from core.intelligence_models import (
-    AgentRole,
-    AgentPermissionBoundary
-)
+from core.intelligence_models import AgentPermissionBoundary, AgentRole
 
 logger = logging.getLogger("swa.agent_registry")
 
@@ -52,15 +50,15 @@ class ExtendedAgentManifest(BaseModel):
     module_path: str
     class_name: str
     status: str = "REGISTERED"  # REGISTERED, AVAILABLE, RUNNING, NOT_CONFIGURED
-    capabilities: List[str] = Field(default_factory=list)
-    responsibilities: List[str] = Field(default_factory=list)
-    input_schema: Dict[str, Any] = Field(default_factory=dict)
-    output_schema: Dict[str, Any] = Field(default_factory=dict)
+    capabilities: list[str] = Field(default_factory=list)
+    responsibilities: list[str] = Field(default_factory=list)
+    input_schema: dict[str, Any] = Field(default_factory=dict)
+    output_schema: dict[str, Any] = Field(default_factory=dict)
     permission_boundary: AgentPermissionBoundary
     installed: bool = True
     available: bool = True
-    last_executed: Optional[str] = None
-    last_result: Optional[str] = None
+    last_executed: str | None = None
+    last_result: str | None = None
 
 
 class AgentRegistry:
@@ -70,21 +68,21 @@ class AgentRegistry:
 
     def __new__(cls, *args, **kwargs):
         if not cls._instance:
-            cls._instance = super(AgentRegistry, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance._initialized = False
         return cls._instance
 
     def __init__(self):
         if self._initialized:
             return
-        self._agents: Dict[str, ExtendedAgentManifest] = {}
+        self._agents: dict[str, ExtendedAgentManifest] = {}
         self._discovered = False
         self.discover_all_agents()
         self._initialized = True
 
-    def discover_all_agents(self) -> Dict[str, ExtendedAgentManifest]:
+    def discover_all_agents(self) -> dict[str, ExtendedAgentManifest]:
         """Discovers, inventories, and verifies all 85 existing cybersecurity agents."""
-        agents: Dict[str, ExtendedAgentManifest] = {}
+        agents: dict[str, ExtendedAgentManifest] = {}
 
         # -------------------------------------------------------------------
         # TIER 1: Autonomous Specialist Workforce Agents (17)
@@ -846,7 +844,7 @@ class AgentRegistry:
         logger.info(f"SWA AgentRegistry discovered all {len(agents)} cybersecurity agents successfully.")
         return self._agents
 
-    def get_agent(self, agent_id: str) -> Optional[ExtendedAgentManifest]:
+    def get_agent(self, agent_id: str) -> ExtendedAgentManifest | None:
         if not self._agents:
             self.discover_all_agents()
         manifest = self._agents.get(agent_id)
@@ -860,11 +858,11 @@ class AgentRegistry:
 
     def list_manifests(
         self,
-        category: Optional[str] = None,
-        tier: Optional[str] = None,
-        status: Optional[str] = None,
-        search: Optional[str] = None
-    ) -> List[ExtendedAgentManifest]:
+        category: str | None = None,
+        tier: str | None = None,
+        status: str | None = None,
+        search: str | None = None
+    ) -> list[ExtendedAgentManifest]:
         items = list(self._agents.values())
         if category:
             cat_lower = category.lower().strip()
@@ -883,10 +881,10 @@ class AgentRegistry:
             ]
         return items
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Returns structured metrics for the complete agent workforce."""
         manifests = list(self._agents.values())
-        tiers_count: Dict[str, int] = {}
+        tiers_count: dict[str, int] = {}
         for m in manifests:
             tiers_count[m.tier] = tiers_count.get(m.tier, 0) + 1
 
@@ -973,10 +971,10 @@ class AgentRegistry:
     async def dispatch_agent_by_id(
         self,
         agent_id_or_role: str,
-        scan_id: Optional[str] = None,
-        title: Optional[str] = None,
-        inputs: Optional[Dict[str, Any]] = None
-    ) -> Optional[Dict[str, Any]]:
+        scan_id: str | None = None,
+        title: str | None = None,
+        inputs: dict[str, Any] | None = None
+    ) -> dict[str, Any] | None:
         """
         Dispatches an ad-hoc or automated task to any of the 85 registered agents across all 5 tiers.
         Returns a standardized AgentTask-compatible dictionary.
@@ -992,7 +990,7 @@ class AgentRegistry:
             target = f"http://{target}"
         title = title or f"Autonomous execution for {manifest.name}"
         start_time = time.time()
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
         task_id = f"task_{uuid.uuid4().hex[:8]}"
 
         # Tier 1: Multi-Agent Workforce Specialists
@@ -1018,7 +1016,7 @@ class AgentRegistry:
         # Tiers 2-5: Native execution engine
         manifest.status = "RUNNING"
         manifest.last_executed = now_iso
-        outputs: Dict[str, Any] = {
+        outputs: dict[str, Any] = {
             "agent_id": manifest.id,
             "agent_name": manifest.name,
             "tier": manifest.tier,
@@ -1026,7 +1024,7 @@ class AgentRegistry:
             "target": target,
             "capabilities": manifest.capabilities
         }
-        evidence: List[Dict[str, Any]] = []
+        evidence: list[dict[str, Any]] = []
         handled = False
         # Tracks an engine-level failure so that an agent whose handler
         # raised is not reported as COMPLETED / "executed successfully".
@@ -1037,6 +1035,7 @@ class AgentRegistry:
                 handled = True
                 try:
                     import httpx
+
                     import plugins.owasp_plugins as owasp_mods
                     from core.models import DiscoveredEndpoint
                     cls = getattr(owasp_mods, manifest.class_name, None)
@@ -1109,7 +1108,7 @@ class AgentRegistry:
                         outputs["subdomains_count"] = len(subdomains)
                         outputs["takeovers_count"] = len(takeovers)
                         outputs["discovered_subdomains"] = [s.get("subdomain") for s in subdomains[:5]]
-                    except (asyncio.TimeoutError, Exception) as am_err:
+                    except (TimeoutError, Exception) as am_err:
                         outputs["subdomains_count"] = 0
                         outputs["takeovers_count"] = 0
                         outputs["discovered_subdomains"] = []
@@ -1124,7 +1123,9 @@ class AgentRegistry:
                         outputs["recon_note"] = str(as_err)
                 elif manifest.id == "dependency_confusion_agent":
                     try:
-                        from agents.dependency_confusion_agent import DependencyConfusionAgent
+                        from agents.dependency_confusion_agent import (
+                            DependencyConfusionAgent,
+                        )
                         dep_inst = DependencyConfusionAgent(scan_id=scan_id, js_urls=[], base_url=target)
                         findings = await dep_inst.run()
                         outputs["dependency_confusion_findings"] = len(findings) if findings else 0
@@ -1176,7 +1177,7 @@ class AgentRegistry:
                 elif manifest.id == "swa_orchestrator":
                     try:
                         from agents.orchestrator import SWAOrchestrator
-                        from core.models import ScanJob, ScanProfile, ScanConfig
+                        from core.models import ScanConfig, ScanJob, ScanProfile
                         job = ScanJob(id=scan_id, target_url=target, profile=ScanProfile.LIGHT, config=ScanConfig(target_url=target, profile=ScanProfile.LIGHT))
                         orch = SWAOrchestrator(job=job)
                         outputs["orchestrator_phases"] = ["scope_validation", "reconnaissance", "vulnerability_hunting", "exploit_validation", "remediation", "reporting"]
@@ -1348,8 +1349,14 @@ class AgentRegistry:
                 handled = True
                 try:
                     from core.network import (
-                        origin_engine, geo_engine, dns_engine, route_engine,
-                        perf_engine, discovery_engine, threat_engine, live_capture, map_ai_assistant
+                        discovery_engine,
+                        dns_engine,
+                        geo_engine,
+                        live_capture,
+                        map_ai_assistant,
+                        origin_engine,
+                        perf_engine,
+                        threat_engine,
                     )
                     tgt = inputs.get("target") or "127.0.0.1"
                     if manifest.id == "map_orchestrator":
@@ -1373,7 +1380,7 @@ class AgentRegistry:
                             sp = SpeedTestResult(
                                 download_mbps=125.5, upload_mbps=85.2, ping_ms=2.1, jitter_ms=0.4,
                                 packet_loss_pct=0.0, test_server="Local Host Loopback / Synthetic Gateway",
-                                isp="Local Loopback", timestamp=datetime.datetime.now(datetime.timezone.utc).isoformat()
+                                isp="Local Loopback", timestamp=datetime.datetime.now(datetime.UTC).isoformat()
                             )
                         else:
                             sp = await perf_engine.run_speed_test()
@@ -1428,7 +1435,7 @@ class AgentRegistry:
                     "evidence": [],
                     "error_message": None,
                     "started_at": now_iso,
-                    "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                    "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
                     "duration_seconds": duration
                 }
                 try:
@@ -1465,7 +1472,7 @@ class AgentRegistry:
                 "evidence": evidence,
                 "error_message": execution_error,
                 "started_at": now_iso,
-                "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
                 "duration_seconds": duration
             }
 
@@ -1481,7 +1488,7 @@ class AgentRegistry:
         except Exception as e:
             duration = round(time.time() - start_time, 2)
             manifest.status = "FAILED"
-            manifest.last_result = f"ERROR: {str(e)}"
+            manifest.last_result = f"ERROR: {e!s}"
             return {
                 "id": task_id,
                 "agent_role": manifest.role or manifest.id,
@@ -1493,7 +1500,7 @@ class AgentRegistry:
                 "evidence": [],
                 "error_message": str(e),
                 "started_at": now_iso,
-                "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
                 "duration_seconds": duration
             }
 
@@ -1501,10 +1508,10 @@ class AgentRegistry:
         self,
         scan_id: str,
         target: str,
-        recon_data: Optional[Dict[str, Any]] = None,
-        endpoints: Optional[List[Any]] = None,
-        log_fn: Optional[Any] = None
-    ) -> Dict[str, Any]:
+        recon_data: dict[str, Any] | None = None,
+        endpoints: list[Any] | None = None,
+        log_fn: Any | None = None
+    ) -> dict[str, Any]:
         """
         Coordinates and executes all 85 cybersecurity agents across all 5 operational tiers:
         - Tier 1: 17 Specialist Multi-Agent Workforce
@@ -1515,13 +1522,13 @@ class AgentRegistry:
         """
         start_time = time.time()
         discovered = self.discover_all_agents()
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
         # The tier buckets are derived from the registry itself so that a new
         # operational tier cannot be silently folded into "core_engines".
         # Previously the "network_intelligence" tier (the MAP agents) had no
         # bucket, so all of its agents were mis-reported as core engines.
-        tier_results: Dict[str, Dict[str, Any]] = {}
+        tier_results: dict[str, dict[str, Any]] = {}
         for _agent in discovered.values():
             _tier = _agent.tier or "core_engines"
             if _tier not in tier_results:
@@ -1559,7 +1566,7 @@ class AgentRegistry:
                     if rec is None:
                         rec = {"status": "FAILED", "error_message": "Agent manifest resolved to None during dispatch."}
                     return agent, rec
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     return agent, {"status": "FAILED", "error_message": "Dispatch timed out after 240s."}
                 except Exception as e:
                     return agent, {"status": "FAILED", "error_message": str(e)}

@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import logging
 import socket
-from typing import Any, Dict, Optional
+from typing import Any
+
 import httpx
 
 from core.network.geo_engine import is_private_ip
@@ -24,7 +25,7 @@ class InternetInfrastructureEngine:
         self._public_ip_cache = None
         self._cache = {}
 
-    async def get_public_ip(self) -> Dict[str, Any]:
+    async def get_public_ip(self) -> dict[str, Any]:
         """Discovers the public IP visible from the current monitoring vantage point."""
         if self._public_ip_cache:
             return self._public_ip_cache

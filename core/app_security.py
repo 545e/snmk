@@ -9,16 +9,15 @@ Comprehensive security controls for SWA AI:
 - Command & SQL Injection Prevention
 """
 
+import hmac
 import os
 import re
-import hmac
-import time
 import secrets
-import hashlib
-from typing import Optional, Dict, Any, List, Tuple
+import time
 from pathlib import Path
-from fastapi import Request, HTTPException, Security, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from typing import Any
+
+from fastapi import HTTPException, Request, status
 
 # --- Configuration ---
 SWA_AUTH_ENABLED = os.getenv("SWA_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
@@ -63,7 +62,7 @@ SENSITIVE_PATTERNS = [
     (re.compile(r"(?i)(Set-Cookie:\s*[^=]+=)[^;\r\n]{16,}"), r"\1[REDACTED_COOKIE]"),
 ]
 
-def redact_sensitive_evidence(data: Optional[str]) -> Optional[str]:
+def redact_sensitive_evidence(data: str | None) -> str | None:
     """
     Sanitize and redact sensitive credentials (tokens, passwords, private keys, cookies)
     from vulnerability evidence, PoCs, and request/response records.
@@ -150,7 +149,7 @@ class TokenBucketRateLimiter:
     def __init__(self, requests_per_minute: int = 120, burst_limit: int = 40):
         self.capacity = burst_limit
         self.fill_rate = requests_per_minute / 60.0  # tokens per second
-        self.buckets: Dict[str, Tuple[float, float]] = {}  # ip -> (tokens, last_time)
+        self.buckets: dict[str, tuple[float, float]] = {}  # ip -> (tokens, last_time)
 
     def is_allowed(self, client_ip: str) -> bool:
         if not SWA_RATE_LIMIT_ENABLED:
@@ -201,7 +200,7 @@ class SecurityContext:
         self.identity = identity
 
 # In-memory session store for web UI sessions
-ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
+ACTIVE_SESSIONS: dict[str, dict[str, Any]] = {}
 
 def create_session(identity: str, role: str = "auditor", ttl_seconds: int = 86400) -> str:
     """Creates a secure cryptographic session token."""
@@ -214,7 +213,7 @@ def create_session(identity: str, role: str = "auditor", ttl_seconds: int = 8640
     }
     return token
 
-def verify_session_token(token: str) -> Optional[Dict[str, Any]]:
+def verify_session_token(token: str) -> dict[str, Any] | None:
     session = ACTIVE_SESSIONS.get(token)
     if not session:
         return None
@@ -268,7 +267,7 @@ def authenticate_request(request: Request) -> SecurityContext:
         headers={"WWW-Authenticate": "Bearer"}
     )
 
-def require_role(allowed_roles: List[str]):
+def require_role(allowed_roles: list[str]):
     """FastAPI dependency enforcing Role-Based Access Control."""
     def dependency(request: Request):
         ctx = authenticate_request(request)

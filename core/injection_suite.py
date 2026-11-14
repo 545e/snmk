@@ -29,12 +29,11 @@ Comprehensive, safe, non-destructive detection engine covering 27 injection cate
 """
 
 import re
-import asyncio
-from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
-from typing import Dict, List, Any, Optional
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 import httpx
 
-from core.models import VulnerabilityFinding, Severity
+from core.models import Severity, VulnerabilityFinding
 
 XSS_CANARY = "swa_xss_probe_canary_8471"
 CMD_CANARY = "swa_cmd_eval_9182"
@@ -47,7 +46,7 @@ class InjectionSuite:
     def __init__(self, timeout_sec: float = 3.0):
         self.timeout_sec = timeout_sec
 
-    async def audit_xss(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> List[VulnerabilityFinding]:
+    async def audit_xss(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
         """Tests for Reflected XSS using benign canary markup."""
         findings = []
         parsed = urlparse(url)
@@ -85,7 +84,7 @@ class InjectionSuite:
             pass
         return findings
 
-    async def audit_ssti(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> List[VulnerabilityFinding]:
+    async def audit_ssti(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
         """Tests for Server-Side Template Injection via benign mathematical expression."""
         findings = []
         parsed = urlparse(url)
@@ -110,7 +109,7 @@ class InjectionSuite:
                     endpoint=url,
                     method="GET",
                     parameter=param,
-                    description=f"Mathematical probe `{{47*47}}` evaluated dynamically to `2209` inside the template engine.",
+                    description="Mathematical probe `{47*47}` evaluated dynamically to `2209` inside the template engine.",
                     poc_curl=f"curl -i '{test_url}'",
                     poc_explanation="Server-side template expression evaluated and rendered in HTTP response.",
                     request_evidence=f"GET {test_url} HTTP/1.1",
@@ -122,7 +121,7 @@ class InjectionSuite:
             pass
         return findings
 
-    async def audit_command_injection(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> List[VulnerabilityFinding]:
+    async def audit_command_injection(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
         """Tests for OS Command Injection using benign non-destructive echo."""
         findings = []
         parsed = urlparse(url)
@@ -161,7 +160,7 @@ class InjectionSuite:
                 pass
         return findings
 
-    async def audit_path_traversal(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> List[VulnerabilityFinding]:
+    async def audit_path_traversal(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
         """Tests for Path Traversal and Local File Inclusion (LFI)."""
         findings = []
         parsed = urlparse(url)
@@ -205,7 +204,7 @@ class InjectionSuite:
                 pass
         return findings
 
-    async def audit_crlf_header_injection(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> List[VulnerabilityFinding]:
+    async def audit_crlf_header_injection(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
         """Tests for CRLF injection and HTTP response splitting."""
         findings = []
         parsed = urlparse(url)
@@ -242,7 +241,7 @@ class InjectionSuite:
             pass
         return findings
 
-    async def audit_open_redirect(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> List[VulnerabilityFinding]:
+    async def audit_open_redirect(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
         """Tests for unvalidated Open Redirects."""
         findings = []
         parsed = urlparse(url)

@@ -8,14 +8,14 @@ databases are never altered destructively.
 """
 
 import threading
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 from core.database import db
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class AuditLog:
@@ -60,12 +60,12 @@ class AuditLog:
     def record(
         self,
         action: str,
-        resource: Optional[str] = None,
+        resource: str | None = None,
         status: str = "OK",
-        detail: Optional[str] = None,
+        detail: str | None = None,
         actor: str = "local",
-        client: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        client: str | None = None,
+    ) -> dict[str, Any]:
         """Append one audit entry.
 
         Never raises: audit collection must not break the operation being
@@ -101,9 +101,9 @@ class AuditLog:
     def entries(
         self,
         limit: int = 100,
-        action: Optional[str] = None,
+        action: str | None = None,
         offset: int = 0,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Return recent audit entries, newest first."""
         self.ensure_table()
         limit = max(1, min(int(limit or 100), 1000))
@@ -145,4 +145,4 @@ try:
 except Exception:  # pragma: no cover - database may be unavailable at import
     pass
 
-__all__ = ["audit", "AuditLog"]
+__all__ = ["AuditLog", "audit"]

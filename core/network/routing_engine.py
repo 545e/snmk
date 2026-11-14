@@ -11,7 +11,7 @@ import re
 import socket
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.network.geo_engine import geo_engine, is_private_ip
 from core.network.infrastructure import infra_engine
@@ -23,7 +23,7 @@ logger = logging.getLogger("snmk.map.routing")
 class RouteAnalysisEngine:
     """Path trace execution and hop enrichment analyzer."""
 
-    async def analyze_route(self, target: str, max_hops: int = 15, timeout: float = 3.0) -> Dict[str, Any]:
+    async def analyze_route(self, target: str, max_hops: int = 15, timeout: float = 3.0) -> dict[str, Any]:
         """Performs traceroute to target and geolocates reachable hops."""
         target = target.strip()
         max_hops = min(max(max_hops, 3), 30)
@@ -35,7 +35,7 @@ class RouteAnalysisEngine:
         except Exception:
             pass
 
-        hops: List[RouteHop] = []
+        hops: list[RouteHop] = []
 
         # Execute system traceroute
         if sys.platform.startswith("win"):

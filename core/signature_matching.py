@@ -51,7 +51,7 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_right
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 from core.pattern_gating import required_literal_groups
 
@@ -65,7 +65,7 @@ _UNBOUNDED_NEWLINE = re.compile(r"\[\^|\(\?s\)|\\Z|\\A|\(\?m\)|\(\?s")
 _ANCHORS = re.compile(r"[\^\$]")
 
 
-def build_line_index(text: str) -> List[int]:
+def build_line_index(text: str) -> list[int]:
     """Return the character offset of the first character of every line."""
     offsets = [0]
     idx = text.find("\n")
@@ -75,9 +75,9 @@ def build_line_index(text: str) -> List[int]:
     return offsets
 
 
-def _line_spans(text: str, offsets: Sequence[int]) -> List[Tuple[int, int]]:
+def _line_spans(text: str, offsets: Sequence[int]) -> list[tuple[int, int]]:
     """Return (start, end) character spans for every line of ``text``."""
-    spans: List[Tuple[int, int]] = []
+    spans: list[tuple[int, int]] = []
     n = len(text)
     for i, start in enumerate(offsets):
         end = offsets[i + 1] if i + 1 < len(offsets) else n
@@ -89,17 +89,24 @@ class _Signature:
     """A single compiled signature with its localisation strategy."""
 
     __slots__ = (
-        "source", "regex", "flags", "locator", "locator_regex",
-        "group_regexes", "span", "line_local", "whole_body",
+        "flags",
+        "group_regexes",
+        "line_local",
+        "locator",
+        "locator_regex",
+        "regex",
+        "source",
+        "span",
+        "whole_body",
     )
 
     def __init__(self, source: str, flags: int) -> None:
         self.source = source
         self.flags = flags
         self.regex = re.compile(source, flags)
-        self.locator: Optional[str] = None
-        self.locator_regex: Optional["re.Pattern[str]"] = None
-        self.group_regexes: List["re.Pattern[str]"] = []
+        self.locator: str | None = None
+        self.locator_regex: re.Pattern[str] | None = None
+        self.group_regexes: list[re.Pattern[str]] = []
         self.span = 1          # number of consecutive lines a match can occupy
         self.line_local = False
         self.whole_body = True
@@ -152,23 +159,23 @@ class SignatureMatcher:
 
     def __init__(self, patterns: Iterable[str], flags: int = re.IGNORECASE) -> None:
         self.flags = flags
-        self.signatures: List[_Signature] = [_Signature(p, flags) for p in patterns]
+        self.signatures: list[_Signature] = [_Signature(p, flags) for p in patterns]
         # Fast membership test for the *whole* literal of a signature.
-        self._literal_only: List[Tuple[str, _Signature]] = []
+        self._literal_only: list[tuple[str, _Signature]] = []
         for sig in self.signatures:
             src = sig.source
             if len(src) >= 3 and re.fullmatch(r"[A-Za-z0-9_./\\ -]+", src) and not sig.regex.flags & re.IGNORECASE:
                 self._literal_only.append((src, sig))
 
     # -- public API --------------------------------------------------------
-    def search(self, text: str) -> Optional[str]:
+    def search(self, text: str) -> str | None:
         """Return the first signature that matches ``text`` (or ``None``)."""
         idx = self.search_index(text)
         if idx is None:
             return None
         return self.signatures[idx].source
 
-    def search_index(self, text: str) -> Optional[int]:
+    def search_index(self, text: str) -> int | None:
         """Return the index of the first signature that matches ``text``."""
         if not text:
             return None
@@ -179,13 +186,13 @@ class SignatureMatcher:
                 return i
         return None
 
-    def search_all(self, text: str) -> List[str]:
+    def search_all(self, text: str) -> list[str]:
         """Return every signature that matches ``text``."""
         if not text:
             return []
         offsets = build_line_index(text)
         spans = _line_spans(text, offsets)
-        hits: List[str] = []
+        hits: list[str] = []
         for sig in self.signatures:
             if self._matches(sig, text, offsets, spans):
                 hits.append(sig.source)
@@ -201,7 +208,7 @@ class SignatureMatcher:
         sig: _Signature,
         text: str,
         offsets: Sequence[int],
-        spans: Sequence[Tuple[int, int]],
+        spans: Sequence[tuple[int, int]],
     ) -> bool:
         # ---- Necessary-condition prefilter ----------------------------
         # Every group literal is required by the pattern, so if any group is
@@ -220,8 +227,7 @@ class SignatureMatcher:
         target_lines: set = set()
         for m in sig.locator_regex.finditer(text):
             line_idx = bisect_right(offsets, m.start()) - 1
-            if line_idx < 0:
-                line_idx = 0
+            line_idx = max(line_idx, 0)
             target_lines.add(line_idx)
 
         if not target_lines:

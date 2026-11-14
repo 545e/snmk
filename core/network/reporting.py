@@ -8,11 +8,9 @@ from __future__ import annotations
 
 import datetime
 import io
-import json
 import logging
-import os
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 logger = logging.getLogger("snmk.map.reporting")
 
@@ -24,21 +22,21 @@ class MapReportGenerator:
         self,
         assessment_id: str,
         target: str,
-        local_info: Dict[str, Any],
-        public_ip_info: Dict[str, Any],
-        isp_asn_info: Dict[str, Any],
-        geo_info: Dict[str, Any],
-        packet_stats: Dict[str, Any],
-        flows: List[Dict[str, Any]],
-        devices: List[Dict[str, Any]],
-        dns_data: Dict[str, Any],
-        route_data: Dict[str, Any],
-        wifi_data: Optional[Dict[str, Any]],
-        perf_data: Optional[Dict[str, Any]],
-        ai_summary: Optional[Dict[str, Any]]
-    ) -> Dict[str, Any]:
+        local_info: dict[str, Any],
+        public_ip_info: dict[str, Any],
+        isp_asn_info: dict[str, Any],
+        geo_info: dict[str, Any],
+        packet_stats: dict[str, Any],
+        flows: list[dict[str, Any]],
+        devices: list[dict[str, Any]],
+        dns_data: dict[str, Any],
+        route_data: dict[str, Any],
+        wifi_data: dict[str, Any] | None,
+        perf_data: dict[str, Any] | None,
+        ai_summary: dict[str, Any] | None
+    ) -> dict[str, Any]:
         """Assembles all collected intelligence into a canonical report structure."""
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
         report = {
             "report_id": f"MAP-REP-{uuid.uuid4().hex[:8].upper()}",
@@ -88,7 +86,7 @@ class MapReportGenerator:
         }
         return report
 
-    def to_markdown(self, data: Dict[str, Any]) -> str:
+    def to_markdown(self, data: dict[str, Any]) -> str:
         """Converts report data into GitHub-flavored Markdown."""
         geo = data.get("geolocation", {})
         infra = data.get("public_infrastructure", {})
@@ -169,7 +167,7 @@ class MapReportGenerator:
 
         return md
 
-    def to_html(self, data: Dict[str, Any]) -> str:
+    def to_html(self, data: dict[str, Any]) -> str:
         """Renders report into a self-contained, enterprise HTML document."""
         md_content = self.to_markdown(data)
         import html
@@ -207,12 +205,16 @@ class MapReportGenerator:
 </body>
 </html>"""
 
-    def to_pdf(self, data: Dict[str, Any]) -> bytes:
+    def to_pdf(self, data: dict[str, Any]) -> bytes:
         """Compiles ReportLab PDF document."""
-        from reportlab.lib.pagesizes import letter
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
         from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.platypus import (
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+        )
 
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
@@ -242,7 +244,7 @@ class MapReportGenerator:
         )
 
         elements = []
-        elements.append(Paragraph(f"SNMK MAP - Network Intelligence Report", title_style))
+        elements.append(Paragraph("SNMK MAP - Network Intelligence Report", title_style))
         elements.append(Paragraph(f"<b>Report ID:</b> {data['report_id']} | <b>Date:</b> {data['generated_at']}", body_style))
         elements.append(Paragraph(f"<b>Target:</b> {data['target']} | <b>Vantage Point:</b> {data['vantage_point'].get('hostname')} ({data['vantage_point'].get('local_ipv4')})", body_style))
         elements.append(Spacer(1, 10))

@@ -4,11 +4,13 @@ Implements adapters for OpenAI, Anthropic, Google Gemini, OpenRouter, and Local/
 """
 
 from __future__ import annotations
-from urllib.parse import urlparse
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+from urllib.parse import urlparse
+
 import httpx
+
 from core.integrations.base import BaseIntegrationAdapter
 
 
@@ -21,13 +23,13 @@ class OpenAIAdapter(BaseIntegrationAdapter):
     required_permissions = ["Model Query / Chat Completions"]
     setup_instructions = "1. Sign in to platform.openai.com -> API keys.\n2. Create a new secret key and paste below."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "sk-..."},
             {"key": "base_url", "label": "Base URL (Optional)", "type": "text", "required": False, "placeholder": "https://api.openai.com/v1"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         custom_base = (endpoint_url or credentials.get("base_url") or "https://api.openai.com/v1").rstrip("/")
         if not api_key:
@@ -60,12 +62,12 @@ class AnthropicAdapter(BaseIntegrationAdapter):
     required_permissions = ["Messages API Access"]
     setup_instructions = "1. Sign in to console.anthropic.com -> Settings -> API Keys.\n2. Create key and paste below."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "sk-ant-..."}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Anthropic API key missing.", "latency_ms": 0}
@@ -96,12 +98,12 @@ class GoogleGeminiAdapter(BaseIntegrationAdapter):
     required_permissions = ["Generative Language API Access"]
     setup_instructions = "1. In Google AI Studio (aistudio.google.com), click Get API Key.\n2. Paste the key below."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "AIzaSy..."}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Google Gemini API key missing.", "latency_ms": 0}
@@ -129,12 +131,12 @@ class OpenRouterAdapter(BaseIntegrationAdapter):
     required_permissions = ["OpenRouter Query Access"]
     setup_instructions = "1. Sign in to openrouter.ai -> Keys.\n2. Create key and paste below."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "sk-or-v1-..."}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "OpenRouter API key missing.", "latency_ms": 0}
@@ -160,12 +162,12 @@ class OllamaLocalAdapter(BaseIntegrationAdapter):
     required_permissions = ["Localhost HTTP Connection"]
     setup_instructions = "1. Start Ollama locally ('ollama serve').\n2. Provide base URL (default: http://127.0.0.1:11434)."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "base_url", "label": "Ollama Base URL", "type": "url", "required": True, "placeholder": "http://127.0.0.1:11434"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         custom_base = (endpoint_url or credentials.get("base_url") or "http://127.0.0.1:11434").rstrip("/")
         parsed = urlparse(custom_base)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:

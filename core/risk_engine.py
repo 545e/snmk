@@ -5,9 +5,8 @@ Severity, Confidence, Exploitability (PoC, EPSS, CISA KEV), Asset Criticality,
 Exposure Surface, and Existing Defensive Mitigations.
 """
 
-from typing import Dict, Any, Optional
-from core.models import VulnerabilityFinding, Severity
 from core.intelligence_models import RiskScoreBreakdown
+from core.models import Severity, VulnerabilityFinding
 
 
 class DefensibleRiskEngine:

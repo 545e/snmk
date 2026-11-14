@@ -17,10 +17,11 @@ from __future__ import annotations
 
 import hashlib
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from collections.abc import Iterable
+from typing import Any
 from urllib.parse import urlparse
 
-SEVERITY_WEIGHTS: Dict[str, int] = {
+SEVERITY_WEIGHTS: dict[str, int] = {
     "CRITICAL": 30,
     "HIGH": 18,
     "MEDIUM": 8,
@@ -28,7 +29,7 @@ SEVERITY_WEIGHTS: Dict[str, int] = {
     "INFO": 1,
 }
 
-GRADE_BANDS: List[Tuple[int, str, str, str]] = [
+GRADE_BANDS: list[tuple[int, str, str, str]] = [
     (90, "A", "#10b981", "LOW RISK - Strong Security Posture"),
     (75, "B", "#3b82f6", "MODERATE RISK - Standard Defenses Active"),
     (60, "C", "#eab308", "ELEVATED RISK - Remediation Recommended"),
@@ -46,7 +47,7 @@ def _severity_of(finding: Any) -> str:
     return str(getattr(sev, "value", sev) or "").strip().upper()
 
 
-def severity_counts(findings: Iterable[Any]) -> Dict[str, int]:
+def severity_counts(findings: Iterable[Any]) -> dict[str, int]:
     """Count findings by canonical severity name."""
     counts = {sev: 0 for sev in _SEVERITIES}
     for finding in findings:
@@ -57,8 +58,8 @@ def severity_counts(findings: Iterable[Any]) -> Dict[str, int]:
     return counts
 
 
-def compute_posture(findings: Optional[Iterable[Any]] = None,
-                    counts: Optional[Dict[str, int]] = None) -> Dict[str, Any]:
+def compute_posture(findings: Iterable[Any] | None = None,
+                    counts: dict[str, int] | None = None) -> dict[str, Any]:
     """Compute the canonical score/grade for a collection of findings or counts."""
     if counts is None:
         counts = severity_counts(findings or [])
@@ -84,7 +85,7 @@ def compute_posture(findings: Optional[Iterable[Any]] = None,
     }
 
 
-def normalize_endpoint(endpoint: Optional[str]) -> str:
+def normalize_endpoint(endpoint: str | None) -> str:
     """Host + path, lower-cased, query/fragment stripped, for stable dedup keys."""
     raw = (endpoint or "").strip()
     if not raw:
@@ -98,7 +99,7 @@ def normalize_endpoint(endpoint: Optional[str]) -> str:
         return raw.lower()
 
 
-def canonical_finding_key(finding: Any) -> Tuple[str, str, str]:
+def canonical_finding_key(finding: Any) -> tuple[str, str, str]:
     """Cross-source deduplication key: normalized title + endpoint + parameter."""
     title = _NON_ALNUM_RE.sub(" ", str(getattr(finding, "title", "") or "").lower()).strip()
     parameter = str(getattr(finding, "parameter", "") or "").lower().strip()
@@ -116,9 +117,9 @@ def finding_evidence_hash(finding: Any) -> str:
     return hashlib.sha256(material.encode("utf-8", "replace")).hexdigest()[:16]
 
 
-def deduplicate_findings(findings: Iterable[Any]) -> List[Any]:
+def deduplicate_findings(findings: Iterable[Any]) -> list[Any]:
     """Keep the highest-confidence/first occurrence of each logical finding."""
-    seen: Dict[Tuple[str, str, str], Any] = {}
+    seen: dict[tuple[str, str, str], Any] = {}
     for finding in findings:
         if getattr(finding, "verified", True) is False:
             continue

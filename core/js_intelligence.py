@@ -13,20 +13,16 @@ Features:
 """
 
 import asyncio
-import datetime
-import html
-import json
 import math
 import os
 import re
 from bisect import bisect_right
-from typing import Dict, List, Any, Optional, Set, Tuple
-from urllib.parse import urlparse, urljoin
+from typing import Any, Optional
+from urllib.parse import urljoin
+
 import httpx
 
-from core.models import VulnerabilityFinding, Severity
 from core.pattern_gating import GateFilter
-
 
 # =====================================================================
 # 0. Line index helpers
@@ -37,7 +33,7 @@ from core.pattern_gating import GateFilter
 _LINE_BREAK_RE = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
 
 
-def _build_line_offsets(text: str) -> List[int]:
+def _build_line_offsets(text: str) -> list[int]:
     """Return the character offset of the first character of every line.
 
     Building the index is O(len(text)); resolving a line number from an
@@ -49,7 +45,7 @@ def _build_line_offsets(text: str) -> List[int]:
     return offsets
 
 
-def _extract_line(text: str, line_offsets: List[int], line_idx: int) -> str:
+def _extract_line(text: str, line_offsets: list[int], line_idx: int) -> str:
     """Return the stripped content of line ``line_idx`` using a line index."""
     start = line_offsets[line_idx]
     if line_idx + 1 < len(line_offsets):
@@ -235,7 +231,7 @@ class EndpointAndStorageExtractor:
     )
 
     @classmethod
-    def extract_endpoints_and_assets(cls, body: str, base_url: str = "") -> Dict[str, List[Dict[str, Any]]]:
+    def extract_endpoints_and_assets(cls, body: str, base_url: str = "") -> dict[str, list[dict[str, Any]]]:
         results = {
             "api_endpoints": [],
             "cloud_storage": [],
@@ -1823,15 +1819,15 @@ class JavaScriptSecretScanner:
     """
 
     # Process-wide cache of the compiled signature table (immutable after build).
-    _compiled_patterns: Optional[List[Dict[str, Any]]] = None
+    _compiled_patterns: list[dict[str, Any]] | None = None
     _gate_filter: Optional["GateFilter"] = None
 
     @classmethod
-    def _get_compiled_patterns(cls) -> List[Dict[str, Any]]:
+    def _get_compiled_patterns(cls) -> list[dict[str, Any]]:
         compiled_table = cls._compiled_patterns
         if compiled_table is None:
             compiled_table = []
-            sources: List[str] = []
+            sources: list[str] = []
             for p in GHOSTJS_RAW_PATTERNS:
                 try:
                     # Unescape Java string escape sequences to raw regex
@@ -1868,7 +1864,7 @@ class JavaScriptSecretScanner:
         self.compiled_patterns = self._get_compiled_patterns()
         self.gate_filter = JavaScriptSecretScanner._gate_filter
 
-    def scan(self, text: str, source_url: str = "") -> List[Dict[str, Any]]:
+    def scan(self, text: str, source_url: str = "") -> list[dict[str, Any]]:
         """Scans input string against 150+ patterns with Shannon entropy suppression.
 
         Complexity: O(N) to build the line index once, then O(log N) per match to
@@ -1923,8 +1919,7 @@ class JavaScriptSecretScanner:
                     # Resolve line number via the prebuilt line index.
                     start_pos = match.start()
                     line_idx = bisect_right(line_offsets, start_pos) - 1
-                    if line_idx < 0:
-                        line_idx = 0
+                    line_idx = max(line_idx, 0)
                     line_num = line_idx + 1
                     snippet = _extract_line(text, line_offsets, line_idx)[:180]
 
@@ -1966,7 +1961,7 @@ class GhostJsAnalyzer:
         self.concurrency = concurrency
         self.timeout = timeout
 
-    def scan_content(self, content: str, source_url: str = "") -> Dict[str, Any]:
+    def scan_content(self, content: str, source_url: str = "") -> dict[str, Any]:
         """Scans raw JS/JSON/HTML string and extracts secrets, endpoints, and storage URLs."""
         secrets = self.scanner.scan(content, source_url=source_url)
         discovery = EndpointAndStorageExtractor.extract_endpoints_and_assets(content, base_url=source_url)
@@ -1989,7 +1984,7 @@ class GhostJsAnalyzer:
             }
         }
 
-    def scan_file(self, filepath: str) -> Dict[str, Any]:
+    def scan_file(self, filepath: str) -> dict[str, Any]:
         """Scans local JavaScript, JSON, or HTML file."""
         if not os.path.exists(filepath):
             return {"error": f"File not found: {filepath}", "secrets": []}
@@ -2000,7 +1995,7 @@ class GhostJsAnalyzer:
         except Exception as e:
             return {"error": str(e), "secrets": []}
 
-    async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> Dict[str, Any]:
+    async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> dict[str, Any]:
         """
         Fetches the target URL, inspects page content, extracts all linked JavaScript
         bundles (<script src="...">), downloads and scans each bundle concurrently.

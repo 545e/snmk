@@ -11,18 +11,15 @@ Provides automated inspection and vulnerability discovery across:
 
 import base64
 import json
-import time
-import re
-from typing import Dict, List, Any, Optional, Tuple
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
-from core.models import VulnerabilityFinding, Severity
+from core.models import Severity, VulnerabilityFinding
 
 
 class IdentityAccessAuditor:
     """Enterprise Identity, Access, and Token Security Auditor."""
 
-    def audit_jwt_token(self, token_str: str, scan_id: str = "identity_audit") -> List[VulnerabilityFinding]:
+    def audit_jwt_token(self, token_str: str, scan_id: str = "identity_audit") -> list[VulnerabilityFinding]:
         """Audits JWT token structure and headers for critical cryptographic weaknesses."""
         findings = []
         parts = token_str.strip().split(".")
@@ -108,7 +105,7 @@ class IdentityAccessAuditor:
 
         return findings
 
-    def audit_session_cookie(self, cookie_header: str, scan_id: str = "cookie_audit") -> List[VulnerabilityFinding]:
+    def audit_session_cookie(self, cookie_header: str, scan_id: str = "cookie_audit") -> list[VulnerabilityFinding]:
         """Audits session cookies for missing security flags (HttpOnly, Secure, SameSite)."""
         findings = []
         cookie_lower = cookie_header.lower()
@@ -179,7 +176,7 @@ class IdentityAccessAuditor:
 
         return findings
 
-    def audit_oauth_redirect_uri(self, auth_url: str, scan_id: str = "oauth_audit") -> List[VulnerabilityFinding]:
+    def audit_oauth_redirect_uri(self, auth_url: str, scan_id: str = "oauth_audit") -> list[VulnerabilityFinding]:
         """Audits OAuth 2.0 / OpenID Connect authorization endpoint for open redirect and CSRF risks."""
         findings = []
         parsed = urlparse(auth_url)

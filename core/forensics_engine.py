@@ -13,9 +13,10 @@ Supports:
 
 import re
 import urllib.parse
-from datetime import datetime
 from collections import Counter, defaultdict
-from typing import Dict, List, Any, Optional
+from datetime import datetime
+from typing import Any
+
 
 class ForensicsEngine:
     """
@@ -135,7 +136,7 @@ class ForensicsEngine:
         self.raw_logs = raw_logs
         self.lines = [line.strip() for line in raw_logs.strip().splitlines() if line.strip()]
 
-    def analyze(self) -> Dict[str, Any]:
+    def analyze(self) -> dict[str, Any]:
         """Runs complete DFIR footprint discovery and returns structured incident analysis."""
         parsed_entries = []
         attack_footprints = []
@@ -214,7 +215,7 @@ class ForensicsEngine:
             "containment_playbook": self._generate_containment_playbook(top_ips, category_counter)
         }
 
-    def _parse_line(self, line: str) -> Optional[Dict[str, Any]]:
+    def _parse_line(self, line: str) -> dict[str, Any] | None:
         """Parses combined, IIS, or syslog formats."""
         # 1. Combined/Apache/Nginx
         m = self.REGEX_COMBINED.match(line)
@@ -269,7 +270,7 @@ class ForensicsEngine:
 
         return None
 
-    def _fallback_parse(self, line: str) -> Dict[str, Any]:
+    def _fallback_parse(self, line: str) -> dict[str, Any]:
         """Simple heuristic extractor when log format doesn't match standard regex."""
         ip_match = re.search(r'\b(?:\d{1,3}\.){3}\d{1,3}\b', line)
         ip = ip_match.group(0) if ip_match else "0.0.0.0"
@@ -295,7 +296,7 @@ class ForensicsEngine:
             "referer": ""
         }
 
-    def _check_footprints(self, entry: Dict[str, Any], raw_line: str) -> List[Dict[str, Any]]:
+    def _check_footprints(self, entry: dict[str, Any], raw_line: str) -> list[dict[str, Any]]:
         """Matches log entry against threat patterns."""
         footprints = []
         uri = entry.get("uri") or ""
@@ -333,7 +334,7 @@ class ForensicsEngine:
 
         return footprints
 
-    def _detect_brute_force_clustering(self, entries: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _detect_brute_force_clustering(self, entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Finds bursts of 401/403/404 on login paths from the same IP."""
         traces = []
         ip_auth_attempts = defaultdict(list)
@@ -376,7 +377,7 @@ class ForensicsEngine:
             return f"{m.group(1)}:00"
         return "Unknown"
 
-    def _evaluate_threat_level(self, footprints: List[Dict[str, Any]], severity_counter: Counter) -> Dict[str, str]:
+    def _evaluate_threat_level(self, footprints: list[dict[str, Any]], severity_counter: Counter) -> dict[str, str]:
         """Calculates global DFIR severity posture."""
         has_critical_success = any(fp.get("potential_success") and fp["severity"] == "CRITICAL" for fp in footprints)
 
@@ -405,7 +406,7 @@ class ForensicsEngine:
                 "advice": "Log patterns appear consistent with standard benign traffic. Continue periodic audits and log archival."
             }
 
-    def _generate_containment_playbook(self, top_ips: List[Dict[str, Any]], category_counter: Counter) -> List[Dict[str, str]]:
+    def _generate_containment_playbook(self, top_ips: list[dict[str, Any]], category_counter: Counter) -> list[dict[str, str]]:
         """Produces cross-platform incident response containment steps."""
         steps = []
 

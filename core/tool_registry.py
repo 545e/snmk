@@ -4,9 +4,10 @@ Registers every implemented offensive, defensive, reconnaissance, forensics,
 data management, AI training, and LLM security testing capability with full metadata.
 """
 
-from typing import Dict, Any, List, Optional, Callable
-from pydantic import BaseModel, Field
 import datetime
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class ToolMetadata(BaseModel):
@@ -15,11 +16,11 @@ class ToolMetadata(BaseModel):
     category: str # "soc", "recon", "websec", "blue_team", "ai_security"
     description: str
     purpose: str
-    input_schema: Dict[str, Any]
-    output_schema: Dict[str, Any]
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any]
     backend_handler: str # Module & function path or endpoint
-    required_dependencies: List[str] = Field(default_factory=list)
-    optional_credentials: List[str] = Field(default_factory=list)
+    required_dependencies: list[str] = Field(default_factory=list)
+    optional_credentials: list[str] = Field(default_factory=list)
     authorization_required: bool = False
     authorization_scope: str = "user" # "public", "user", "authorized_lab", "admin"
     supports_cancellation: bool = True
@@ -31,22 +32,22 @@ class ToolMetadata(BaseModel):
 
 class ToolRegistry:
     def __init__(self):
-        self._tools: Dict[str, ToolMetadata] = {}
+        self._tools: dict[str, ToolMetadata] = {}
         self._init_registry()
 
     def register(self, tool: ToolMetadata):
         self._tools[tool.id] = tool
 
-    def get(self, tool_id: str) -> Optional[ToolMetadata]:
+    def get(self, tool_id: str) -> ToolMetadata | None:
         return self._tools.get(tool_id)
 
-    def list_all(self, category: Optional[str] = None) -> List[ToolMetadata]:
+    def list_all(self, category: str | None = None) -> list[ToolMetadata]:
         tools = list(self._tools.values())
         if category:
             tools = [t for t in tools if t.category == category]
         return tools
 
-    def list_tools(self, category: Optional[str] = None) -> List[ToolMetadata]:
+    def list_tools(self, category: str | None = None) -> list[ToolMetadata]:
         return self.list_all(category)
 
     def _init_registry(self):
@@ -337,11 +338,10 @@ class ToolRegistry:
         ))
 
 
-    def update_all_tools(self) -> Dict[str, Any]:
+    def update_all_tools(self) -> dict[str, Any]:
         """Updates metadata, version, and sync status for all registered tools."""
-        import datetime
         updated = []
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
         for tool_id, tool in self._tools.items():
             tool.version = "2.3.0"
             tool.status = "active"

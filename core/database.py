@@ -18,43 +18,26 @@ Thread-safe SQLite storage for scans, vulnerability findings, logs, and system s
 
 
 
-import sqlite3
-
-
-
-import json
-
-
-
-import os
-
-
-
-import time
-import threading
-import uuid
-
-
-
 import contextlib
-
-
-
 import datetime
+import json
+import os
+import sqlite3
+import threading
+import time
+import uuid
+from typing import Any
 
-
-
-from typing import List, Optional, Dict, Any, Tuple
-
-
-
-from core.models import ScanJob, VulnerabilityFinding, LogEvent, ScanStatus, ScanProfile, Severity, ScanConfig, ReconResult
-
-
-
-
-
-
+from core.models import (
+    LogEvent,
+    ReconResult,
+    ScanConfig,
+    ScanJob,
+    ScanProfile,
+    ScanStatus,
+    Severity,
+    VulnerabilityFinding,
+)
 
 DB_PATH = os.getenv("SWA_DB_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "swa_data.db"))
 
@@ -72,7 +55,7 @@ class Database:
     # refresh is not forced.  The orchestrator forces a refresh when the
     # scan finishes, so the published counters are always exact.
     _SCAN_COUNTS_COALESCE_SEC = 0.25
-    _scan_counts_refresh: Dict[str, float] = {}
+    _scan_counts_refresh: dict[str, float] = {}
 
 
 
@@ -152,7 +135,7 @@ class Database:
 
 
 
-    def check_health(self, deep: bool = False) -> Dict[str, Any]:
+    def check_health(self, deep: bool = False) -> dict[str, Any]:
         """Validates database connectivity and returns table integrity metrics.
 
         ``deep=True`` runs a full ``PRAGMA quick_check`` integrity scan.  The
@@ -3487,7 +3470,7 @@ class Database:
 
 
 
-    def update_scan_progress(self, scan_id: str, progress: int, phase: str, error: Optional[str] = None):
+    def update_scan_progress(self, scan_id: str, progress: int, phase: str, error: str | None = None):
 
 
 
@@ -3527,7 +3510,7 @@ class Database:
 
 
 
-    def update_scan_status(self, scan_id: str, status: ScanStatus, started_at: Optional[str] = None, completed_at: Optional[str] = None, duration_seconds: Optional[float] = None):
+    def update_scan_status(self, scan_id: str, status: ScanStatus, started_at: str | None = None, completed_at: str | None = None, duration_seconds: float | None = None):
 
 
 
@@ -3738,7 +3721,7 @@ class Database:
 
 
 
-    def get_scan(self, scan_id: str) -> Optional[ScanJob]:
+    def get_scan(self, scan_id: str) -> ScanJob | None:
 
 
 
@@ -3774,7 +3757,7 @@ class Database:
 
 
 
-    def list_scans(self, limit: Optional[int] = None, offset: int = 0) -> List[ScanJob]:
+    def list_scans(self, limit: int | None = None, offset: int = 0) -> list[ScanJob]:
         """Return assessment scans, newest first, optionally paginated.
 
         ``offset`` allows callers to page without loading the complete
@@ -3803,7 +3786,7 @@ class Database:
 
 
 
-    def get_scans(self, limit: Optional[int] = None) -> List[ScanJob]:
+    def get_scans(self, limit: int | None = None) -> list[ScanJob]:
 
 
 
@@ -3815,7 +3798,7 @@ class Database:
 
 
 
-    def get_findings_by_scan(self, scan_id: str) -> List[VulnerabilityFinding]:
+    def get_findings_by_scan(self, scan_id: str) -> list[VulnerabilityFinding]:
 
 
 
@@ -4034,9 +4017,9 @@ class Database:
             conn.commit()
             return cursor.rowcount
 
-    def list_findings(self, scan_id: Optional[str] = None,
-                      limit: Optional[int] = None,
-                      offset: int = 0) -> List[VulnerabilityFinding]:
+    def list_findings(self, scan_id: str | None = None,
+                      limit: int | None = None,
+                      offset: int = 0) -> list[VulnerabilityFinding]:
         """Return findings, optionally scoped to a scan and paginated.
 
         ``limit`` is optional for backwards compatibility, but every
@@ -4098,7 +4081,7 @@ class Database:
 
 
 
-    def get_finding(self, finding_id: str) -> Optional[VulnerabilityFinding]:
+    def get_finding(self, finding_id: str) -> VulnerabilityFinding | None:
 
 
 
@@ -4198,7 +4181,7 @@ class Database:
 
 
 
-    def get_logs(self, scan_id: str, limit: int = 500) -> List[LogEvent]:
+    def get_logs(self, scan_id: str, limit: int = 500) -> list[LogEvent]:
 
 
 
@@ -4282,7 +4265,7 @@ class Database:
 
 
 
-    def get_setting(self, key: str, default: Optional[str] = None) -> Optional[str]:
+    def get_setting(self, key: str, default: str | None = None) -> str | None:
 
 
 
@@ -4318,7 +4301,7 @@ class Database:
 
 
 
-    def get_settings(self) -> Dict[str, Any]:
+    def get_settings(self) -> dict[str, Any]:
 
 
 
@@ -4370,7 +4353,7 @@ class Database:
 
 
 
-    def get_all_settings(self) -> Dict[str, Any]:
+    def get_all_settings(self) -> dict[str, Any]:
 
 
 
@@ -4778,7 +4761,7 @@ class Database:
 
 
 
-    def save_asset(self, asset: Dict[str, Any]):
+    def save_asset(self, asset: dict[str, Any]):
 
 
 
@@ -4910,7 +4893,7 @@ class Database:
 
 
 
-    def get_assets(self, parent_domain: Optional[str] = None, limit: int = 200, offset: int = 0) -> List[Dict[str, Any]]:
+    def get_assets(self, parent_domain: str | None = None, limit: int = 200, offset: int = 0) -> list[dict[str, Any]]:
 
 
 
@@ -5018,7 +5001,7 @@ class Database:
 
 
 
-    def finding_severity_counts(self) -> Dict[str, int]:
+    def finding_severity_counts(self) -> dict[str, int]:
 
         """Return ``{severity: count}`` for every finding (single grouped scan).
 
@@ -5026,7 +5009,7 @@ class Database:
         Python only to count it.
         """
 
-        counts: Dict[str, int] = {}
+        counts: dict[str, int] = {}
 
         with self.get_connection() as conn:
 
@@ -5039,7 +5022,7 @@ class Database:
 
         return counts
 
-    def count_assets(self, parent_domain: Optional[str] = None) -> int:
+    def count_assets(self, parent_domain: str | None = None) -> int:
 
 
 
@@ -5175,7 +5158,7 @@ class Database:
 
 
 
-    def get_dataset(self, dataset_id: str) -> Optional[Any]:
+    def get_dataset(self, dataset_id: str) -> Any | None:
 
 
 
@@ -5299,7 +5282,7 @@ class Database:
 
 
 
-    def list_datasets(self) -> List[Any]:
+    def list_datasets(self) -> list[Any]:
 
 
 
@@ -5563,11 +5546,11 @@ class Database:
 
 
 
-    def get_training_job(self, job_id: str) -> Optional[Any]:
+    def get_training_job(self, job_id: str) -> Any | None:
 
 
 
-        from core.ai_training import TrainingJob, TrainingConfig
+        from core.ai_training import TrainingConfig, TrainingJob
 
 
 
@@ -5687,11 +5670,11 @@ class Database:
 
 
 
-    def list_training_jobs(self) -> List[Any]:
+    def list_training_jobs(self) -> list[Any]:
 
 
 
-        from core.ai_training import TrainingJob, TrainingConfig
+        from core.ai_training import TrainingConfig, TrainingJob
 
 
 
@@ -5915,7 +5898,7 @@ class Database:
 
 
 
-    def list_ai_evaluations(self) -> List[Dict[str, Any]]:
+    def list_ai_evaluations(self) -> list[dict[str, Any]]:
 
 
 
@@ -6055,7 +6038,7 @@ class Database:
 
 
 
-    def get_llm_security_tests(self, run_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_llm_security_tests(self, run_id: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -6111,7 +6094,7 @@ class Database:
 
 
 
-    def save_cyber_export(self, item: Dict[str, Any]):
+    def save_cyber_export(self, item: dict[str, Any]):
 
 
 
@@ -6179,7 +6162,7 @@ class Database:
 
 
 
-    def get_cyber_exports(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_cyber_exports(self, limit: int = 50) -> list[dict[str, Any]]:
 
 
 
@@ -6207,7 +6190,7 @@ class Database:
 
 
 
-    def get_cyber_export_by_id(self, export_id: str) -> Optional[Dict[str, Any]]:
+    def get_cyber_export_by_id(self, export_id: str) -> dict[str, Any] | None:
 
 
 
@@ -6247,7 +6230,7 @@ class Database:
 
 
 
-    def save_cyber_test_run(self, item: Dict[str, Any]):
+    def save_cyber_test_run(self, item: dict[str, Any]):
 
 
 
@@ -6315,7 +6298,7 @@ class Database:
 
 
 
-    def get_cyber_test_runs(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_cyber_test_runs(self, limit: int = 50) -> list[dict[str, Any]]:
 
 
 
@@ -6343,7 +6326,7 @@ class Database:
 
 
 
-    def get_cyber_test_run(self, run_id: str) -> Optional[Dict[str, Any]]:
+    def get_cyber_test_run(self, run_id: str) -> dict[str, Any] | None:
 
 
 
@@ -6371,7 +6354,7 @@ class Database:
 
 
 
-    def save_cyber_test_results(self, results: List[Dict[str, Any]]):
+    def save_cyber_test_results(self, results: list[dict[str, Any]]):
 
 
 
@@ -6439,7 +6422,7 @@ class Database:
 
 
 
-    def get_cyber_test_results(self, run_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_cyber_test_results(self, run_id: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -6491,7 +6474,7 @@ class Database:
 
 
 
-    def save_cyber_deployment(self, item: Dict[str, Any]):
+    def save_cyber_deployment(self, item: dict[str, Any]):
 
 
 
@@ -6559,7 +6542,7 @@ class Database:
 
 
 
-    def get_cyber_deployments(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def get_cyber_deployments(self, limit: int = 50) -> list[dict[str, Any]]:
 
 
 
@@ -6587,7 +6570,7 @@ class Database:
 
 
 
-    def get_cyber_deployment(self, dep_id: str) -> Optional[Dict[str, Any]]:
+    def get_cyber_deployment(self, dep_id: str) -> dict[str, Any] | None:
 
 
 
@@ -6649,7 +6632,7 @@ class Database:
 
 
 
-        now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_ts = datetime.datetime.now(datetime.UTC).isoformat()
 
 
 
@@ -6689,7 +6672,7 @@ class Database:
 
 
 
-    def get_audit_logs(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_audit_logs(self, limit: int = 100) -> list[dict[str, Any]]:
 
 
 
@@ -6733,7 +6716,7 @@ class Database:
 
 
 
-    def get_workspaces(self) -> List[Dict[str, Any]]:
+    def get_workspaces(self) -> list[dict[str, Any]]:
 
 
 
@@ -6757,7 +6740,7 @@ class Database:
 
 
 
-    def get_workspace(self, workspace_id: str) -> Optional[Dict[str, Any]]:
+    def get_workspace(self, workspace_id: str) -> dict[str, Any] | None:
 
 
 
@@ -6785,7 +6768,7 @@ class Database:
 
 
 
-    def save_workspace(self, workspace: Dict[str, Any]):
+    def save_workspace(self, workspace: dict[str, Any]):
 
 
 
@@ -6817,7 +6800,7 @@ class Database:
 
 
 
-                  workspace.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())))
+                  workspace.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())))
 
 
 
@@ -6829,7 +6812,7 @@ class Database:
 
 
 
-    def get_projects(self, workspace_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_projects(self, workspace_id: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -6865,7 +6848,7 @@ class Database:
 
 
 
-    def get_project(self, project_id: str) -> Optional[Dict[str, Any]]:
+    def get_project(self, project_id: str) -> dict[str, Any] | None:
 
 
 
@@ -6893,7 +6876,7 @@ class Database:
 
 
 
-    def save_project(self, project: Dict[str, Any]):
+    def save_project(self, project: dict[str, Any]):
 
 
 
@@ -6929,7 +6912,7 @@ class Database:
 
 
 
-                  project.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())))
+                  project.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())))
 
 
 
@@ -6953,7 +6936,7 @@ class Database:
 
 
 
-    def get_global_context(self, user_id: str = "default_user") -> Dict[str, Any]:
+    def get_global_context(self, user_id: str = "default_user") -> dict[str, Any]:
 
 
 
@@ -7021,7 +7004,7 @@ class Database:
 
 
 
-                "updated_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                "updated_at": datetime.datetime.now(datetime.UTC).isoformat()
 
 
 
@@ -7033,7 +7016,7 @@ class Database:
 
 
 
-    def save_global_context(self, context: Dict[str, Any], user_id: str = "default_user"):
+    def save_global_context(self, context: dict[str, Any], user_id: str = "default_user"):
 
 
 
@@ -7045,7 +7028,7 @@ class Database:
 
 
 
-            now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
 
 
@@ -7121,7 +7104,7 @@ class Database:
 
 
 
-    def create_approval_request(self, req: Dict[str, Any]) -> str:
+    def create_approval_request(self, req: dict[str, Any]) -> str:
 
 
 
@@ -7185,7 +7168,7 @@ class Database:
 
 
 
-                req.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                req.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())
 
 
 
@@ -7205,7 +7188,7 @@ class Database:
 
 
 
-    def get_approval_requests(self, status: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_approval_requests(self, status: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -7277,7 +7260,7 @@ class Database:
 
 
 
-    def get_approval_request(self, req_id: str) -> Optional[Dict[str, Any]]:
+    def get_approval_request(self, req_id: str) -> dict[str, Any] | None:
 
 
 
@@ -7345,7 +7328,7 @@ class Database:
 
 
 
-            now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
 
 
@@ -7393,7 +7376,7 @@ class Database:
 
 
 
-    def upsert_knowledge_node(self, node: Dict[str, Any]):
+    def upsert_knowledge_node(self, node: dict[str, Any]):
 
 
 
@@ -7441,7 +7424,7 @@ class Database:
 
 
 
-                node.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                node.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())
 
 
 
@@ -7457,7 +7440,7 @@ class Database:
 
 
 
-    def upsert_knowledge_edge(self, edge: Dict[str, Any]):
+    def upsert_knowledge_edge(self, edge: dict[str, Any]):
 
 
 
@@ -7505,7 +7488,7 @@ class Database:
 
 
 
-                edge.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                edge.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())
 
 
 
@@ -7521,7 +7504,7 @@ class Database:
 
 
 
-    def get_knowledge_graph(self) -> Dict[str, Any]:
+    def get_knowledge_graph(self) -> dict[str, Any]:
 
 
 
@@ -7661,7 +7644,7 @@ class Database:
 
 
 
-    def save_drift_event(self, event: Dict[str, Any]):
+    def save_drift_event(self, event: dict[str, Any]):
 
 
 
@@ -7741,7 +7724,7 @@ class Database:
 
 
 
-                event.get("detected_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                event.get("detected_at", datetime.datetime.now(datetime.UTC).isoformat())
 
 
 
@@ -7757,7 +7740,7 @@ class Database:
 
 
 
-    def get_drift_events(self, limit: int = 100, project_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_drift_events(self, limit: int = 100, project_id: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -7861,7 +7844,7 @@ class Database:
 
 
 
-    def save_remediation_ticket(self, ticket: Dict[str, Any]):
+    def save_remediation_ticket(self, ticket: dict[str, Any]):
 
 
 
@@ -7961,11 +7944,11 @@ class Database:
 
 
 
-                ticket.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat()),
+                ticket.get("created_at", datetime.datetime.now(datetime.UTC).isoformat()),
 
 
 
-                ticket.get("updated_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                ticket.get("updated_at", datetime.datetime.now(datetime.UTC).isoformat())
 
 
 
@@ -7981,7 +7964,7 @@ class Database:
 
 
 
-    def get_remediation_tickets(self, status: Optional[str] = None, scan_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_remediation_tickets(self, status: str | None = None, scan_id: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -8077,7 +8060,7 @@ class Database:
 
 
 
-    def get_remediation_ticket(self, ticket_id: str) -> Optional[Dict[str, Any]]:
+    def get_remediation_ticket(self, ticket_id: str) -> dict[str, Any] | None:
 
 
 
@@ -8153,7 +8136,7 @@ class Database:
 
 
 
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
 
 
@@ -8265,7 +8248,7 @@ class Database:
 
 
 
-    def save_report_record(self, report: Dict[str, Any]):
+    def save_report_record(self, report: dict[str, Any]):
 
 
 
@@ -8345,7 +8328,7 @@ class Database:
 
 
 
-                report.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                report.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())
 
 
 
@@ -8361,7 +8344,7 @@ class Database:
 
 
 
-    def get_report_records(self, limit: int = 50, template_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_report_records(self, limit: int = 50, template_type: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -8397,7 +8380,7 @@ class Database:
 
 
 
-    def get_report_record(self, report_id: str) -> Optional[Dict[str, Any]]:
+    def get_report_record(self, report_id: str) -> dict[str, Any] | None:
 
 
 
@@ -8422,7 +8405,7 @@ class Database:
     # -------------------------------------------------------------
     # Professional Vulnerability Assessment Reports (Nessus-Style)
     # -------------------------------------------------------------
-    def save_vuln_assessment_report(self, report: Dict[str, Any]):
+    def save_vuln_assessment_report(self, report: dict[str, Any]):
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
@@ -8446,11 +8429,11 @@ class Database:
                 report.get("file_size", 0),
                 report.get("config_json", ""),
                 report.get("created_by", "SWA Vulnerability Assessment Engine"),
-                report.get("created_at", datetime.datetime.now(datetime.timezone.utc).isoformat())
+                report.get("created_at", datetime.datetime.now(datetime.UTC).isoformat())
             ))
             conn.commit()
 
-    def list_vuln_assessment_reports(self, limit: int = 50, scan_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def list_vuln_assessment_reports(self, limit: int = 50, scan_id: str | None = None) -> list[dict[str, Any]]:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             if scan_id:
@@ -8466,7 +8449,7 @@ class Database:
                 ''', (limit,))
             return [dict(row) for row in cursor.fetchall()]
 
-    def get_vuln_assessment_report(self, report_id: str) -> Optional[Dict[str, Any]]:
+    def get_vuln_assessment_report(self, report_id: str) -> dict[str, Any] | None:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM vulnerability_assessment_reports WHERE id = ?", (report_id,))
@@ -8499,7 +8482,7 @@ class Database:
 
 
 
-    def save_agent_task(self, task: Dict[str, Any]):
+    def save_agent_task(self, task: dict[str, Any]):
 
 
 
@@ -8595,7 +8578,7 @@ class Database:
 
 
 
-    def get_agent_task_metrics(self) -> Dict[str, Any]:
+    def get_agent_task_metrics(self) -> dict[str, Any]:
         """Return exact aggregate metrics for the agent task history.
 
         The previous implementation derived the "aggregated usage metrics"
@@ -8606,7 +8589,7 @@ class Database:
         """
         with self.get_connection() as conn:
             total = int(conn.execute("SELECT COUNT(*) FROM agent_tasks").fetchone()[0])
-            by_status: Dict[str, int] = {}
+            by_status: dict[str, int] = {}
             for row in conn.execute(
                 "SELECT UPPER(COALESCE(status, '')) AS s, COUNT(*) AS c "
                 "FROM agent_tasks GROUP BY s"
@@ -8625,7 +8608,7 @@ class Database:
             "avg_duration_seconds": float(avg_duration) if avg_duration is not None else None,
         }
 
-    def get_agent_tasks(self, scan_id: Optional[str] = None, agent_role: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_agent_tasks(self, scan_id: str | None = None, agent_role: str | None = None) -> list[dict[str, Any]]:
 
 
 
@@ -8761,23 +8744,23 @@ class Database:
 
 
 
-        tier: Optional[str] = None,
+        tier: str | None = None,
 
 
 
-        category: Optional[str] = None,
+        category: str | None = None,
 
 
 
-        status: Optional[str] = None,
+        status: str | None = None,
 
 
 
-        search: Optional[str] = None
+        search: str | None = None
 
 
 
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
 
 
 
@@ -8957,7 +8940,7 @@ class Database:
 
 
 
-    def backup_database(self, backup_path: Optional[str] = None) -> str:
+    def backup_database(self, backup_path: str | None = None) -> str:
 
 
 
@@ -8989,7 +8972,7 @@ class Database:
 
 
 
-            timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
 
 
 
@@ -9041,7 +9024,7 @@ class Database:
 
 
 
-    def create_ai_agent(self, data: Dict[str, Any]) -> str:
+    def create_ai_agent(self, data: dict[str, Any]) -> str:
 
         with self.get_connection() as conn:
 
@@ -9049,7 +9032,7 @@ class Database:
 
             agent_id = data.get("id") or f"agent_{uuid.uuid4().hex[:10]}"
 
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now = datetime.datetime.now(datetime.UTC).isoformat()
 
             
 
@@ -9113,7 +9096,7 @@ class Database:
 
 
 
-    def get_ai_agent(self, agent_id: str, include_encrypted_key: bool = False) -> Optional[Dict[str, Any]]:
+    def get_ai_agent(self, agent_id: str, include_encrypted_key: bool = False) -> dict[str, Any] | None:
 
         with self.get_connection() as conn:
 
@@ -9139,7 +9122,7 @@ class Database:
 
 
 
-    def list_ai_agents(self, enabled_only: bool = False) -> List[Dict[str, Any]]:
+    def list_ai_agents(self, enabled_only: bool = False) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9173,7 +9156,7 @@ class Database:
 
 
 
-    def update_ai_agent(self, agent_id: str, updates: Dict[str, Any]) -> bool:
+    def update_ai_agent(self, agent_id: str, updates: dict[str, Any]) -> bool:
 
         with self.get_connection() as conn:
 
@@ -9217,7 +9200,7 @@ class Database:
 
             set_clauses.append("updated_at = ?")
 
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now = datetime.datetime.now(datetime.UTC).isoformat()
 
             params.append(now)
 
@@ -9225,7 +9208,7 @@ class Database:
 
             
 
-            cursor.execute(f"UPDATE ai_agents SET {', '.join(set_clauses)} WHERE id = ?", tuple(params))
+            cursor.execute(f"UPDATE ai_agents SET {', '.join(set_clauses)} WHERE id = ?", tuple(params))  # nosec B608 - columns strictly allowlisted against allowed_cols
 
             conn.commit()
 
@@ -9271,7 +9254,7 @@ class Database:
 
 
 
-    def get_default_ai_agent(self, include_encrypted_key: bool = False) -> Optional[Dict[str, Any]]:
+    def get_default_ai_agent(self, include_encrypted_key: bool = False) -> dict[str, Any] | None:
 
         with self.get_connection() as conn:
 
@@ -9311,15 +9294,15 @@ class Database:
 
     # -------------------------------------------------------------
 
-    def save_incident(self, incident: Dict[str, Any]) -> str:
+    def save_incident(self, incident: dict[str, Any]) -> str:
 
         with self.get_connection() as conn:
 
             cursor = conn.cursor()
 
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now = datetime.datetime.now(datetime.UTC).isoformat()
 
-            inc_id = incident.get("id") or f"inc_{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(2).hex()}"
+            inc_id = incident.get("id") or f"inc_{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}_{os.urandom(2).hex()}"
 
             cursor.execute("""
 
@@ -9367,7 +9350,7 @@ class Database:
 
 
 
-    def get_incidents(self, status: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_incidents(self, status: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9385,7 +9368,7 @@ class Database:
 
 
 
-    def get_incident(self, incident_id: str) -> Optional[Dict[str, Any]]:
+    def get_incident(self, incident_id: str) -> dict[str, Any] | None:
 
         with self.get_connection() as conn:
 
@@ -9399,13 +9382,13 @@ class Database:
 
 
 
-    def update_incident_status(self, incident_id: str, new_status: str, analyst: Optional[str] = None) -> bool:
+    def update_incident_status(self, incident_id: str, new_status: str, analyst: str | None = None) -> bool:
 
         with self.get_connection() as conn:
 
             cursor = conn.cursor()
 
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now = datetime.datetime.now(datetime.UTC).isoformat()
 
             if analyst:
 
@@ -9421,7 +9404,7 @@ class Database:
 
 
 
-    def get_detection_rules(self, category: Optional[str] = None, enabled_only: bool = False) -> List[Dict[str, Any]]:
+    def get_detection_rules(self, category: str | None = None, enabled_only: bool = False) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9455,7 +9438,7 @@ class Database:
 
             cursor = conn.cursor()
 
-            now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now = datetime.datetime.now(datetime.UTC).isoformat()
 
             cursor.execute("UPDATE detection_rules SET enabled = CASE WHEN enabled = 1 THEN 0 ELSE 1 END, updated_at = ? WHERE id = ?", (now, rule_id))
 
@@ -9465,7 +9448,7 @@ class Database:
 
 
 
-    def get_security_events(self, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_security_events(self, limit: int = 100) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9477,7 +9460,7 @@ class Database:
 
 
 
-    def get_threat_indicators(self, indicator_type: Optional[str] = None, limit: int = 100) -> List[Dict[str, Any]]:
+    def get_threat_indicators(self, indicator_type: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9495,7 +9478,7 @@ class Database:
 
 
 
-    def get_cloud_assets(self, provider: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_cloud_assets(self, provider: str | None = None) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9513,7 +9496,7 @@ class Database:
 
 
 
-    def get_container_assets(self) -> List[Dict[str, Any]]:
+    def get_container_assets(self) -> list[dict[str, Any]]:
 
         with self.get_connection() as conn:
 
@@ -9537,7 +9520,7 @@ class Database:
 
 
 
-    def get_finding_metrics(self) -> Dict[str, Any]:
+    def get_finding_metrics(self) -> dict[str, Any]:
 
         """Calculates exact counts for the 10 summary cards, severity distribution, and lifecycle status distribution."""
 
@@ -9791,17 +9774,17 @@ class Database:
 
         self,
 
-        search: Optional[str] = None,
+        search: str | None = None,
 
-        severity: Optional[str] = None,
+        severity: str | None = None,
 
-        lifecycle_status: Optional[str] = None,
+        lifecycle_status: str | None = None,
 
-        remediation_status: Optional[str] = None,
+        remediation_status: str | None = None,
 
-        poc_state: Optional[str] = None,
+        poc_state: str | None = None,
 
-        scan_id: Optional[str] = None,
+        scan_id: str | None = None,
 
         limit: int = 50,
 
@@ -9811,7 +9794,7 @@ class Database:
 
         sort_order: str = "desc"
 
-    ) -> Tuple[List[VulnerabilityFinding], int]:
+    ) -> tuple[list[VulnerabilityFinding], int]:
 
         """Advanced multi-dimensional querying for findings data table with pagination and sorting."""
 
@@ -9913,7 +9896,7 @@ class Database:
 
             # Count total matching
 
-            cursor.execute(f"SELECT COUNT(*) FROM findings {where_clause};", params)
+            cursor.execute(f"SELECT COUNT(*) FROM findings {where_clause};", params)  # nosec B608 - where_clause built strictly with parameterized ? placeholders
 
             total_count = cursor.fetchone()[0]
 
@@ -9943,6 +9926,7 @@ class Database:
 
 
 
+            # nosec B608
             query = f"""
 
                 SELECT * FROM findings 
@@ -9955,7 +9939,7 @@ class Database:
 
             """
 
-            cursor.execute(query, params + [limit, offset])
+            cursor.execute(query, params + [limit, offset])  # nosec B608 - sort_col and sort_dir strictly allowlisted, where_clause parameterized
 
             rows = cursor.fetchall()
 
@@ -9970,17 +9954,20 @@ class Database:
     def transition_finding_status(
         self,
         finding_id: str,
-        new_status: Optional[str] = None,
-        target_status: Optional[str] = None,
+        new_status: str | None = None,
+        target_status: str | None = None,
         status_type: str = "LIFECYCLE",
         reason: str = "",
         evidence: str = "",
         actor: str = "Analyst",
-        changed_by: Optional[str] = None,
+        changed_by: str | None = None,
         approval_reference: str = ""
     ):
         """Controlled, auditable status transition (§5 Status Transition Rules)."""
-        from core.intelligence_models import PERMITTED_LIFECYCLE_TRANSITIONS, PERMITTED_REMEDIATION_TRANSITIONS
+        from core.intelligence_models import (
+            PERMITTED_LIFECYCLE_TRANSITIONS,
+            PERMITTED_REMEDIATION_TRANSITIONS,
+        )
 
         actual_status = (target_status or new_status or "").upper()
         actual_actor = changed_by or actor or "Analyst"
@@ -9993,7 +9980,7 @@ class Database:
                 def get(self, k, d=None): return d
             return FailureResult()
 
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
         status_type = status_type.upper()
 
         with self.get_connection() as conn:
@@ -10073,7 +10060,7 @@ class Database:
         finding_id: str,
         reason: str,
         reviewer: str = "Senior SecOps Analyst",
-        reviewed_by: Optional[str] = None,
+        reviewed_by: str | None = None,
         notes: str = "",
         contradictory_evidence: str = "",
         is_false_positive: bool = True
@@ -10102,7 +10089,7 @@ class Database:
 
         return res
 
-    def get_finding_status_history(self, finding_id: str) -> List[Dict[str, Any]]:
+    def get_finding_status_history(self, finding_id: str) -> list[dict[str, Any]]:
         """Retrieves the chronological audit history of all status transitions for a finding."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -10139,7 +10126,7 @@ class Database:
     # Tool Dependency Manager & Tool Health Operations (§18 Database Architecture)
     # =========================================================================
 
-    def save_tool_install_job(self, job: Dict[str, Any]) -> None:
+    def save_tool_install_job(self, job: dict[str, Any]) -> None:
         """Persists or updates an installation job record."""
         logs_json = json.dumps(job.get("logs", [])) if isinstance(job.get("logs"), list) else str(job.get("logs", ""))
         with self.get_connection() as conn:
@@ -10171,18 +10158,25 @@ class Database:
                 job.get("installed_version"),
                 logs_json,
                 job.get("requested_by") or job.get("user", "admin"),
-                job.get("started_at") or datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                job.get("started_at") or datetime.datetime.now(datetime.UTC).isoformat(),
                 job.get("completed_at")
             ))
             conn.commit()
 
-    def update_tool_install_job(self, job_id: str, updates: Dict[str, Any]) -> None:
+    def update_tool_install_job(self, job_id: str, updates: dict[str, Any]) -> None:
         """Applies delta updates to an ongoing install job."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
             set_clauses = []
             params = []
+            allowed_cols = {
+                "tool_id", "tool_name", "target_version", "status", "stage",
+                "progress_percent", "error_message", "install_path",
+                "installed_version", "logs", "requested_by", "started_at", "completed_at"
+            }
             for k, v in updates.items():
+                if k not in allowed_cols:
+                    continue
                 if k == "logs" and isinstance(v, list):
                     v = json.dumps(v)
                 set_clauses.append(f"{k} = ?")
@@ -10190,10 +10184,10 @@ class Database:
             if not set_clauses:
                 return
             params.append(job_id)
-            cursor.execute(f"UPDATE tool_install_jobs SET {', '.join(set_clauses)} WHERE id = ?;", params)
+            cursor.execute(f"UPDATE tool_install_jobs SET {', '.join(set_clauses)} WHERE id = ?;", params)  # nosec B608 - columns strictly allowlisted against allowed_cols
             conn.commit()
 
-    def get_tool_install_job(self, job_id: str) -> Optional[Dict[str, Any]]:
+    def get_tool_install_job(self, job_id: str) -> dict[str, Any] | None:
         """Retrieves a single install job by ID."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -10210,7 +10204,7 @@ class Database:
                     pass
             return res
 
-    def list_tool_install_jobs(self, tool_id: Optional[str] = None, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_tool_install_jobs(self, tool_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
         """Lists recent tool installation jobs."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -10235,7 +10229,7 @@ class Database:
                 jobs.append(item)
             return jobs
 
-    def save_tool_health_snapshot(self, snapshot: Dict[str, Any]) -> None:
+    def save_tool_health_snapshot(self, snapshot: dict[str, Any]) -> None:
         """Persists a Level 1-5 health diagnostic snapshot."""
         import uuid
         snap_id = snapshot.get("id") or f"ths_{uuid.uuid4().hex[:12]}"
@@ -10264,11 +10258,11 @@ class Database:
                 checks_failed_str,
                 snapshot.get("remediation_advice") or snapshot.get("remediation"),
                 diag_str,
-                snapshot.get("last_checked") or snapshot.get("timestamp") or datetime.datetime.now(datetime.timezone.utc).isoformat()
+                snapshot.get("last_checked") or snapshot.get("timestamp") or datetime.datetime.now(datetime.UTC).isoformat()
             ))
             conn.commit()
 
-    def get_latest_tool_health_snapshots(self) -> Dict[str, Dict[str, Any]]:
+    def get_latest_tool_health_snapshots(self) -> dict[str, dict[str, Any]]:
         """Retrieves the most recent health snapshot for every tool."""
         with self.get_connection() as conn:
             cursor = conn.cursor()
@@ -10294,7 +10288,7 @@ class Database:
                 snapshots[item["tool_id"]] = item
             return snapshots
 
-    def get_tool_health_history(self, tool_id: str, limit: int = 20) -> List[Dict[str, Any]]:
+    def get_tool_health_history(self, tool_id: str, limit: int = 20) -> list[dict[str, Any]]:
         """Retrieves chronological health history for a specific tool."""
         with self.get_connection() as conn:
             cursor = conn.cursor()

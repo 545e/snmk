@@ -8,13 +8,10 @@ Integrates with SWA encrypted credential vault.
 from __future__ import annotations
 
 import datetime
-import hashlib
 import time
-from typing import Any, Dict, List, Optional
-import httpx
+from typing import Any
 
 from core.integrations.registry import integration_registry as registry
-from core.kill_chain.models import ThreatIndicator, KillChainStageEnum
 
 
 class ThreatIntelligenceEngine:
@@ -25,9 +22,9 @@ class ThreatIntelligenceEngine:
 
     def __init__(self, cache_ttl_seconds: int = 3600):
         self.cache_ttl = cache_ttl_seconds
-        self._cache: Dict[str, Dict[str, Any]] = {}
+        self._cache: dict[str, dict[str, Any]] = {}
 
-    def lookup_indicator(self, indicator_type: str, value: str) -> Dict[str, Any]:
+    def lookup_indicator(self, indicator_type: str, value: str) -> dict[str, Any]:
         """
         Looks up an IP, domain, URL, or file hash.
         Checks local cache first, then dispatches to configured providers.
@@ -43,7 +40,7 @@ class ThreatIntelligenceEngine:
                 return entry["data"]
 
         # Default neutral result
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "indicator_type": itype,
             "value": val,
             "reputation_score": 0.0,
@@ -53,7 +50,7 @@ class ThreatIntelligenceEngine:
             "threat_actor": None,
             "malware_family": None,
             "details": {},
-            "checked_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "checked_at": datetime.datetime.now(datetime.UTC).isoformat(),
         }
 
         # Check CISA KEV / NVD for CVEs
@@ -132,7 +129,7 @@ class ThreatIntelligenceEngine:
         self._cache[cache_key] = {"data": result, "timestamp": now}
         return result
 
-    def get_provider_health(self) -> List[Dict[str, Any]]:
+    def get_provider_health(self) -> list[dict[str, Any]]:
         """Returns connection and configuration status for all threat intel providers."""
         configured = registry.list_configured_integrations()
         providers = [

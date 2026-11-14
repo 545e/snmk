@@ -9,7 +9,8 @@ from __future__ import annotations
 import ipaddress
 import logging
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import httpx
 
 from core.network.models import GeolocationInfo
@@ -161,7 +162,7 @@ class GeolocationEngine:
             confidence="Unavailable"
         )
 
-    async def forward_geocode(self, address_or_place: str) -> Dict[str, Any]:
+    async def forward_geocode(self, address_or_place: str) -> dict[str, Any]:
         """Forward geocoding: Place/Address -> Latitude + Longitude."""
         query = address_or_place.strip()
         try:
@@ -187,7 +188,7 @@ class GeolocationEngine:
 
         return {"success": False, "query": query, "message": "Geocoding query could not be resolved."}
 
-    async def reverse_geocode(self, latitude: float, longitude: float) -> Dict[str, Any]:
+    async def reverse_geocode(self, latitude: float, longitude: float) -> dict[str, Any]:
         """Reverse geocoding: Latitude + Longitude -> Geographic Address."""
         try:
             async with httpx.AsyncClient(headers={"User-Agent": "SNMK-MAP-Intelligence/2.2"}, timeout=5.0) as client:

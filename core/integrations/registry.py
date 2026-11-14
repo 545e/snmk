@@ -10,10 +10,9 @@ import asyncio
 import json
 import logging
 import sqlite3
-import time
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 import uuid
+from datetime import UTC, datetime
+from typing import Any
 
 from core.credentials import credentials_vault, mask_secret
 from core.database import db
@@ -50,14 +49,14 @@ logger = logging.getLogger("swa.integrations")
 
 
 def _utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 class IntegrationRegistry:
     """Singleton registry holding all active integration adapters and handling database persistence."""
 
     def __init__(self):
-        self._adapters: Dict[str, BaseIntegrationAdapter] = {}
+        self._adapters: dict[str, BaseIntegrationAdapter] = {}
         self._register_defaults()
         self._ensure_tables()
 
@@ -130,10 +129,10 @@ class IntegrationRegistry:
             )
             conn.commit()
 
-    def get_adapter(self, provider_id: str) -> Optional[BaseIntegrationAdapter]:
+    def get_adapter(self, provider_id: str) -> BaseIntegrationAdapter | None:
         return self._adapters.get(provider_id.lower())
 
-    def list_supported_providers(self) -> List[Dict[str, Any]]:
+    def list_supported_providers(self) -> list[dict[str, Any]]:
         """Returns metadata for all available integrations with setup guides and required fields."""
         out = []
         for p_id, adapter in sorted(self._adapters.items(), key=lambda x: (x[1].category, x[1].display_name)):
@@ -149,7 +148,7 @@ class IntegrationRegistry:
             })
         return out
 
-    def list_configured_integrations(self) -> List[Dict[str, Any]]:
+    def list_configured_integrations(self) -> list[dict[str, Any]]:
         """Returns list of all configured integrations with masked secrets."""
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -158,7 +157,7 @@ class IntegrationRegistry:
             cred_rows = conn.execute(
                 "SELECT integration_id, field_key, masked_value FROM encrypted_credentials"
             ).fetchall()
-            cred_index: Dict[str, Dict[str, str]] = {}
+            cred_index: dict[str, dict[str, str]] = {}
             for c in cred_rows:
                 cred_index.setdefault(c["integration_id"], {})[c["field_key"]] = c["masked_value"]
             results = []
@@ -172,7 +171,7 @@ class IntegrationRegistry:
                 results.append(row_dict)
             return results
 
-    def get_integration(self, integration_id: str) -> Optional[Dict[str, Any]]:
+    def get_integration(self, integration_id: str) -> dict[str, Any] | None:
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
             r = conn.execute("SELECT * FROM integrations WHERE id = ?", (integration_id,)).fetchone()
@@ -193,14 +192,14 @@ class IntegrationRegistry:
     def save_integration(
         self,
         provider_id: str,
-        display_name: Optional[str] = None,
-        credentials: Optional[Dict[str, str]] = None,
-        endpoint_url: Optional[str] = None,
-        config: Optional[Dict[str, Any]] = None,
-        integration_id: Optional[str] = None,
+        display_name: str | None = None,
+        credentials: dict[str, str] | None = None,
+        endpoint_url: str | None = None,
+        config: dict[str, Any] | None = None,
+        integration_id: str | None = None,
         enabled: bool = True,
         actor: str = "operator"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Saves or updates an integration with encrypted credentials at rest."""
         adapter = self.get_adapter(provider_id)
         if not adapter:
@@ -285,9 +284,9 @@ class IntegrationRegistry:
     def rotate_credential(
         self,
         integration_id: str,
-        new_credentials: Dict[str, str],
+        new_credentials: dict[str, str],
         actor: str = "operator"
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Rotates secrets for an existing integration without destroying previous metadata."""
         integ = self.get_integration(integration_id)
         if not integ:
@@ -324,7 +323,7 @@ class IntegrationRegistry:
 
         return self.get_integration(integration_id)
 
-    def get_active_credential(self, provider_id: str) -> Optional[Dict[str, str]]:
+    def get_active_credential(self, provider_id: str) -> dict[str, str] | None:
         """Returns decrypted credentials for the active/enabled integration of provider_id.
         Never exposed over API responses. Strictly for internal authorized engine dispatch.
         """
@@ -354,7 +353,7 @@ class IntegrationRegistry:
     # Alias for backwards compatibility
     get_decrypted_credentials = get_active_credential
 
-    def get_default_ai_provider(self) -> Optional[Dict[str, Any]]:
+    def get_default_ai_provider(self) -> dict[str, Any] | None:
         """Finds the designated or first active AI provider with decrypted credentials and configuration."""
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -391,7 +390,7 @@ class IntegrationRegistry:
                 "model": config_obj.get("default_model") or config_obj.get("model")
             }
 
-    def get_integrations_summary(self) -> Dict[str, Any]:
+    def get_integrations_summary(self) -> dict[str, Any]:
         """Calculates real-time health and configuration metrics for all third-party integrations."""
         configured = self.list_configured_integrations()
         total_supported = len(self._adapters)
@@ -401,7 +400,7 @@ class IntegrationRegistry:
         disabled = sum(1 for i in configured if not i.get("enabled"))
         unconfigured = max(0, total_supported - total_configured)
 
-        cat_counts: Dict[str, int] = {}
+        cat_counts: dict[str, int] = {}
         for i in configured:
             cat = i.get("category", "other")
             cat_counts[cat] = cat_counts.get(cat, 0) + 1
@@ -423,7 +422,7 @@ class IntegrationRegistry:
             conn.commit()
             return res.rowcount > 0
 
-    def toggle_integration(self, integration_id: str, enabled: bool) -> Optional[Dict[str, Any]]:
+    def toggle_integration(self, integration_id: str, enabled: bool) -> dict[str, Any] | None:
         now = _utc_now()
         with db.get_connection() as conn:
             conn.execute(
@@ -433,7 +432,7 @@ class IntegrationRegistry:
             conn.commit()
         return self.get_integration(integration_id)
 
-    def _get_decrypted_credentials(self, integration_id: str) -> Dict[str, str]:
+    def _get_decrypted_credentials(self, integration_id: str) -> dict[str, str]:
         """Internal only: Decrypts secrets in memory for authorized network dispatch. Never log or leak."""
         with db.get_connection() as conn:
             conn.row_factory = sqlite3.Row
@@ -448,7 +447,7 @@ class IntegrationRegistry:
                     out[r["field_key"]] = plaintext
             return out
 
-    async def test_integration(self, integration_id: str) -> Dict[str, Any]:
+    async def test_integration(self, integration_id: str) -> dict[str, Any]:
         """Performs a live connection test using decrypted credentials and updates status in SQLite."""
         integ = self.get_integration(integration_id)
         if not integ:
@@ -483,7 +482,7 @@ class IntegrationRegistry:
 
 
 
-    async def test_all_integrations(self, max_concurrency: int = 5) -> Dict[str, Any]:
+    async def test_all_integrations(self, max_concurrency: int = 5) -> dict[str, Any]:
         """Runs live connection tests on all configured integrations with bounded concurrency."""
         configured = self.list_configured_integrations()
         if not configured:
@@ -491,7 +490,7 @@ class IntegrationRegistry:
 
         sem = asyncio.Semaphore(max_concurrency)
 
-        async def _test_one(item: Dict[str, Any]) -> Dict[str, Any]:
+        async def _test_one(item: dict[str, Any]) -> dict[str, Any]:
             async with sem:
                 integ_id = item.get("id")
                 try:

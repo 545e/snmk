@@ -7,42 +7,41 @@ AI evaluation, incident response, and executive reporting.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
-    EvidenceItem,
-    ThreatIndicator,
-    StageAnalysisResult,
-    CorrelatedAttackPath,
-    KillChainOverview,
-    StageStatusEnum,
+from core.kill_chain.ai_analyzer import KillChainAIAnalyzer
+from core.kill_chain.controls_matrix import SecurityControlMatrix
+from core.kill_chain.correlation import ThreatCorrelationEngine
+from core.kill_chain.db import (
+    count_evidence,
+    count_incidents,
+    list_evidence,
+    list_findings,
+    list_incidents,
+    list_indicators,
+    save_evidence,
+    save_finding,
+    save_indicator,
 )
-from core.kill_chain.stages.reconnaissance import ReconnaissanceAnalyzer
-from core.kill_chain.stages.weaponization import WeaponizationAnalyzer
+from core.kill_chain.incident_manager import IncidentManager
+from core.kill_chain.models import (
+    CorrelatedAttackPath,
+    EvidenceItem,
+    KillChainFinding,
+    KillChainOverview,
+    KillChainStageEnum,
+    StageAnalysisResult,
+    ThreatIndicator,
+)
+from core.kill_chain.reporter import KillChainReportGenerator
+from core.kill_chain.stages.actions import ActionsOnObjectivesAnalyzer
+from core.kill_chain.stages.c2 import CommandAndControlAnalyzer
 from core.kill_chain.stages.delivery import DeliveryAnalyzer
 from core.kill_chain.stages.exploitation import ExploitationAnalyzer
 from core.kill_chain.stages.installation import InstallationAnalyzer
-from core.kill_chain.stages.c2 import CommandAndControlAnalyzer
-from core.kill_chain.stages.actions import ActionsOnObjectivesAnalyzer
-from core.kill_chain.correlation import ThreatCorrelationEngine
+from core.kill_chain.stages.reconnaissance import ReconnaissanceAnalyzer
+from core.kill_chain.stages.weaponization import WeaponizationAnalyzer
 from core.kill_chain.threat_intel import ThreatIntelligenceEngine
-from core.kill_chain.controls_matrix import SecurityControlMatrix
-from core.kill_chain.ai_analyzer import KillChainAIAnalyzer
-from core.kill_chain.incident_manager import IncidentManager
-from core.kill_chain.reporter import KillChainReportGenerator
-from core.kill_chain.db import (
-    save_finding,
-    save_evidence,
-    save_indicator,
-    list_findings,
-    list_evidence,
-    list_indicators,
-    list_incidents,
-    count_incidents,
-    count_evidence,
-)
 
 
 class CyberKillChainEngine:
@@ -51,7 +50,7 @@ class CyberKillChainEngine:
     """
 
     def __init__(self):
-        self.analyzers: Dict[KillChainStageEnum, Any] = {
+        self.analyzers: dict[KillChainStageEnum, Any] = {
             KillChainStageEnum.RECONNAISSANCE: ReconnaissanceAnalyzer(),
             KillChainStageEnum.WEAPONIZATION: WeaponizationAnalyzer(),
             KillChainStageEnum.DELIVERY: DeliveryAnalyzer(),
@@ -67,7 +66,7 @@ class CyberKillChainEngine:
         self.incident_manager = IncidentManager()
         self.reporter = KillChainReportGenerator()
 
-    def analyze_telemetry(self, telemetry: Dict[str, Any], target: Optional[str] = None) -> Dict[str, Any]:
+    def analyze_telemetry(self, telemetry: dict[str, Any], target: str | None = None) -> dict[str, Any]:
         """
         Executes analysis across all seven stages against supplied telemetry or scan data.
         Persists findings, evidence, and threat indicators in the database.
@@ -75,10 +74,10 @@ class CyberKillChainEngine:
         tgt = target or telemetry.get("target") or "127.0.0.1"
         telemetry["target"] = tgt
 
-        stage_results: Dict[str, StageAnalysisResult] = {}
-        all_new_findings: List[KillChainFinding] = []
-        all_new_evidence: List[EvidenceItem] = []
-        all_new_indicators: List[ThreatIndicator] = []
+        stage_results: dict[str, StageAnalysisResult] = {}
+        all_new_findings: list[KillChainFinding] = []
+        all_new_evidence: list[EvidenceItem] = []
+        all_new_indicators: list[ThreatIndicator] = []
 
         for stage_enum, analyzer in self.analyzers.items():
             res = analyzer.analyze(telemetry)
@@ -125,16 +124,16 @@ class CyberKillChainEngine:
             "stage_results": {k: v.dict() for k, v in stage_results.items()},
             "attack_paths": [p.dict() for p in attack_paths],
             "overview": overview.dict(),
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         }
 
     def get_overview(
         self,
-        findings: Optional[List[KillChainFinding]] = None,
-        evidence: Optional[List[EvidenceItem]] = None,
-        indicators: Optional[List[ThreatIndicator]] = None,
-        incidents: Optional[List[Any]] = None,
-        attack_paths: Optional[List[CorrelatedAttackPath]] = None,
+        findings: list[KillChainFinding] | None = None,
+        evidence: list[EvidenceItem] | None = None,
+        indicators: list[ThreatIndicator] | None = None,
+        incidents: list[Any] | None = None,
+        attack_paths: list[CorrelatedAttackPath] | None = None,
     ) -> KillChainOverview:
         """
         Computes the complete SOC dashboard overview metrics.
@@ -157,8 +156,8 @@ class CyberKillChainEngine:
         # --- single pass: bucket findings by stage and count severities ---
         from collections import Counter, defaultdict
 
-        by_stage: Dict[Any, List[KillChainFinding]] = defaultdict(list)
-        severity_by_stage: Dict[Any, Counter] = defaultdict(Counter)
+        by_stage: dict[Any, list[KillChainFinding]] = defaultdict(list)
+        severity_by_stage: dict[Any, Counter] = defaultdict(Counter)
         risk_sum = 0.0
         conf_sum = 0.0
         for f in all_findings:
@@ -214,10 +213,10 @@ class CyberKillChainEngine:
             control_coverage_percentage=coverage.get("overall_coverage_pct", 0.0),
             attack_paths=attack_paths,
             system_health={"status": "HEALTHY", "version": "SWA-KC-2.0", "engine": "Operational"},
-            updated_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            updated_at=datetime.datetime.now(datetime.UTC).isoformat(),
         )
 
-    def get_stage_detail(self, stage_id: str) -> Optional[Dict[str, Any]]:
+    def get_stage_detail(self, stage_id: str) -> dict[str, Any] | None:
         """Returns deep-dive telemetry, findings, evidence, controls, and playbooks for a specific stage."""
         try:
             stage_enum = KillChainStageEnum(stage_id.lower())
@@ -251,7 +250,7 @@ class CyberKillChainEngine:
             "playbook": playbook,
         }
 
-    def seed_demonstration_scenario(self, target: str = "127.0.0.1") -> Dict[str, Any]:
+    def seed_demonstration_scenario(self, target: str = "127.0.0.1") -> dict[str, Any]:
         """
         Pre-loads an authentic multi-stage defensive investigation scenario across all 7 stages
         to allow instant verification and testing.

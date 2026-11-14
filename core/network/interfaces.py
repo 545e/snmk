@@ -15,7 +15,6 @@ import socket
 import subprocess
 import sys
 import time
-from typing import Dict, List, Optional, Tuple
 
 import psutil
 
@@ -24,11 +23,11 @@ from core.network.models import LocalNetworkInfo, NetworkInterfaceInfo
 logger = logging.getLogger("snmk.map.interfaces")
 
 
-_cached_network_info: Optional[Tuple[float, LocalNetworkInfo]] = None
+_cached_network_info: tuple[float, LocalNetworkInfo] | None = None
 _NETWORK_CACHE_TTL_SEC: float = 60.0
 
 
-def check_capture_drivers() -> Tuple[bool, str]:
+def check_capture_drivers() -> tuple[bool, str]:
     """Detects packet capture capabilities on host (Npcap, libpcap, TShark, Scapy)."""
     driver_type = "None"
     driver_installed = False
@@ -65,7 +64,7 @@ def check_capture_drivers() -> Tuple[bool, str]:
     return driver_installed, driver_type
 
 
-def get_default_gateway_and_dns() -> Tuple[Optional[str], Optional[str], List[str]]:
+def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
     """Retrieves system default gateway IP, interface alias, and DNS servers."""
     gateway_ip = None
     iface_alias = None
@@ -146,9 +145,9 @@ def get_default_gateway_and_dns() -> Tuple[Optional[str], Optional[str], List[st
     return gateway_ip, iface_alias, list(dict.fromkeys(dns_servers))
 
 
-def get_network_interfaces() -> List[NetworkInterfaceInfo]:
+def get_network_interfaces() -> list[NetworkInterfaceInfo]:
     """Inspects all network interfaces on the system and formats into models."""
-    results: List[NetworkInterfaceInfo] = []
+    results: list[NetworkInterfaceInfo] = []
     addrs = psutil.net_if_addrs()
     stats = psutil.net_if_stats()
     capture_driver_ok, driver_type = check_capture_drivers()

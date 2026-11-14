@@ -15,13 +15,9 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import hmac
-import json
 import logging
 import os
-import re
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger("swa.credentials")
 
@@ -75,7 +71,7 @@ def _load_or_generate_master_key() -> bytes:
 _MASTER_KEY = _load_or_generate_master_key()
 
 
-def mask_secret(secret: Optional[str]) -> str:
+def mask_secret(secret: str | None) -> str:
     """Produces a safe, masked representation of a secret string suitable for UI display.
     Never exposes full secret tokens to frontend clients.
     """
@@ -96,7 +92,7 @@ def mask_secret(secret: Optional[str]) -> str:
 class CredentialManager:
     """Encrypted credential vault using standard library + cryptography for AES-GCM/Fernet."""
 
-    def __init__(self, master_key: Optional[bytes] = None):
+    def __init__(self, master_key: bytes | None = None):
         self._master_key = master_key or _MASTER_KEY
 
     def _get_fernet(self, salt: bytes):
@@ -117,7 +113,7 @@ class CredentialManager:
             # Fallback if cryptography is not available: HMAC-SHA256 XOR stream cipher
             return None
 
-    def encrypt(self, plaintext: str) -> Tuple[str, str]:
+    def encrypt(self, plaintext: str) -> tuple[str, str]:
         """Encrypts plaintext string. Returns (ciphertext_b64, salt_b64)."""
         if not plaintext:
             return "", ""

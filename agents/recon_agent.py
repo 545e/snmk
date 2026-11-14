@@ -5,14 +5,14 @@ SSL Inspection, and Sensitive Asset Discovery.
 """
 
 import asyncio
+import re
 import socket
 import ssl
-import re
 from urllib.parse import urlparse
-import httpx
-from typing import List, Dict, Any, Optional
 
-from core.models import ReconResult, LogEvent, VulnerabilityFinding, Severity
+import httpx
+
+from core.models import LogEvent, ReconResult, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 COMMON_PORTS = [80, 443, 8080, 8443, 3000, 5000, 8000, 8888, 22, 21, 3306, 5432, 6379, 27017]
@@ -63,7 +63,7 @@ class ReconAgent:
         self.parsed = self._normalize_url(target_url)
         self.domain = self.parsed.hostname or target_url
         self.base_url = f"{self.parsed.scheme}://{self.parsed.netloc}"
-        self.takeover_findings: List[VulnerabilityFinding] = []
+        self.takeover_findings: list[VulnerabilityFinding] = []
 
     def _normalize_url(self, target: str):
         if not target.startswith(("http://", "https://")):
@@ -111,7 +111,7 @@ class ReconAgent:
             recon.dns_records["A"] = ips
             await self.log(f"DNS resolved IPs: {', '.join(ips)}", "SUCCESS")
         except Exception as e:
-            await self.log(f"DNS resolution notice: {str(e)}", "WARN")
+            await self.log(f"DNS resolution notice: {e!s}", "WARN")
 
     async def enumerate_subdomains(self, recon: ReconResult):
         # Do not enumerate if target is an IP address
@@ -221,7 +221,7 @@ class ReconAgent:
                 await self.log(f"Fingerprinted technologies: {', '.join(tech_names) if tech_names else 'Generic / Obfuscated'}", "SUCCESS")
 
         except Exception as e:
-            await self.log(f"HTTP inspection notice: {str(e)}", "WARN")
+            await self.log(f"HTTP inspection notice: {e!s}", "WARN")
 
     async def inspect_ssl(self, recon: ReconResult):
         try:

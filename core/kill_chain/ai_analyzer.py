@@ -8,15 +8,13 @@ Answers the seven SOC questions and strictly distinguishes confidence levels.
 from __future__ import annotations
 
 import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from core.llm_client import SWALLMClient as LLMClient
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
     EvidenceItem,
-    ConfidenceLevelEnum,
+    KillChainFinding,
 )
+from core.llm_client import SWALLMClient as LLMClient
 
 
 class KillChainAIAnalyzer:
@@ -30,9 +28,9 @@ class KillChainAIAnalyzer:
     async def analyze_event(
         self,
         finding: KillChainFinding,
-        evidence: Optional[EvidenceItem] = None,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        evidence: EvidenceItem | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         Generates an in-depth SOC investigation report addressing the seven core questions.
         Attempts LLM query first; falls back gracefully to deterministic expert heuristics.
@@ -53,9 +51,9 @@ class KillChainAIAnalyzer:
     def _run_deterministic_analysis(
         self,
         finding: KillChainFinding,
-        evidence: Optional[EvidenceItem] = None,
-        context: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        evidence: EvidenceItem | None = None,
+        context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         """
         High-precision deterministic rule-based analysis ensuring continuous SOC operations.
         """
@@ -127,7 +125,7 @@ class KillChainAIAnalyzer:
         return {
             "mode": "DETERMINISTIC_ENGINE",
             "provider": "SWA Expert Heuristic Rules Engine",
-            "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
             "answers": {
                 "1_what_happened": what_happened,
                 "2_stage_involved": stage_detail,
@@ -143,8 +141,8 @@ class KillChainAIAnalyzer:
     async def _run_llm_analysis(
         self,
         finding: KillChainFinding,
-        evidence: Optional[EvidenceItem],
-    ) -> Optional[Dict[str, Any]]:
+        evidence: EvidenceItem | None,
+    ) -> dict[str, Any] | None:
         """Invokes the configured SWA AI provider via the shared LLM client."""
         llm_status = self.llm.get_status()
         prompt = (

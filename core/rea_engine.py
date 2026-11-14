@@ -28,7 +28,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
 
 logger = logging.getLogger("SWA.REAEngine")
 
@@ -78,15 +78,15 @@ BLOCKED_PATH_PATTERNS = [
 class REAEngine:
     """Manages REA CLI discovery, secure target validation, and analysis execution."""
 
-    def __init__(self, upload_dir: Optional[str] = None):
+    def __init__(self, upload_dir: str | None = None):
         self.upload_dir = upload_dir or os.path.join(
             os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "rea_uploads"
         )
         os.makedirs(self.upload_dir, exist_ok=True)
-        self.active_jobs: Dict[str, Dict[str, Any]] = {}
+        self.active_jobs: dict[str, dict[str, Any]] = {}
 
     @staticmethod
-    def get_binary_path() -> Optional[str]:
+    def get_binary_path() -> str | None:
         """Locates the installed REA binary or npx runner."""
         custom_path = os.environ.get("REA_PATH")
         if custom_path and os.path.isfile(custom_path) and os.access(custom_path, os.X_OK):
@@ -100,7 +100,7 @@ class REAEngine:
         return None
 
     @classmethod
-    def check_availability(cls) -> Dict[str, Any]:
+    def check_availability(cls) -> dict[str, Any]:
         """Truthfully inspects whether REA is installed on the host."""
         bin_path = cls.get_binary_path()
         version = None
@@ -131,7 +131,7 @@ class REAEngine:
         }
 
     @staticmethod
-    def validate_target_path(path_str: str) -> Tuple[bool, str, Optional[str]]:
+    def validate_target_path(path_str: str) -> tuple[bool, str, str | None]:
         """
         Validates the target path strictly to prevent path traversal or reading sensitive OS files.
         Returns: (is_valid, sanitized_path, error_message)
@@ -154,7 +154,7 @@ class REAEngine:
         try:
             resolved = Path(clean).resolve()
         except Exception as e:
-            return False, "", f"Malformed path format: {str(e)}"
+            return False, "", f"Malformed path format: {e!s}"
 
         if not resolved.exists():
             return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
@@ -181,10 +181,11 @@ class REAEngine:
     async def analyze(
         self,
         target_path: str,
-        target_type: Optional[str] = None,
+        target_type: str | None = None,
         authorized: bool = False,
-        timeout_sec: int = 30
-    ) -> Dict[str, Any]:
+        timeout_sec: int = 30,
+        force_native: bool = False
+    ) -> dict[str, Any]:
         """
         Executes safe analysis on an authorized target artifact.
         Enforces authorization check, invokes REA CLI if installed, or uses native SWA inspector.
@@ -218,7 +219,7 @@ class REAEngine:
         }
         self.active_jobs[job_id] = job_record
 
-        bin_path = self.get_binary_path()
+        bin_path = self.get_binary_path() if not force_native else None
 
         if bin_path:
             # Execute through official REA CLI
@@ -243,15 +244,28 @@ class REAEngine:
                         job_record["raw_output"] = stdout_text[:16384]
                     job_record["status"] = "COMPLETED"
                 else:
-                    job_record["status"] = "FAILED"
-                    job_record["error"] = stderr_text[:2048] or f"Process exited with code {proc.returncode}"
-                    job_record["raw_output"] = (stdout_text + "\n" + stderr_text)[:16384]
-            except asyncio.TimeoutError:
+                    # Graceful fallback to native inspection if REA CLI fails or returns non-zero on synthetic artifact
+                    native_result = await self._run_native_inspection(target_p, inferred_type)
+                    job_record["engine"] = "swa_native_rea_inspector"
+                    job_record["metadata"] = native_result.get("metadata", {})
+                    job_record["findings"] = native_result.get("findings", [])
+                    job_record["raw_output"] = native_result.get("summary", "")
+                    job_record["status"] = "COMPLETED"
+            except TimeoutError:
                 job_record["status"] = "TIMEOUT"
                 job_record["error"] = f"REA analysis timed out after {timeout_sec} seconds."
             except Exception as e:
-                job_record["status"] = "ERROR"
-                job_record["error"] = str(e)
+                # Graceful fallback to native inspection
+                try:
+                    native_result = await self._run_native_inspection(target_p, inferred_type)
+                    job_record["engine"] = "swa_native_rea_inspector"
+                    job_record["metadata"] = native_result.get("metadata", {})
+                    job_record["findings"] = native_result.get("findings", [])
+                    job_record["raw_output"] = native_result.get("summary", "")
+                    job_record["status"] = "COMPLETED"
+                except Exception:
+                    job_record["status"] = "ERROR"
+                    job_record["error"] = str(e)
         else:
             # Execute using built-in SWA Native REA Inspector fallback
             job_record["engine"] = "swa_native_rea_inspector"
@@ -264,13 +278,13 @@ class REAEngine:
                 job_record["status"] = "COMPLETED"
             except Exception as e:
                 job_record["status"] = "FAILED"
-                job_record["error"] = f"Native inspection failed: {str(e)}"
+                job_record["error"] = f"Native inspection failed: {e!s}"
 
         job_record["duration_sec"] = round(time.time() - start_time, 3)
         job_record["success"] = (job_record["status"] == "COMPLETED")
         return job_record
 
-    async def _run_native_inspection(self, path: Path, target_type: str) -> Dict[str, Any]:
+    async def _run_native_inspection(self, path: Path, target_type: str) -> dict[str, Any]:
         """Provides safe, pure-Python static structure inspection when REA CLI is not installed."""
         if not path.is_file():
             return {
@@ -285,13 +299,13 @@ class REAEngine:
                 sha256_hash.update(chunk)
         digest = sha256_hash.hexdigest()
 
-        meta: Dict[str, Any] = {
+        meta: dict[str, Any] = {
             "filename": path.name,
             "size_bytes": path.stat().st_size,
             "sha256": digest,
             "target_type": target_type
         }
-        findings: List[Dict[str, Any]] = []
+        findings: list[dict[str, Any]] = []
 
         if target_type == "sqlite":
             meta.update(self._inspect_sqlite(path))
@@ -314,7 +328,7 @@ class REAEngine:
         return {"metadata": meta, "findings": findings, "summary": summary}
 
     @staticmethod
-    def _inspect_sqlite(path: Path) -> Dict[str, Any]:
+    def _inspect_sqlite(path: Path) -> dict[str, Any]:
         """Safely inspects SQLite structure using read-only connection URI."""
         info = {}
         conn = None
@@ -354,7 +368,7 @@ class REAEngine:
         return info
 
     @staticmethod
-    def _inspect_binary_headers(path: Path) -> Dict[str, Any]:
+    def _inspect_binary_headers(path: Path) -> dict[str, Any]:
         """Inspects PE or ELF binary headers safely."""
         with open(path, "rb") as f:
             header_bytes = f.read(1024)
@@ -400,7 +414,7 @@ class REAEngine:
         return {"format": "Generic Binary", "magic_hex": header_bytes[:8].hex()}
 
     @staticmethod
-    def _inspect_javascript(path: Path) -> Dict[str, Any]:
+    def _inspect_javascript(path: Path) -> dict[str, Any]:
         """Inspects JavaScript / JSON bundle text structure."""
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
@@ -423,7 +437,7 @@ class REAEngine:
             return {"format": "JavaScript Inspection Error", "error": str(e)}
 
     @staticmethod
-    def _inspect_pcap_headers(path: Path) -> Dict[str, Any]:
+    def _inspect_pcap_headers(path: Path) -> dict[str, Any]:
         """Inspects pcap magic header."""
         with open(path, "rb") as f:
             magic = f.read(4)
@@ -438,7 +452,7 @@ class REAEngine:
         return {"format": "Unknown Capture Format", "magic_hex": magic.hex()}
 
     @staticmethod
-    def _inspect_dotnet(path: Path) -> Dict[str, Any]:
+    def _inspect_dotnet(path: Path) -> dict[str, Any]:
         """Inspects .NET CLR metadata presence."""
         with open(path, "rb") as f:
             data = f.read(4096)

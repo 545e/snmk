@@ -6,12 +6,11 @@ evaluates protocol hierarchies, tracks TCP handshakes and conversations, and ext
 
 from __future__ import annotations
 
-import datetime
 import hashlib
 import logging
 import os
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from scapy.all import rdpcap
 
@@ -28,7 +27,7 @@ PCAP_MAGIC_NS_BE = b"\xa1\xb2\x3c\x4d"
 PCAPNG_MAGIC = b"\x0a\x0d\x0d\x0a"
 
 
-def validate_pcap_header(file_bytes: bytes) -> Tuple[bool, str]:
+def validate_pcap_header(file_bytes: bytes) -> tuple[bool, str]:
     """Verifies magic numbers to ensure file is legitimate PCAP or PCAPNG."""
     if len(file_bytes) < 4:
         return False, "File is too short to be a valid capture file."
@@ -48,7 +47,7 @@ class PcapForensicsEngine:
     def __init__(self):
         self.dissector = PacketDissector()
 
-    def analyze_bytes(self, file_content: bytes, filename: str = "uploaded.pcap", max_packets: int = 1500) -> Dict[str, Any]:
+    def analyze_bytes(self, file_content: bytes, filename: str = "uploaded.pcap", max_packets: int = 1500) -> dict[str, Any]:
         """Analyzes in-memory capture bytes safely with resource bounds."""
         # 1. Validation
         is_valid, format_desc = validate_pcap_header(file_content)
@@ -87,10 +86,10 @@ class PcapForensicsEngine:
             end_time = float(getattr(pkts[-1], "time", 0.0))
             duration_sec = round(max(0.0, end_time - base_time), 3)
 
-            summaries: List[PacketSummary] = []
-            details: Dict[int, PacketDetail] = {}
-            protocol_counts: Dict[str, int] = {}
-            flows: Dict[str, FlowSummary] = {}
+            summaries: list[PacketSummary] = []
+            details: dict[int, PacketDetail] = {}
+            protocol_counts: dict[str, int] = {}
+            flows: dict[str, FlowSummary] = {}
             total_bytes = 0
 
             for i, pkt in enumerate(pkts, start=1):
@@ -150,7 +149,7 @@ class PcapForensicsEngine:
 
         except Exception as e:
             logger.error(f"Error parsing PCAP file {filename}: {e}")
-            return {"success": False, "error": f"PCAP parsing exception: {str(e)}"}
+            return {"success": False, "error": f"PCAP parsing exception: {e!s}"}
         finally:
             if os.path.exists(temp_path):
                 try:

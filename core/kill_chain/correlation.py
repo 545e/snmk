@@ -9,15 +9,14 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Dict, List, Optional, Set
 
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
-    EvidenceItem,
-    ThreatIndicator,
     CorrelatedAttackPath,
+    EvidenceItem,
+    KillChainFinding,
+    KillChainStageEnum,
     SeverityEnum,
+    ThreatIndicator,
 )
 
 
@@ -40,11 +39,11 @@ class ThreatCorrelationEngine:
 
     def correlate(
         self,
-        findings: List[KillChainFinding],
-        evidence: List[EvidenceItem],
-        indicators: List[ThreatIndicator],
-        target_asset: Optional[str] = None,
-    ) -> List[CorrelatedAttackPath]:
+        findings: list[KillChainFinding],
+        evidence: list[EvidenceItem],
+        indicators: list[ThreatIndicator],
+        target_asset: str | None = None,
+    ) -> list[CorrelatedAttackPath]:
         """
         Groups multi-stage events by affected asset and common indicators to identify
         coherent attack progressions across the 7 stages.
@@ -53,17 +52,17 @@ class ThreatCorrelationEngine:
         deduped_findings = self._deduplicate_findings(findings)
 
         # Group findings by asset
-        asset_findings: Dict[str, List[KillChainFinding]] = {}
+        asset_findings: dict[str, list[KillChainFinding]] = {}
         for f in deduped_findings:
             asset = f.affected_host or "127.0.0.1"
             if target_asset and asset != target_asset:
                 continue
             asset_findings.setdefault(asset, []).append(f)
 
-        attack_paths: List[CorrelatedAttackPath] = []
+        attack_paths: list[CorrelatedAttackPath] = []
 
         for asset, f_list in asset_findings.items():
-            stages_detected_set: Set[KillChainStageEnum] = {f.stage for f in f_list}
+            stages_detected_set: set[KillChainStageEnum] = {f.stage for f in f_list}
             stages_detected = [s for s in self._stage_order if s in stages_detected_set]
 
             if not stages_detected:
@@ -110,8 +109,8 @@ class ThreatCorrelationEngine:
 
             # Time range
             times = [f.first_observed for f in f_list if f.first_observed]
-            first_event = min(times) if times else datetime.datetime.now(datetime.timezone.utc).isoformat()
-            latest_event = max(times) if times else datetime.datetime.now(datetime.timezone.utc).isoformat()
+            first_event = min(times) if times else datetime.datetime.now(datetime.UTC).isoformat()
+            latest_event = max(times) if times else datetime.datetime.now(datetime.UTC).isoformat()
 
             # Vector summary
             stage_names = [s.value.capitalize() for s in stages_detected]
@@ -141,7 +140,7 @@ class ThreatCorrelationEngine:
         attack_paths.sort(key=lambda p: p.composite_risk_score, reverse=True)
         return attack_paths
 
-    def _deduplicate_findings(self, findings: List[KillChainFinding]) -> List[KillChainFinding]:
+    def _deduplicate_findings(self, findings: list[KillChainFinding]) -> list[KillChainFinding]:
         seen = set()
         deduped = []
         for f in findings:

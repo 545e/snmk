@@ -4,30 +4,28 @@ Provides autonomous, multi-step, human-gated cybersecurity workflows using
 registered AI agents, security tools, and threat intelligence adapters.
 """
 
-import os
+import datetime
 import json
 import time
 import uuid
-import asyncio
-import datetime
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from core.database import db
-from core.scope_policy import scope_policy, ScopeViolation
-from core.agent_registry import AgentRegistry
+from core.scope_policy import ScopeViolation, scope_policy
 
 
 class WorkflowStep(BaseModel):
     step_id: str
     name: str
     description: str = ""
-    agent_id: Optional[str] = None
-    tool_id: Optional[str] = None
+    agent_id: str | None = None
+    tool_id: str | None = None
     action_type: str = "agent_task"  # scope_check, recon, agent_task, tool_run, risk_analysis, remediation, approval_gate, report_gen
-    input_config: Dict[str, Any] = Field(default_factory=dict)
+    input_config: dict[str, Any] = Field(default_factory=dict)
     requires_approval: bool = False
-    condition: Optional[str] = None  # e.g. "findings_count > 0"
+    condition: str | None = None  # e.g. "findings_count > 0"
     timeout_sec: int = 120
 
 
@@ -38,12 +36,12 @@ class AutomationWorkflow(BaseModel):
     category: str = "Vulnerability Assessment"
     enabled: bool = True
     trigger_type: str = "manual"  # manual, scheduled, continuous
-    schedule_cron: Optional[str] = None
-    steps: List[WorkflowStep] = Field(default_factory=list)
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    last_run_at: Optional[str] = None
-    last_status: Optional[str] = "IDLE"
+    schedule_cron: str | None = None
+    steps: list[WorkflowStep] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    last_run_at: str | None = None
+    last_status: str | None = "IDLE"
 
 
 class WorkflowExecutionRecord(BaseModel):
@@ -54,16 +52,16 @@ class WorkflowExecutionRecord(BaseModel):
     status: str = "RUNNING"  # RUNNING, COMPLETED, FAILED, PAUSED, PENDING_APPROVAL
     current_step: int = 0
     total_steps: int = 0
-    started_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    completed_at: Optional[str] = None
+    started_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    completed_at: str | None = None
     duration_sec: float = 0.0
     initiated_by: str = "Security_Operator"
-    step_logs: List[Dict[str, Any]] = Field(default_factory=list)
-    summary: Dict[str, Any] = Field(default_factory=dict)
-    error: Optional[str] = None
+    step_logs: list[dict[str, Any]] = Field(default_factory=list)
+    summary: dict[str, Any] = Field(default_factory=dict)
+    error: str | None = None
 
 
-DEFAULT_WORKFLOWS: List[AutomationWorkflow] = [
+DEFAULT_WORKFLOWS: list[AutomationWorkflow] = [
     AutomationWorkflow(
         id="wf-full-pentest-01",
         name="Autonomous Full-Scope Attack Surface & Penetration Audit",
@@ -333,7 +331,7 @@ class AutomationEngine:
             cursor = conn.cursor()
             cursor.execute("SELECT COUNT(*) FROM automation_workflows")
             if cursor.fetchone()[0] == 0:
-                now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+                now = datetime.datetime.now(datetime.UTC).isoformat()
                 for wf in DEFAULT_WORKFLOWS:
                     cursor.execute("""
                     INSERT INTO automation_workflows (id, name, description, category, enabled, trigger_type, schedule_cron, steps, created_at, updated_at, last_run_at, last_status)
@@ -346,7 +344,7 @@ class AutomationEngine:
                     ))
                 conn.commit()
 
-    def list_workflows(self) -> List[Dict[str, Any]]:
+    def list_workflows(self) -> list[dict[str, Any]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, name, description, category, enabled, trigger_type, schedule_cron, steps, created_at, updated_at, last_run_at, last_status FROM automation_workflows ORDER BY created_at ASC")
@@ -371,7 +369,7 @@ class AutomationEngine:
                 })
             return workflows
 
-    def get_workflow(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+    def get_workflow(self, workflow_id: str) -> dict[str, Any] | None:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, name, description, category, enabled, trigger_type, schedule_cron, steps, created_at, updated_at, last_run_at, last_status FROM automation_workflows WHERE id = ?", (workflow_id,))
@@ -395,9 +393,9 @@ class AutomationEngine:
                 "last_status": r[11] or "IDLE"
             }
 
-    def create_workflow(self, workflow_data: Dict[str, Any]) -> Dict[str, Any]:
+    def create_workflow(self, workflow_data: dict[str, Any]) -> dict[str, Any]:
         wf_id = workflow_data.get("id") or f"wf_{uuid.uuid4().hex[:8]}"
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
         name = workflow_data.get("name", "Custom Security Automation")
         desc = workflow_data.get("description", "")
         cat = workflow_data.get("category", "Custom Automation")
@@ -415,11 +413,11 @@ class AutomationEngine:
             conn.commit()
         return self.get_workflow(wf_id)
 
-    def update_workflow(self, workflow_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    def update_workflow(self, workflow_id: str, updates: dict[str, Any]) -> dict[str, Any] | None:
         existing = self.get_workflow(workflow_id)
         if not existing:
             return None
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
         name = updates.get("name", existing["name"])
         desc = updates.get("description", existing["description"])
         cat = updates.get("category", existing["category"])
@@ -445,7 +443,7 @@ class AutomationEngine:
             conn.commit()
             return cursor.rowcount > 0
 
-    def duplicate_workflow(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+    def duplicate_workflow(self, workflow_id: str) -> dict[str, Any] | None:
         original = self.get_workflow(workflow_id)
         if not original:
             return None
@@ -454,7 +452,7 @@ class AutomationEngine:
         clone_data["name"] = f"{original['name']} (Copy)"
         return self.create_workflow(clone_data)
 
-    def toggle_workflow(self, workflow_id: str) -> Optional[Dict[str, Any]]:
+    def toggle_workflow(self, workflow_id: str) -> dict[str, Any] | None:
         wf = self.get_workflow(workflow_id)
         if not wf:
             return None
@@ -465,7 +463,7 @@ class AutomationEngine:
             conn.commit()
         return self.get_workflow(workflow_id)
 
-    def list_executions(self, limit: int = 50) -> List[Dict[str, Any]]:
+    def list_executions(self, limit: int = 50) -> list[dict[str, Any]]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, workflow_id, workflow_name, target, status, current_step, total_steps, started_at, completed_at, duration_sec, initiated_by, summary, error FROM workflow_executions ORDER BY started_at DESC LIMIT ?", (limit,))
@@ -489,7 +487,7 @@ class AutomationEngine:
                 })
             return executions
 
-    def get_execution(self, exec_id: str) -> Optional[Dict[str, Any]]:
+    def get_execution(self, exec_id: str) -> dict[str, Any] | None:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT id, workflow_id, workflow_name, target, status, current_step, total_steps, started_at, completed_at, duration_sec, initiated_by, step_logs, summary, error FROM workflow_executions WHERE id = ?", (exec_id,))
@@ -513,7 +511,7 @@ class AutomationEngine:
                 "error": r[13]
             }
 
-    async def execute_workflow(self, workflow_id: str, target: str, initiated_by: str = "Security_Operator") -> Dict[str, Any]:
+    async def execute_workflow(self, workflow_id: str, target: str, initiated_by: str = "Security_Operator") -> dict[str, Any]:
         """
         Executes an automation workflow sequentially step-by-step against the authorized target.
         Enforces target scoping, records step telemetry, and updates persistent database state.
@@ -530,8 +528,8 @@ class AutomationEngine:
         if not val_res.is_allowed:
             raise ScopeViolation(f"Target scope validation failed for {target}: {val_res.reason}")
 
-        exec_id = f"exec_{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
-        start_time_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        exec_id = f"exec_{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:4]}"
+        start_time_iso = datetime.datetime.now(datetime.UTC).isoformat()
         t0 = time.time()
         steps = wf.get("steps", [])
         total_steps = len(steps)
@@ -583,8 +581,9 @@ class AutomationEngine:
                     step_rec["output"] = f"Target {target} validated against enterprise scope policy. Lab mode: {is_lab}."
                     step_rec["status"] = "SUCCESS"
                 elif action_type == "recon":
-                    from core.agent_registry import agent_registry
                     import asyncio as _asyncio
+
+                    from core.agent_registry import agent_registry
                     recon_agent = step.get("agent_id") or "attack_surface_agent"
                     try:
                         rec = await _asyncio.wait_for(
@@ -606,8 +605,9 @@ class AutomationEngine:
                                            "this step did NOT execute anything.")
                 elif action_type == "agent_task":
                     agent_id = step.get("agent_id", "supervisor")
-                    from core.agent_registry import agent_registry
                     import asyncio as _asyncio
+
+                    from core.agent_registry import agent_registry
                     try:
                         rec = await _asyncio.wait_for(
                             agent_registry.dispatch_agent_by_id(
@@ -656,7 +656,7 @@ class AutomationEngine:
             except Exception as e:
                 step_rec["status"] = "FAILED"
                 step_rec["error"] = str(e)
-                error_msg = f"Step {idx} ({step_name}) failed: {str(e)}"
+                error_msg = f"Step {idx} ({step_name}) failed: {e!s}"
                 overall_status = "FAILED"
                 step_logs.append(step_rec)
                 break
@@ -666,7 +666,7 @@ class AutomationEngine:
 
         # Update final execution record
         duration = round(time.time() - t0, 2)
-        completed_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        completed_iso = datetime.datetime.now(datetime.UTC).isoformat()
         simulated_steps = sum(1 for s in step_logs if s["status"] == "SIMULATED")
         not_executed_steps = sum(1 for s in step_logs if s["status"] == "NOT_EXECUTED")
         if overall_status == "COMPLETED" and (simulated_steps or not_executed_steps):

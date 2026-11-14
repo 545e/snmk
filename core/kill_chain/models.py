@@ -7,7 +7,8 @@ from __future__ import annotations
 
 import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -76,14 +77,14 @@ class EvidenceItem(BaseModel):
     stage: KillChainStageEnum
     artifact_type: str
     raw_data: str
-    normalized_data: Dict[str, Any] = Field(default_factory=dict)
+    normalized_data: dict[str, Any] = Field(default_factory=dict)
     source_tool: str = "SWA Core Scanner"
     affected_asset: str = "unknown"
-    observed_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    evidence_hash: Optional[str] = None
+    observed_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    evidence_hash: str | None = None
     confidence_level: ConfidenceLevelEnum = ConfidenceLevelEnum.SUSPECTED
     confidence_score: float = 75.0
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class ThreatIndicator(BaseModel):
@@ -91,15 +92,15 @@ class ThreatIndicator(BaseModel):
     indicator_type: str  # IP, DOMAIN, URL, MD5, SHA256, CVE
     value: str
     stage: KillChainStageEnum
-    threat_actor: Optional[str] = None
-    malware_family: Optional[str] = None
+    threat_actor: str | None = None
+    malware_family: str | None = None
     reputation_score: float = 0.0  # 0.0 safe, 100.0 malicious
     provider: str = "Internal Intelligence"
     source_attribution: str = "Local Engine"
     verified: bool = False
-    details: Dict[str, Any] = Field(default_factory=dict)
-    first_seen: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    last_checked: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    details: dict[str, Any] = Field(default_factory=dict)
+    first_seen: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    last_checked: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class KillChainFinding(BaseModel):
@@ -107,26 +108,26 @@ class KillChainFinding(BaseModel):
     title: str
     stage: KillChainStageEnum
     severity: SeverityEnum = SeverityEnum.MEDIUM
-    cve: Optional[str] = None
-    cwe: Optional[str] = None
-    mitre_technique_id: Optional[str] = None
-    mitre_tactic: Optional[str] = None
+    cve: str | None = None
+    cwe: str | None = None
+    mitre_technique_id: str | None = None
+    mitre_tactic: str | None = None
     affected_host: str = "127.0.0.1"
-    affected_endpoint: Optional[str] = None
-    http_status_code: Optional[int] = None
+    affected_endpoint: str | None = None
+    http_status_code: int | None = None
     description: str = ""
     evidence: str = ""
-    evidence_ids: List[str] = Field(default_factory=list)
+    evidence_ids: list[str] = Field(default_factory=list)
     detection_source: str = "SWA Detection Engine"
-    first_observed: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    last_observed: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    first_observed: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    last_observed: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
     confidence_level: ConfidenceLevelEnum = ConfidenceLevelEnum.CONFIRMED
     confidence_score: float = 85.0  # 0.0 to 100.0 based on evidence quality & corroboration
     risk_score: float = 65.0        # 0.0 to 100.0 based on impact, asset criticality, exposure
     remediation: str = "Apply defense-in-depth security controls."
-    references: List[str] = Field(default_factory=list)
+    references: list[str] = Field(default_factory=list)
     status: str = "OPEN"
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class StageAnalysisResult(BaseModel):
@@ -138,28 +139,28 @@ class StageAnalysisResult(BaseModel):
     high_count: int = 0
     medium_count: int = 0
     low_count: int = 0
-    findings: List[KillChainFinding] = Field(default_factory=list)
-    evidence: List[EvidenceItem] = Field(default_factory=list)
-    indicators: List[ThreatIndicator] = Field(default_factory=list)
-    associated_assets: List[str] = Field(default_factory=list)
-    security_controls: List[Dict[str, Any]] = Field(default_factory=list)
-    recommended_remediations: List[str] = Field(default_factory=list)
+    findings: list[KillChainFinding] = Field(default_factory=list)
+    evidence: list[EvidenceItem] = Field(default_factory=list)
+    indicators: list[ThreatIndicator] = Field(default_factory=list)
+    associated_assets: list[str] = Field(default_factory=list)
+    security_controls: list[dict[str, Any]] = Field(default_factory=list)
+    recommended_remediations: list[str] = Field(default_factory=list)
     summary: str = ""
-    assessed_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    assessed_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class CorrelatedAttackPath(BaseModel):
     path_id: str
     target_asset: str
-    stages_detected: List[KillChainStageEnum]
+    stages_detected: list[KillChainStageEnum]
     progression_percentage: float  # e.g. 71.4% (5 of 7 stages)
-    correlated_findings: List[str]
+    correlated_findings: list[str]
     root_cause_stage: KillChainStageEnum
     highest_severity: SeverityEnum
     composite_risk_score: float
     confidence_score: float
     attack_vector_summary: str
-    mitre_chain: List[Dict[str, str]]
+    mitre_chain: list[dict[str, str]]
     first_event_at: str
     latest_event_at: str
 
@@ -172,7 +173,7 @@ class SecurityControl(BaseModel):
     status: ControlStatusEnum = ControlStatusEnum.UNVERIFIED
     tool_mapping: str = ""
     description: str = ""
-    last_verified_at: Optional[str] = None
+    last_verified_at: str | None = None
     coverage_score: float = 0.0
 
 
@@ -182,18 +183,18 @@ class IncidentRecord(BaseModel):
     severity: SeverityEnum = SeverityEnum.HIGH
     status: IncidentStatusEnum = IncidentStatusEnum.NEW
     assigned_analyst: str = "SecOps Lead"
-    affected_assets: List[str] = Field(default_factory=list)
+    affected_assets: list[str] = Field(default_factory=list)
     description: str = ""
-    stages_involved: List[KillChainStageEnum] = Field(default_factory=list)
-    linked_findings: List[str] = Field(default_factory=list)
-    linked_evidence: List[str] = Field(default_factory=list)
-    attack_path_id: Optional[str] = None
-    containment_recommendations: List[str] = Field(default_factory=list)
-    containment_actions_taken: List[Dict[str, Any]] = Field(default_factory=list)
+    stages_involved: list[KillChainStageEnum] = Field(default_factory=list)
+    linked_findings: list[str] = Field(default_factory=list)
+    linked_evidence: list[str] = Field(default_factory=list)
+    attack_path_id: str | None = None
+    containment_recommendations: list[str] = Field(default_factory=list)
+    containment_actions_taken: list[dict[str, Any]] = Field(default_factory=list)
     remediation_notes: str = ""
-    audit_trail: List[Dict[str, Any]] = Field(default_factory=list)
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    audit_trail: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class KillChainOverview(BaseModel):
@@ -202,8 +203,8 @@ class KillChainOverview(BaseModel):
     active_incidents_count: int = 0
     overall_risk_score: float = 0.0
     overall_confidence_score: float = 0.0
-    stage_summaries: Dict[str, Dict[str, Any]] = Field(default_factory=dict)
+    stage_summaries: dict[str, dict[str, Any]] = Field(default_factory=dict)
     control_coverage_percentage: float = 0.0
-    attack_paths: List[CorrelatedAttackPath] = Field(default_factory=list)
-    system_health: Dict[str, Any] = Field(default_factory=dict)
-    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    attack_paths: list[CorrelatedAttackPath] = Field(default_factory=list)
+    system_health: dict[str, Any] = Field(default_factory=dict)
+    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())

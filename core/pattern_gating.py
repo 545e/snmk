@@ -51,14 +51,13 @@ the fraction of patterns that are absent from the input.
 
 from __future__ import annotations
 
-import re
-from typing import Dict, FrozenSet, List, Optional, Sequence, Set, Tuple
+from collections.abc import Sequence
 
 __all__ = [
+    "GateFilter",
     "required_literal_groups",
     "required_literal_runs",
     "select_gate",
-    "GateFilter",
 ]
 
 # Minimum length for a literal to be considered a usable gate.  Shorter
@@ -75,7 +74,7 @@ _CONTROL_ESCAPES = {
 
 # A gate group is a frozenset of literals; at least one of them must occur.
 # An empty group means "unconstrained" and is dropped during construction.
-GateGroup = FrozenSet[str]
+GateGroup = frozenset[str]
 
 
 class _Opaque(Exception):
@@ -107,7 +106,7 @@ class _Parser:
         return self.s.startswith(token, self.i)
 
     # -- entry point -------------------------------------------------------
-    def parse(self) -> List[GateGroup]:
+    def parse(self) -> list[GateGroup]:
         groups = self._parse_alt()
         if self.i != self.n:
             # Trailing garbage we do not understand -> no gate at all.
@@ -115,14 +114,14 @@ class _Parser:
         return [g for g in groups if g]
 
     # -- grammar -----------------------------------------------------------
-    def _parse_alt(self) -> List[GateGroup]:
+    def _parse_alt(self) -> list[GateGroup]:
         """alternation := seq ('|' seq)*
 
         For an alternation the constraint is the conjunction over group
         positions of the *union* of the alternatives found in that position:
         ``(A0 & A1) | (B0 & B1)`` implies ``(A0|B0) & (A1|B1)``.
         """
-        branch_lists: List[List[GateGroup]] = []
+        branch_lists: list[list[GateGroup]] = []
         while True:
             branch_lists.append(self._parse_seq())
             if self._peek() == "|":
@@ -132,23 +131,23 @@ class _Parser:
         if len(branch_lists) == 1:
             return branch_lists[0]
         width = max(len(b) for b in branch_lists)
-        merged: List[GateGroup] = []
+        merged: list[GateGroup] = []
         for idx in range(width):
-            union: Set[str] = set()
+            union: set[str] = set()
             for branch in branch_lists:
                 if idx < len(branch):
                     union |= branch[idx]
             merged.append(frozenset(union))
         return merged
 
-    def _parse_seq(self) -> List[GateGroup]:
+    def _parse_seq(self) -> list[GateGroup]:
         """sequence := term*
 
         Adjacent plain literal characters are merged into a single literal so
         that e.g. ``AKIA`` is used as one literal instead of four.
         """
-        groups: List[GateGroup] = []
-        literal_buf: List[str] = []
+        groups: list[GateGroup] = []
+        literal_buf: list[str] = []
 
         def flush() -> None:
             if literal_buf:
@@ -168,7 +167,7 @@ class _Parser:
         flush()
         return groups
 
-    def _parse_term(self) -> Tuple[List[GateGroup], Optional[str]]:
+    def _parse_term(self) -> tuple[list[GateGroup], str | None]:
         """term := atom quantifier?
 
         Returns ``(constraint, plain_literal_char)``.  ``plain_literal_char``
@@ -187,7 +186,7 @@ class _Parser:
             return [frozenset({atom_literal})], None
         return atom_groups, None
 
-    def _parse_quantifier(self) -> Optional[int]:
+    def _parse_quantifier(self) -> int | None:
         """Parse an optional quantifier and return its minimum repetition."""
         ch = self._peek()
         # NOTE: ``"" in "?*"`` is True in Python, so the empty string returned
@@ -227,7 +226,7 @@ class _Parser:
         if self._peek() == "?":
             self.i += 1
 
-    def _parse_atom(self) -> Tuple[List[GateGroup], Optional[str]]:
+    def _parse_atom(self) -> tuple[list[GateGroup], str | None]:
         ch = self._peek()
         if ch == "":
             raise _Opaque()
@@ -251,7 +250,7 @@ class _Parser:
         self.i += 1
         return [], ch
 
-    def _parse_group(self) -> List[GateGroup]:
+    def _parse_group(self) -> list[GateGroup]:
         """Parse a parenthesised group, including all ``(?...)`` variants."""
         assert self.s[self.i] == "("
         self.i += 1
@@ -343,7 +342,7 @@ class _Parser:
             self.i += 1
         raise _Opaque()
 
-    def _parse_escape(self) -> Tuple[List[GateGroup], Optional[str]]:
+    def _parse_escape(self) -> tuple[list[GateGroup], str | None]:
         """Parse a backslash escape.
 
         Only escapes that denote exactly one literal character yield a
@@ -383,7 +382,7 @@ class _Parser:
         return [], ch
 
 
-def required_literal_groups(pattern: str) -> List[GateGroup]:
+def required_literal_groups(pattern: str) -> list[GateGroup]:
     """Return the gate groups of ``pattern``.
 
     Each returned group is a frozenset of literals of which at least one must
@@ -396,7 +395,7 @@ def required_literal_groups(pattern: str) -> List[GateGroup]:
         return []
     except RecursionError:
         return []
-    cleaned: List[GateGroup] = []
+    cleaned: list[GateGroup] = []
     for group in groups:
         literals = {lit for lit in group if len(lit) >= MIN_GATE_LENGTH}
         if literals:
@@ -404,15 +403,15 @@ def required_literal_groups(pattern: str) -> List[GateGroup]:
     return cleaned
 
 
-def required_literal_runs(pattern: str) -> List[str]:
+def required_literal_runs(pattern: str) -> list[str]:
     """Return the individual literals of the gate groups, longest first."""
-    lits: Set[str] = set()
+    lits: set[str] = set()
     for group in required_literal_groups(pattern):
         lits |= group
     return sorted(lits, key=len, reverse=True)
 
 
-def select_gate(pattern: str) -> Optional[str]:
+def select_gate(pattern: str) -> str | None:
     """Return the single most selective literal of ``pattern`` or ``None``."""
     runs = required_literal_runs(pattern)
     return runs[0] if runs else None
@@ -442,8 +441,8 @@ class GateFilter:
     """
 
     def __init__(self, source_patterns: Sequence[str]) -> None:
-        self.groups: List[List[GateGroup]] = []
-        self._group_literals: List[List[Tuple[str, ...]]] = []
+        self.groups: list[list[GateGroup]] = []
+        self._group_literals: list[list[tuple[str, ...]]] = []
         for src in source_patterns:
             pattern_groups = required_literal_groups(src)
             self.groups.append(pattern_groups)
@@ -452,10 +451,10 @@ class GateFilter:
                 for group in pattern_groups
             ])
 
-    def groups_for(self, index: int) -> List[GateGroup]:
+    def groups_for(self, index: int) -> list[GateGroup]:
         return self.groups[index]
 
-    def should_run(self, index: int, text: str, lowered: Optional[str] = None) -> bool:
+    def should_run(self, index: int, text: str, lowered: str | None = None) -> bool:
         """Return ``True`` when pattern ``index`` must be executed on ``text``.
 
         ``lowered`` is the case-folded form of ``text``; when omitted it is
@@ -479,7 +478,7 @@ class GateFilter:
                 return False
         return True
 
-    def runnable_indices(self, text: str, lowered: Optional[str] = None) -> List[int]:
+    def runnable_indices(self, text: str, lowered: str | None = None) -> list[int]:
         """Return the indices of the patterns that must be executed."""
         if lowered is None:
             lowered = text.lower()

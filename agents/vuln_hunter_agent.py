@@ -13,15 +13,15 @@ Modular OWASP Top 10 vulnerability scanner orchestrating extensible plugins:
 - A10: Server-Side Request Forgery (SSRF)
 """
 
-import asyncio
-from typing import List, Dict, Any, Optional
+from typing import Any
 
-from core.models import DiscoveredEndpoint, VulnerabilityFinding, LogEvent
+from core.models import DiscoveredEndpoint, LogEvent, VulnerabilityFinding
 from core.queue_manager import queue_manager
 from plugins.plugin_manager import plugin_manager
 
+
 class VulnHunterAgent:
-    def __init__(self, scan_id: str, endpoints: List[DiscoveredEndpoint], concurrency: int = 5):
+    def __init__(self, scan_id: str, endpoints: list[DiscoveredEndpoint], concurrency: int = 5):
         self.scan_id = scan_id
         self.endpoints = endpoints
         self.concurrency = concurrency
@@ -30,7 +30,7 @@ class VulnHunterAgent:
         event = LogEvent(scan_id=self.scan_id, agent="VulnHunterAgent", level=level, message=message)
         await queue_manager.emit_log(event)
 
-    async def run(self, recon_data: Any = None) -> List[VulnerabilityFinding]:
+    async def run(self, recon_data: Any = None) -> list[VulnerabilityFinding]:
         await self.log(f"Initiating OWASP Top 10 security audit across {len(self.endpoints)} endpoints...", "INFO")
         
         # Execute all registered and active security plugins

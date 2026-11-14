@@ -10,11 +10,12 @@ Evaluates API, CLI, and enterprise management feasibility honestly.
 Specifically notes that consumer suites like TotalAV provide no public programmatic API or CLI.
 """
 
+import json
 import os
 import shutil
 import subprocess
-import json
-from typing import Dict, List, Any, Optional
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -35,7 +36,7 @@ class AntivirusProductEvaluation(BaseModel):
 
 
 # Authoritative, factual evaluation matrix for the 15 endpoint protection products
-AV_EVALUATION_DATABASE: Dict[str, Dict[str, Any]] = {
+AV_EVALUATION_DATABASE: dict[str, dict[str, Any]] = {
     "microsoft_defender": {
         "name": "Microsoft Defender Antivirus",
         "category": "Built-in OS Antivirus",
@@ -267,9 +268,9 @@ AV_EVALUATION_DATABASE: Dict[str, Dict[str, Any]] = {
 class AntivirusEDRManager:
     """Manages endpoint security diagnostics, live telemetry gathering, and integration status."""
 
-    def get_live_host_telemetry(self) -> Dict[str, Any]:
+    def get_live_host_telemetry(self) -> dict[str, Any]:
         """Queries the current host OS for real active endpoint protection telemetry."""
-        telemetry: Dict[str, Any] = {
+        telemetry: dict[str, Any] = {
             "os_family": os.name,
             "host_platform": "Windows" if os.name == "nt" else "Unix-like",
             "active_engine": None,
@@ -303,11 +304,11 @@ class AntivirusEDRManager:
 
         return telemetry
 
-    def get_evaluation_matrix(self) -> List[Dict[str, Any]]:
+    def get_evaluation_matrix(self) -> list[dict[str, Any]]:
         """Returns the complete evaluation matrix for all 15 AV/EDR products."""
         return list(AV_EVALUATION_DATABASE.values())
 
-    def get_product(self, product_key: str) -> Optional[Dict[str, Any]]:
+    def get_product(self, product_key: str) -> dict[str, Any] | None:
         return AV_EVALUATION_DATABASE.get(product_key.lower().replace(" ", "_"))
 
 

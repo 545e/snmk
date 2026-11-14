@@ -7,7 +7,6 @@ adapters (VirusTotal, AbuseIPDB, AlienVault OTX, Shodan) and known adversary por
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
 
 from core.integrations.registry import integration_registry
 from core.network.geo_engine import is_private_ip
@@ -30,7 +29,7 @@ SUSPICIOUS_PORTS = {
 class ThreatIntelligenceEngine:
     """Evaluates network endpoints against threat intel feeds and risk signatures."""
 
-    async def evaluate_endpoint(self, ip: str, port: Optional[int] = None) -> ThreatIntelligenceMatch:
+    async def evaluate_endpoint(self, ip: str, port: int | None = None) -> ThreatIntelligenceMatch:
         """Evaluates an observed IP address and port against threat databases."""
         ip = ip.strip()
 

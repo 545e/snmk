@@ -6,14 +6,13 @@ Handles Risk Acceptance with documented rationale, False Positive suppression,
 and active retesting verification against targets.
 """
 
-from typing import List, Dict, Any, Optional
 import datetime
+from typing import Any
+
 import httpx
-from core.intelligence_models import (
-    RemediationTicket,
-    FindingLifecycleStatus
-)
+
 from core.database import db
+from core.intelligence_models import FindingLifecycleStatus, RemediationTicket
 from core.models import VulnerabilityFinding
 from core.queue_manager import queue_manager
 
@@ -39,7 +38,7 @@ class RemediationEngine:
                 "to_status": FindingLifecycleStatus.DISCOVERED.value,
                 "actor": "VulnHunterAgent",
                 "reason": "Initial discovery from security assessment",
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
             }]
         )
         db.save_remediation_ticket(ticket.model_dump())
@@ -51,9 +50,9 @@ class RemediationEngine:
         new_status: FindingLifecycleStatus,
         actor: str = "Security Analyst",
         reason: str = "",
-        owner: Optional[str] = None,
-        suppression_reason: Optional[str] = None
-    ) -> Optional[RemediationTicket]:
+        owner: str | None = None,
+        suppression_reason: str | None = None
+    ) -> RemediationTicket | None:
         """Transitions a finding ticket across the lifecycle state machine."""
         ticket_dict = db.get_remediation_ticket(ticket_id)
         if not ticket_dict:
@@ -69,7 +68,7 @@ class RemediationEngine:
         if suppression_reason:
             ticket.suppression_reason = suppression_reason
 
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
         ticket.history.append({
             "from_status": prev_status.value,
             "to_status": new_status.value,
@@ -101,7 +100,7 @@ class RemediationEngine:
         return ticket
 
     @staticmethod
-    async def run_retest(ticket_id: str, actor: str = "Retest Specialist Agent") -> Dict[str, Any]:
+    async def run_retest(ticket_id: str, actor: str = "Retest Specialist Agent") -> dict[str, Any]:
         """
         Executes an automated retest probe against the vulnerable endpoint
         to verify if the vulnerability has been resolved or still persists.
@@ -140,7 +139,7 @@ class RemediationEngine:
                     retest_evidence = f"Endpoint responded with HTTP {res.status_code}; test payload reflection no longer present."
         except Exception as e:
             status_result = "VERIFIED_RESOLVED"
-            retest_evidence = f"Endpoint is no longer reachable or connection refused ({str(e)})."
+            retest_evidence = f"Endpoint is no longer reachable or connection refused ({e!s})."
 
         # Determine target lifecycle status based on retest result
         target_status = FindingLifecycleStatus.VERIFIED if status_result == "VERIFIED_RESOLVED" else FindingLifecycleStatus.IN_PROGRESS
