@@ -335,7 +335,38 @@ def get_finding(finding_id: str) -> Optional[KillChainFinding]:
         return _row_to_finding(row)
 
 
+def count_findings(stage: Optional[str] = None, severity: Optional[str] = None) -> int:
+    """Counts the findings that match the given filters.
+
+    Used to detect when a truncated read (see ``list_findings``) silently
+    hides part of the corpus from correlation and reporting.
+    """
+    with db.get_connection() as conn:
+        cursor = conn.cursor()
+        query = "SELECT COUNT(*) FROM kill_chain_findings"
+        clauses = []
+        params: List[Any] = []
+        if stage and stage != "ALL":
+            clauses.append("stage = ?")
+            params.append(stage)
+        if severity and severity != "ALL":
+            clauses.append("severity = ?")
+            params.append(severity.upper())
+        if clauses:
+            query += " WHERE " + " AND ".join(clauses)
+        row = cursor.execute(query, params).fetchone()
+        return int(row[0]) if row else 0
+
+
 def list_findings(stage: Optional[str] = None, severity: Optional[str] = None, limit: int = 200) -> List[KillChainFinding]:
+    """
+    Reads findings, ordered by risk score descending.
+
+    ``limit`` caps how many rows are returned.  Callers that correlate or
+    report on the corpus should compare the result length against
+    ``count_findings()`` so that a truncation is visible rather than silently
+    producing an incomplete attack-path picture.
+    """
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()

@@ -630,7 +630,12 @@ async def health_dependencies():
 
     configured_integrations = integration_registry.list_configured_integrations()
 
-    all_agents = await get_enterprise_agents()
+    # The agent count is the only thing needed here.  Fetching the full
+    # manifest list (and the recursive Pydantic serialisation that comes with
+    # it) just to take its length made a health probe cost 94 serialisations.
+    from core.agent_registry import agent_registry
+
+    total_agents = len(agent_registry.list_manifests())
 
 
 
@@ -662,7 +667,7 @@ async def health_dependencies():
 
                 "status": "OPERATIONAL",
 
-                "total_agents": len(all_agents)
+                "total_agents": total_agents
 
             },
 
@@ -4062,11 +4067,24 @@ async def get_rea_job(job_id: str):
 
 async def list_tool_registry(category: Optional[str] = None):
 
-    """Returns the complete catalog of all implemented offensive and defensive tools."""
+    """Returns the complete catalog of all implemented offensive and defensive tools.
+
+    Each entry carries a ``handler_resolution`` block describing whether the
+    declared ``backend_handler`` actually resolves to a callable.  A tool
+    whose handler does not resolve cannot be executed, and saying so in the
+    catalog is more useful than a declaration that looks fine but is dead.
+    """
 
     from core.tool_registry import tool_registry
+    from core.tool_handler_resolver import describe_handler
 
     tools = tool_registry.list_all(category=category)
+
+    entries = []
+    for tool in tools:
+        entry = tool.model_dump()
+        entry["handler_resolution"] = describe_handler(tool.backend_handler)
+        entries.append(entry)
 
     return {
 
@@ -4074,7 +4092,7 @@ async def list_tool_registry(category: Optional[str] = None):
 
         "category": category or "all",
 
-        "tools": [t.model_dump() for t in tools]
+        "tools": entries
 
     }
 
@@ -4087,6 +4105,7 @@ async def get_tool_metadata(tool_id: str):
     """Returns schema and handler details for a specific registered tool."""
 
     from core.tool_registry import tool_registry
+    from core.tool_handler_resolver import describe_handler
 
     tool = tool_registry.get(tool_id)
 
@@ -4094,7 +4113,9 @@ async def get_tool_metadata(tool_id: str):
 
         raise HTTPException(status_code=404, detail=f"Tool '{tool_id}' not found in registry.")
 
-    return tool.model_dump()
+    payload = tool.model_dump()
+    payload["handler_resolution"] = describe_handler(tool.backend_handler)
+    return payload
 
 
 
@@ -4111,6 +4132,169 @@ class ToolExecuteRequest(BaseModel):
     options: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     authorized: bool = Field(default=True)
+
+
+
+# Instance factories for registry handlers whose declared target is a class
+# method.  Each factory receives the request payload and returns a ready
+# instance, or raises when the request does not carry enough information.
+# The mapping is populated after the factories are defined.
+_REGISTRY_INSTANCE_FACTORIES: Dict[str, Any] = {}
+
+
+
+def _build_blue_team_engine(payload: Dict[str, Any]):
+    """Builds a BlueTeamDefenseEngine from the request payload."""
+    from core.blue_team_engine import BlueTeamDefenseEngine
+    from core.models import ScanJob
+    scan = None
+    scan_id = payload.get("scan_id")
+    if scan_id:
+        try:
+            from core.database import db
+            scan = db.get_scan(scan_id)
+        except Exception:
+            scan = None
+    return BlueTeamDefenseEngine(
+        scan=scan,
+        findings=[],
+        target_url=payload.get("target_url") or payload.get("target"),
+    )
+
+
+
+def _build_forensics_engine(payload: Dict[str, Any]):
+    """Builds a ForensicsEngine from the request payload."""
+    from core.forensics_engine import ForensicsEngine
+    raw_logs = payload.get("raw_logs") or payload.get("raw_log") or payload.get("logs")
+    if not raw_logs:
+        raise ValueError(
+            "This handler requires 'raw_logs' in the request options."
+        )
+    return ForensicsEngine(str(raw_logs))
+
+
+
+def _build_report_generator(payload: Dict[str, Any]):
+    """Builds a ReportGenerator from the request payload."""
+    from core.database import db
+    from core.models import ScanJob
+    from reports.generator import ReportGenerator
+    scan_id = payload.get("scan_id")
+    if not scan_id:
+        raise ValueError(
+            "This handler requires 'scan_id' in the request options."
+        )
+    scan = db.get_scan(scan_id)
+    if not scan:
+        raise ValueError(f"No scan found with id '{scan_id}'.")
+    findings = db.list_findings(scan_id=scan_id)
+    return ReportGenerator(scan, findings)
+
+
+
+# Populated once the factories above are defined.
+_REGISTRY_INSTANCE_FACTORIES.update({
+    "core.blue_team_engine:BlueTeamDefenseEngine": _build_blue_team_engine,
+    "core.forensics_engine:ForensicsEngine": _build_forensics_engine,
+    "reports.generator:ReportGenerator": _build_report_generator,
+})
+
+
+
+async def _execute_registry_handler(
+    meta,
+    effective_target: str,
+    options: Dict[str, Any]
+) -> Dict[str, Any]:
+    """
+    Resolves a registry tool's ``backend_handler`` and executes it.
+
+    Returns a dict describing the outcome.  The ``status`` field is one of:
+
+    * ``COMPLETED``   -- the handler ran and produced a result;
+    * ``NOT_IMPLEMENTED`` -- the handler could not be resolved to a callable;
+    * ``NOT_EXECUTABLE``  -- the handler exists but the request does not carry
+      the arguments it needs;
+    * ``FAILED``      -- the handler raised.
+
+    The point of the explicit status is that a caller can never mistake "the
+    tool did nothing" for "the tool ran and found nothing".
+    """
+    from core.tool_handler_resolver import (
+        HandlerNotExecutable,
+        HandlerNotResolvable,
+        invoke_handler,
+    )
+
+    payload: Dict[str, Any] = dict(options or {})
+    payload.setdefault("target", effective_target)
+    payload.setdefault("url", effective_target)
+    payload.setdefault("domain", effective_target)
+    payload.setdefault("host", effective_target)
+    payload.setdefault("target_url", effective_target)
+    payload.setdefault("target_host", effective_target)
+    if payload.get("authorized") is None:
+        payload["authorized"] = True
+
+    base: Dict[str, Any] = {
+        "tool": meta.name,
+        "tool_id": meta.id,
+        "category": meta.category,
+        "purpose": meta.purpose,
+        "handler": meta.backend_handler,
+        "target": effective_target,
+    }
+
+    handler = meta.backend_handler
+    instance_factory = None
+    for prefix, factory in _REGISTRY_INSTANCE_FACTORIES.items():
+        if handler.startswith(prefix):
+            instance_factory = factory
+            break
+
+    try:
+        result = await invoke_handler(
+            handler,
+            payload=payload,
+            instance_factory=instance_factory,
+        )
+    except HandlerNotResolvable as exc:
+        return {
+            **base,
+            "status": "NOT_IMPLEMENTED",
+            "executed": False,
+            "reason": str(exc),
+        }
+    except HandlerNotExecutable as exc:
+        return {
+            **base,
+            "status": "NOT_EXECUTABLE",
+            "executed": False,
+            "reason": str(exc),
+        }
+    except ValueError as exc:
+        return {
+            **base,
+            "status": "NOT_EXECUTABLE",
+            "executed": False,
+            "reason": str(exc),
+        }
+    except Exception as exc:
+        logger.error(f"Error executing registry handler {handler}: {exc}")
+        return {
+            **base,
+            "status": "FAILED",
+            "executed": False,
+            "reason": f"Handler raised {type(exc).__name__}: {exc}",
+        }
+
+    return {
+        **base,
+        "status": "COMPLETED",
+        "executed": True,
+        "result": result,
+    }
 
 
 
@@ -4391,15 +4575,19 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
                 tool_registry.get(f"recon_{canonical_id}")
             )
             if meta:
-                result_data = {
-                    "tool": meta.name,
-                    "category": meta.category,
-                    "status": "OPERATIONAL",
-                    "purpose": meta.purpose,
-                    "handler": meta.backend_handler,
-                    "target": effective_target,
-                    "output": f"Executed handler {meta.backend_handler} against {effective_target}."
-                }
+                # Resolve the declared backend_handler and actually run it.
+                #
+                # Previously this branch returned a hard-coded
+                # {"status": "OPERATIONAL", "output": "Executed handler ..."}
+                # envelope for *every* registry tool it did not special-case,
+                # without executing anything.  Callers could not distinguish a
+                # real run from a fabricated one.  The handler is now resolved
+                # via importlib and invoked; when it cannot be resolved or
+                # cannot be satisfied with the supplied arguments, the honest
+                # status is reported instead.
+                result_data = await _execute_registry_handler(
+                    meta, effective_target, options
+                )
             else:
                 from core.scanner_integrations import ScannerIntegrations
                 inv = ScannerIntegrations.get_tool_inventory()
@@ -4414,9 +4602,18 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
         exec_time = round(time.time() - t_start, 3)
 
+        # The outer status reflects what actually happened.  A registry tool
+        # whose handler could not be resolved or could not be satisfied must
+        # not be reported as a completed execution.
+        outer_status = "COMPLETED"
+        if isinstance(result_data, dict):
+            inner_status = result_data.get("status")
+            if inner_status in ("NOT_IMPLEMENTED", "NOT_EXECUTABLE", "FAILED"):
+                outer_status = inner_status
+
         return {
 
-            "status": "COMPLETED",
+            "status": outer_status,
             "tool_id": tool_id_clean,
             "target": effective_target,
 

@@ -9,6 +9,7 @@ import json
 import os
 import re
 import socket
+from collections import OrderedDict
 from urllib.parse import urlparse
 from typing import Dict, List, Optional, Tuple, Set
 from pydantic import BaseModel
@@ -52,6 +53,11 @@ class ScopeValidationResult(BaseModel):
         return self.is_allowed
 
 class ScopePolicy:
+    # Maximum number of dynamically (session-scoped) authorized hostnames kept
+    # in memory.  The set used to grow without limit for the lifetime of the
+    # process, and every validation swept the whole set.
+    MAX_SESSION_DOMAINS = 256
+
     def __init__(self, targets_config_path: Optional[str] = None, allow_lab_mode: bool = False):
         self.config_path = targets_config_path or os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "config", "targets.json"
@@ -59,6 +65,9 @@ class ScopePolicy:
         self.allow_lab_mode = allow_lab_mode
         self.allowed_domains: Set[str] = set()
         self.allowed_ips: Set[str] = set()
+        # Session-scoped (not persisted) authorizations, kept in insertion
+        # order so the oldest entry can be evicted when the cap is reached.
+        self._session_domains: "OrderedDict[str, None]" = OrderedDict()
         self._last_mtime: float = 0.0
         self._load_config()
 
@@ -91,6 +100,41 @@ class ScopePolicy:
                     self._load_config()
         except Exception:
             pass
+
+    def _matches_allowlist(self, hostname: str) -> bool:
+        """
+        True when *hostname* is covered by the allowlist.
+
+        Both the configured (persisted) allowlist and the session-scoped
+        authorizations are consulted.  The configured set is small and
+        stable, so the suffix sweep over it is cheap; the session set is
+        bounded (see ``MAX_SESSION_DOMAINS``) so the same sweep over it is
+        bounded too.
+        """
+        if hostname in self.allowed_domains:
+            return True
+        if hostname in self._session_domains:
+            return True
+        for domain in self.allowed_domains:
+            if hostname.endswith(f".{domain}"):
+                return True
+        for domain in self._session_domains:
+            if hostname.endswith(f".{domain}"):
+                return True
+        return False
+
+    def _add_session_domain(self, hostname: str) -> None:
+        """
+        Records a session-scoped authorization for *hostname*.
+
+        The session set is capped; when it is full the oldest entry is
+        evicted.  An unbounded set would grow for the lifetime of the
+        process and slow down every subsequent validation.
+        """
+        self._session_domains.pop(hostname, None)
+        self._session_domains[hostname] = None
+        while len(self._session_domains) > self.MAX_SESSION_DOMAINS:
+            self._session_domains.popitem(last=False)
 
     def add_target(self, domain: str, description: str = "Authorized target domain", profile: str = "standard") -> bool:
         """Dynamically authorizes a domain and persists it to targets.json."""
@@ -204,7 +248,7 @@ class ScopePolicy:
         except ValueError:
             return False, "Invalid IP string"
 
-    def validate_target(self, target_input: str, explicit_lab_authorization: bool = False, lab_mode: Optional[bool] = None, auto_authorize: bool = True) -> ScopeValidationResult:
+    def validate_target(self, target_input: str, explicit_lab_authorization: bool = False, lab_mode: Optional[bool] = None, auto_authorize: bool = True, resolved_ips: Optional[List[str]] = None) -> ScopeValidationResult:
         if lab_mode is not None:
             explicit_lab_authorization = lab_mode
         """
@@ -265,21 +309,34 @@ class ScopePolicy:
         lab_authorized = explicit_lab_authorization or self.allow_lab_mode
 
         # DNS Resolution & Rebinding Check (Evaluate all returned IPs)
-        resolved_ips = []
-        try:
-            addr_info = socket.getaddrinfo(hostname, None)
-            for item in addr_info:
-                ip_cand = item[4][0]
-                if ip_cand not in resolved_ips:
-                    resolved_ips.append(ip_cand)
-        except Exception as e:
-            return ScopeValidationResult(
-                is_allowed=False,
-                target=clean_target,
-                hostname=hostname,
-                reason=f"Failed to resolve DNS for target '{hostname}': {str(e)}",
-                error_code="DNS_RESOLUTION_FAILURE"
-            )
+        #
+        # ``resolved_ips`` may be supplied by a caller that already resolved
+        # this hostname during the same validation (see validate_tool_target).
+        # Re-using those addresses avoids a second DNS round-trip -- and,
+        # more importantly, avoids the window in which a second, different
+        # answer could be returned for the same name.
+        #
+        # An empty list means "not resolved yet", not "resolved to nothing":
+        # the name may simply have failed to resolve, and that must still
+        # surface as a DNS failure rather than silently passing.
+        if resolved_ips:
+            resolved_ips = list(resolved_ips)
+        else:
+            resolved_ips = []
+            try:
+                addr_info = socket.getaddrinfo(hostname, None)
+                for item in addr_info:
+                    ip_cand = item[4][0]
+                    if ip_cand not in resolved_ips:
+                        resolved_ips.append(ip_cand)
+            except Exception as e:
+                return ScopeValidationResult(
+                    is_allowed=False,
+                    target=clean_target,
+                    hostname=hostname,
+                    reason=f"Failed to resolve DNS for target '{hostname}': {str(e)}",
+                    error_code="DNS_RESOLUTION_FAILURE"
+                )
 
         # SSRF & Private IP Inspection across all resolved IPs
         for ip in resolved_ips:
@@ -307,15 +364,15 @@ class ScopePolicy:
         resolved_ip = resolved_ips[0] if resolved_ips else None
 
         # Allowlist Enforcement (if allowlist configured)
-        if self.allowed_domains:
-            domain_matched = hostname in self.allowed_domains or any(hostname.endswith(f".{d}") for d in self.allowed_domains)
+        if self.allowed_domains or self._session_domains:
+            domain_matched = self._matches_allowlist(hostname)
             if not domain_matched and not (is_lab and lab_authorized):
                 if auto_authorize and not _allowlist_enforced():
                     # Session-scoped authorization only — do NOT persist the
                     # hostname into targets.json (that would silently defeat
                     # the allowlist). Set SWA_ENFORCE_ALLOWLIST=1 to disable
                     # dynamic authorization entirely.
-                    self.allowed_domains.add(hostname)
+                    self._add_session_domain(hostname)
                     return ScopeValidationResult(
                         is_allowed=True,
                         target=clean_target,
@@ -375,27 +432,63 @@ INTRUSIVE_TOOL_IDS = {
 }
 
 
-def _restricted_reason(hostname: str) -> Optional[str]:
-    """Return a reason string when *hostname* resolves to a restricted address."""
+def _resolve_addresses(hostname: str) -> List[str]:
+    """
+    Resolves *hostname* to the list of IP addresses it maps to.
+
+    Returns an empty list when the name does not resolve.  Every returned
+    address is checked by the callers: a name that maps to *any* restricted
+    address is refused, not just the one that happened to be returned first.
+    """
+    try:
+        infos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+    except socket.gaierror:
+        return []
+    except OSError:
+        return []
+
+    addresses: List[str] = []
+    for info in infos:
+        try:
+            address = info[4][0]
+        except (IndexError, TypeError):
+            continue
+        if address and address not in addresses:
+            addresses.append(address)
+    return addresses
+
+
+def _restricted_reason(
+    hostname: str,
+    resolved: Optional[List[str]] = None,
+) -> Optional[str]:
+    """Return a reason string when *hostname* resolves to a restricted address.
+
+    Every address the name resolves to is inspected, not just the first one.
+    A DNS response that mixes a public address with a private one must still
+    be refused, otherwise the ordering of the resolver's answer would decide
+    whether the SSRF guard fires.
+
+    ``resolved`` may carry addresses that the caller has already looked up,
+    so that a hostname is not resolved twice within one validation.
+    """
     if not hostname:
         return "Empty target."
     candidate = hostname.strip().lower()
     if candidate in {"localhost", "localhost.localdomain"}:
         return "Loopback hostnames are restricted for this operation."
     try:
-        ip_obj = ipaddress.ip_address(candidate)
+        ipaddress.ip_address(candidate)
     except ValueError:
-        try:
-            infos = socket.getaddrinfo(candidate, None, proto=socket.IPPROTO_TCP)
-        except socket.gaierror:
+        addresses = list(resolved) if resolved is not None else _resolve_addresses(candidate)
+        if not addresses:
             return None  # Unresolvable; let the caller surface the DNS failure.
-        if not infos:
-            return None
-        candidate = infos[0][4][0]
-        try:
-            ip_obj = ipaddress.ip_address(candidate)
-        except ValueError:
-            return None
+        for address in addresses:
+            blocked, reason = scope_policy.is_private_or_restricted(address)
+            if blocked:
+                return f"{reason} ({address})"
+        return None
+
     blocked, reason = scope_policy.is_private_or_restricted(candidate)
     return reason if blocked else None
 
@@ -480,8 +573,16 @@ def validate_tool_target(target: str, *, tool_id: str) -> ScopeValidationResult:
 
     # 3. Unconditional SSRF / restricted-address guard. Pre-authorised lab
     #    targets (loopback, localhost, the PortSwigger academy host) are exempt.
+    #
+    #    The addresses resolved here are handed to validate_target() further
+    #    down so the hostname is only resolved once per validation.
+    pre_resolved: Optional[List[str]] = None
     if not is_builtin_lab:
-        restricted = _restricted_reason(probe_host)
+        if _looks_like_ip(probe_host):
+            pre_resolved = [probe_host]
+        else:
+            pre_resolved = _resolve_addresses(probe_host)
+        restricted = _restricted_reason(probe_host, resolved=pre_resolved)
         if restricted:
             return ScopeValidationResult(
                 is_allowed=False, target=clean, hostname=probe_host,
@@ -505,7 +606,9 @@ def validate_tool_target(target: str, *, tool_id: str) -> ScopeValidationResult:
         )
 
     result = scope_policy.validate_target(
-        clean, explicit_lab_authorization=is_builtin_lab
+        clean,
+        explicit_lab_authorization=is_builtin_lab,
+        resolved_ips=pre_resolved,
     )
     if not result.is_allowed:
         result.reason = (

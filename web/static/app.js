@@ -7553,7 +7553,12 @@ function renderToolCatalog(tools) {
         return;
     }
 
-    container.innerHTML = tools.map(t => `
+    container.innerHTML = tools.map(t => {
+        const resolution = t.handler_resolution || {};
+        const handlerState = resolution.resolved
+            ? '<span style="color: var(--text-success, #10b981);">✓ executable</span>'
+            : `<span style="color: var(--text-danger, #ef4444);" title="${(resolution.error || '').replace(/"/g, '&quot;')}">✕ not executable</span>`;
+        return `
         <div class="tool-catalog-item">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -7565,7 +7570,8 @@ function renderToolCatalog(tools) {
             </div>
             <div>
                 <div style="background: var(--bg-subtle); padding: 8px 10px; border-radius: 6px; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
-                    <strong>Handler:</strong> <code>${t.backend_handler}</code>
+                    <strong>Handler:</strong> <code>${t.backend_handler}</code><br>
+                    <strong>Status:</strong> ${handlerState}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted);">
                     <span>Scope: <strong>${t.authorization_scope}</strong></span>
@@ -7573,7 +7579,8 @@ function renderToolCatalog(tools) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function filterToolCatalog() {
@@ -13890,7 +13897,19 @@ function runSingleToolFromAllTools(toolKey) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target: target, options: { lab_mode: true } })
     }).then(r => r.json()).then(data => {
-        alert(`Tool ${toolKey} finished successfully: ${JSON.stringify(data.status || 'DONE')}`);
+        // Report what actually happened. The endpoint now distinguishes a
+        // completed execution from a handler that could not be resolved or
+        // could not be satisfied, and the UI must not claim success in the
+        // latter cases.
+        const status = data.status || 'UNKNOWN';
+        const inner = data.result && data.result.status ? data.result.status : null;
+        const reason = (data.result && data.result.reason) ? `\n\nReason: ${data.result.reason}` : '';
+
+        if (status === 'COMPLETED') {
+            alert(`Tool ${toolKey} finished successfully: ${status}${inner ? ` (${inner})` : ''}`);
+        } else {
+            alert(`Tool ${toolKey} did not complete: ${status}${inner ? ` (${inner})` : ''}${reason}`);
+        }
     }).catch(err => {
         alert(`Tool run notice: ${err.message}`);
     });

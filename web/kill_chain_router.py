@@ -169,17 +169,35 @@ def get_kill_chain_finding_by_id(finding_id: str):
 # 5. Correlation & Attack Paths
 @kill_chain_router.post("/correlate")
 def run_correlation(target_asset: Optional[str] = Query(None)):
-    """Runs central correlation engine across all persistent findings and returns multi-stage attack paths."""
-    findings = list_findings()
-    evidence = list_evidence()
-    indicators = list_indicators()
+    """Runs central correlation engine across all persistent findings and returns multi-stage attack paths.
+
+    The response is a list of correlated attack paths, exactly as before. When
+    the finding corpus had to be truncated to fit the correlation read limit,
+    an ``X-SNMK-Correlation-Truncated`` response header is set so the caller
+    can tell that the paths were computed from an incomplete stage set.
+    """
+    corpus = kill_chain_engine.load_correlation_corpus()
     paths = kill_chain_engine.correlation_engine.correlate(
-        findings=findings,
-        evidence=evidence,
-        indicators=indicators,
+        findings=corpus["findings"],
+        evidence=corpus["evidence"],
+        indicators=corpus["indicators"],
         target_asset=target_asset,
     )
-    return [p.dict() for p in paths]
+    response = [p.dict() for p in paths]
+    if corpus["any_truncated"]:
+        response = JSONResponse(
+            content=response,
+            headers={
+                "X-SNMK-Correlation-Truncated": "true",
+                "X-SNMK-Correlation-Findings-Loaded": str(
+                    corpus["truncation"]["findings"]["loaded"]
+                ),
+                "X-SNMK-Correlation-Findings-Total": str(
+                    corpus["truncation"]["findings"]["total"]
+                ),
+            },
+        )
+    return response
 
 
 # 6. Evidence Repository
@@ -352,9 +370,10 @@ def list_kill_chain_reports():
 @kill_chain_router.post("/reports/generate")
 def generate_kill_chain_report(req: ReportGenerateRequest):
     """Generates complete Nessus-style report across PDF, HTML, JSON, CSV, and Markdown."""
-    findings = list_findings()
-    evidence = list_evidence()
-    indicators = list_indicators()
+    corpus = kill_chain_engine.load_correlation_corpus()
+    findings = corpus["findings"]
+    evidence = corpus["evidence"]
+    indicators = corpus["indicators"]
     paths = kill_chain_engine.correlation_engine.correlate(findings, evidence, indicators)
     coverage = kill_chain_engine.controls_matrix.get_matrix()
 
@@ -364,7 +383,13 @@ def generate_kill_chain_report(req: ReportGenerateRequest):
         evidence=evidence,
         attack_paths=paths,
         coverage_data=coverage,
-        metadata={"analyst": req.analyst, "scope": req.scope},
+        metadata={
+            "analyst": req.analyst,
+            "scope": req.scope,
+            # A truncated corpus means the report covers only part of the
+            # findings; that must be visible on the deliverable itself.
+            "corpus_truncation": corpus["truncation"],
+        },
         export_formats=req.formats,
     )
     return report_pack

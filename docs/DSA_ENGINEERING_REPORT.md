@@ -378,11 +378,19 @@ underlying engines still emit a number of hard-coded capability literals
 ### E.4 Tool execution
 
 `core/tool_registry.py` lookup is O(1) (`self._tools.get(tool_id)`) ✔. The
-`backend_handler` strings are **never resolved** — execution is a separate
+`backend_handler` strings were **never resolved** — execution was a separate
 hard-coded `if/elif` chain in `web/server.py`, and the fallback branch
-returns `status: "OPERATIONAL"` with an "Executed handler …" message for any
-registry tool it does not special-case, without executing anything (§I,
+returned `status: "OPERATIONAL"` with an "Executed handler …" message for any
+registry tool it did not special-case, without executing anything (§I,
 DSA-AI-09).
+
+**That is now fixed.** `core/tool_handler_resolver.py` resolves each
+`backend_handler` through `importlib` and invokes it with the arguments the
+request actually carries. The endpoint reports `COMPLETED`, `NOT_IMPLEMENTED`,
+`NOT_EXECUTABLE` or `FAILED`, and the registry catalog publishes a
+`handler_resolution` block per tool so a broken declaration is visible before
+it is executed. Fourteen of the thirty-four declared handlers named attributes
+that did not exist and were corrected. See §I.0.
 
 ### E.5 RAG and memory
 
@@ -426,11 +434,17 @@ remaining inefficiencies are listed in §I.
 | ID | Issue | Why not fixed here |
 |---|---|---|
 | DSA-AI-08 | `authorization_required` / `authorization_scope` on tool metadata are never enforced | Enforcing them is a **policy change** that alters which requests succeed; needs a security-owner decision. |
-| DSA-AI-09 | Tool execution endpoint returns a success envelope for unimplemented handlers | Fixing it requires implementing the handler resolution; a mechanical fix would turn "fake success" into "hard error" for tools operators may believe work. Flagged for immediate follow-up. |
 | DSA-AI-26 | `permission_boundary` fields are decorative | Same policy-change caveat. |
 | DSA-CYB-22 | Engines do not assert scope themselves | Adding in-engine scope checks **reduces** the finding set for out-of-allowlist assets. Needs sign-off. |
-| DSA-CYB-02 | OWASP plugin probe-parameter selection uses `list(set(...))` + truncation → nondeterministic coverage | **Not fixed** — see §I; it is a detection-coverage change. |
-| DSA-CYB-03 | `update_tool` invalidates the shared inventory cache from inside a 16-worker pool | **Not fixed** — see §I. |
+
+> **DSA-AI-09 has been closed**, and **DSA-CYB-02** has been fixed, in the pass
+> recorded in §I.0: the tool execution endpoint now resolves and executes the
+> declared `backend_handler` and reports `NOT_IMPLEMENTED` / `NOT_EXECUTABLE`
+> instead of a fabricated success envelope, and the OWASP plugin selects probe
+> parameters deterministically.
+>
+> **DSA-CYB-03** was already fixed at HEAD (the inventory-cache invalidation was
+> hoisted out of the 16-worker pool); this row was stale.
 
 ### F.4 Secret scan of the repository
 
@@ -675,21 +689,39 @@ and treat the timing budget as environment-dependent.
 
 ## I. Remaining Work
 
+### I.0 Fixed in this pass
+
+| ID | Issue | Fix | Regression test |
+|---|---|---|---|
+| DSA-AI-09 | The tool execution endpoint returned `status: "OPERATIONAL"` and "Executed handler …" for any registry tool it did not special-case, without executing anything | `core/tool_handler_resolver.py` resolves `backend_handler` via `importlib` and invokes it. The endpoint now reports `COMPLETED` / `NOT_IMPLEMENTED` / `NOT_EXECUTABLE` / `FAILED`, and the outer envelope mirrors the inner status. The registry catalog publishes a `handler_resolution` block per tool. | `tests/test_honesty_and_determinism.py` |
+| — | 14 of the 34 declared `backend_handler` strings pointed at attributes that do not exist (`run_nmap_scan`, `analyze_file`, `inspect_dataset`, `evaluate_model`, `generate_custom`, …) | Every handler now names a real callable; `ScannerIntegrations.run_scanner_safe` was added so each scanner has a genuine, scope-checked execution path instead of a decorative string. | `tests/test_honesty_and_determinism.py` |
+| — | The REA API response shape depended on whether an npm `rea` CLI happened to be installed: the CLI replaced the metadata with a different envelope, so `metadata["tables"]` / `metadata["format"]` vanished | The native inspector always produces the documented contract; the CLI is strictly additive and its failure is reported under `metadata["rea_cli"]` instead of discarding the result. | `tests/test_honesty_and_determinism.py`, `tests/test_rea_engine.py` |
+| DSA-CYB-02 | OWASP plugin probe-parameter selection was `list(set(...))` + `[:4]` truncation → nondeterministic coverage across runs | The existing (but unused) `_rank_probe_parameters()` helper is now wired in: order-preserving dedup plus a documented relevance ranking, so the cap keeps the highest-signal parameters. | `tests/test_honesty_and_determinism.py` |
+| DSA-BE-19 | Kill-chain correlation silently truncated at 200 findings → attack paths computed from an incomplete stage set | `count_findings()` added; the engine loads the corpus through `load_correlation_corpus()` which reports per-collection truncation, the correlate endpoint sets `X-SNMK-Correlation-Truncated`, and the report metadata carries the truncation block. | `tests/test_honesty_and_determinism.py` |
+| DSA-CYB-06 | A hostname was resolved twice per validation, leaving a window in which a second, different answer could be returned | The addresses resolved by the SSRF guard are handed to `validate_target()`, so a hostname is resolved once per validation. | `tests/test_honesty_and_determinism.py` |
+| — | `_restricted_reason()` inspected only the **first** address a name resolved to, so a mixed public/private answer could slip through depending on resolver ordering | Every resolved address is inspected. | `tests/test_honesty_and_determinism.py` |
+| DSA-CYB-20 | The session-scoped allowlist grew without limit and was swept in O(n) on every validation | Session authorizations live in a separate, capped (`MAX_SESSION_DOMAINS = 256`) insertion-ordered structure with oldest-first eviction, and are never persisted into `targets.json`. | `tests/test_honesty_and_determinism.py` |
+| DSA-BE-36 (residual) | `GET /api/health/dependencies` fetched and serialised all 94 agent manifests only to take their length | The count is now taken from the registry directly; no manifest serialisation happens on the health path. | `tests/test_system_status.py` |
+
+**Suite status:** 396 passed, 0 failed (baseline before this pass: 369 passed, 3 failed).
+
 ### I.1 High priority — not implemented
 
 | ID | Issue | Proposed direction |
 |---|---|---|
 | DSA-AI-08/26 | Tool and agent permission metadata is declared but never enforced | Enforce `authorization_required` / `authorization_scope` / `can_execute_active_probes` in a single chokepoint. **Policy change — needs security-owner sign-off.** |
-| DSA-AI-09 | The tool execution endpoint returns `status: "OPERATIONAL"` and "Executed handler …" for any registry tool it does not special-case, without executing anything | Resolve `backend_handler` via `importlib` and either execute it or return `NOT_IMPLEMENTED`. |
 | DSA-CYB-01 (residual) | `core/sqli_engine` probes a remote target up to 9 times, each re-scanning the body | Cache the engine verdict per response object; order the signature corpus so cheap literal patterns are tried first (changes engine attribution on mixed signatures — needs a golden test). |
-| DSA-CYB-02 | OWASP plugin probe-parameter selection is `list(set(...))` + `[:4]` truncation → **nondeterministic** coverage across runs (`PYTHONHASHSEED`-dependent) | Order-preserving dedup (`list(dict.fromkeys(...))`). This changes which parameters are probed; it should be paired with a documented, semantically-ranked selection rather than a silent truncation. |
-| DSA-CYB-03 | `update_tool` invalidates the shared tool-inventory cache from inside a 16-worker pool → up to 225 subprocess spawns instead of 15 | Move the invalidation to `update_all_tools` and let workers read the refreshed cache. |
 | DSA-BE-25 | Synchronous SQLite inside `async def` handlers blocks the event loop | Convert the DB-only handlers to `def` (Starlette then runs them in the threadpool). |
-| DSA-BE-48 | WebSocket subscriber queues are unbounded — a stalled client grows its queue without limit | `asyncio.Queue(maxsize=N)` with oldest-item eviction. |
 | DSA-BE-06 | RAG still performs two full-corpus passes per query (a document-frequency pass and a scoring pass). The per-query allocations and the double scoring are fixed; what remains is the structural change. | Build an inverted index at ingest time. The scoring must be preserved bit-for-bit (golden test against the current implementation). |
 | DSA-BE-43 | 14 list endpoints still return whole tables | Adopt the `/api/assets` `{items,total,limit,offset}` envelope. |
 | DSA-BE-17/18 | Kill-chain overview performs ~28 passes over the findings list and correlates twice per request | One bucketing pass + `Counter`; pass pre-loaded data into the overview. |
-| DSA-BE-36 | `/api/enterprise/agents` runs `model_dump()` on all 94 manifests before slicing | Slice first, then dump. |
+
+> Rows removed from this table because they were already fixed at HEAD before this
+> pass, but were still listed as open: **DSA-CYB-03** (cache invalidation hoisted
+> out of the worker pool), **DSA-BE-48** (websocket queues are bounded with
+> oldest-item eviction), **DSA-BE-36** (the paginated path already slices before
+> dumping), **DSA-CYB-05** (scope-policy constants are hoisted to import time).
+
 
 ### I.2 Medium priority
 

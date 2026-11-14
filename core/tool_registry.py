@@ -86,7 +86,7 @@ class ToolRegistry:
             purpose="Produce compliance-ready reports for engineering, leadership, and external auditors.",
             input_schema={"type": "object", "properties": {"scan_id": {"type": "string"}, "format": {"type": "string", "enum": ["html", "json", "sarif", "csv", "markdown"]}}, "required": ["scan_id"]},
             output_schema={"type": "string", "description": "Serialized report text or HTML document"},
-            backend_handler="reports.generator:ReportGenerator.generate",
+            backend_handler="reports.generator:ReportGenerator.generate_html",
             default_timeout_sec=15
         ))
 
@@ -169,7 +169,7 @@ class ToolRegistry:
             purpose="Audit uploaded client artifacts, firmware images, and reverse-engineer proprietary binaries.",
             input_schema={"type": "object", "properties": {"filename": {"type": "string"}, "explicit_authorization": {"type": "boolean"}}, "required": ["filename", "explicit_authorization"]},
             output_schema={"type": "object", "properties": {"target_type": {"type": "string"}, "findings": {"type": "array"}}},
-            backend_handler="core.rea_engine:rea_engine.analyze_file",
+            backend_handler="core.rea_engine:rea_engine.analyze",
             authorization_required=True,
             authorization_scope="authorized_lab",
             default_timeout_sec=30
@@ -198,7 +198,7 @@ class ToolRegistry:
             purpose="Instantly generate virtual patches to shield vulnerable endpoints before code release.",
             input_schema={"type": "object", "properties": {"vector_type": {"type": "string"}, "target_path": {"type": "string"}}, "required": ["vector_type"]},
             output_schema={"type": "object", "properties": {"rules": {"type": "object"}}},
-            backend_handler="core.blue_team_engine:BlueTeamDefenseEngine.generate_custom",
+            backend_handler="core.blue_team_engine:BlueTeamDefenseEngine.generate_waf_rules",
             default_timeout_sec=5
         ))
 
@@ -210,7 +210,7 @@ class ToolRegistry:
             purpose="Equip SOC analysts with hunting queries matching red team findings.",
             input_schema={"type": "object", "properties": {"rule_type": {"type": "string"}}, "required": ["rule_type"]},
             output_schema={"type": "object", "properties": {"sigma": {"type": "string"}, "splunk": {"type": "string"}, "elastic": {"type": "string"}, "sentinel": {"type": "string"}}},
-            backend_handler="core.blue_team_engine:BlueTeamDefenseEngine.generate_custom",
+            backend_handler="core.blue_team_engine:BlueTeamDefenseEngine.generate_siem_rules",
             default_timeout_sec=5
         ))
 
@@ -237,7 +237,7 @@ class ToolRegistry:
             purpose="Safeguard training corpora from data contamination and credential leakage.",
             input_schema={"type": "object", "properties": {"filename": {"type": "string"}, "content": {"type": "string"}}, "required": ["filename"]},
             output_schema={"type": "object", "properties": {"record_count": {"type": "integer"}, "leakage_warnings": {"type": "array"}}},
-            backend_handler="core.data_management:dataset_manager.inspect_dataset",
+            backend_handler="core.data_management:dataset_manager.validate_and_save",
             default_timeout_sec=30
         ))
 
@@ -262,7 +262,7 @@ class ToolRegistry:
             purpose="Prevent model regression and objectively quantify performance gains.",
             input_schema={"type": "object", "properties": {"model_id": {"type": "string"}, "dataset_id": {"type": "string"}}, "required": ["model_id", "dataset_id"]},
             output_schema={"type": "object", "properties": {"precision": {"type": "number"}, "recall": {"type": "number"}, "f1": {"type": "number"}, "latency_ms": {"type": "number"}}},
-            backend_handler="core.ai_evaluation:ai_evaluator.evaluate_model",
+            backend_handler="core.ai_evaluation:ai_evaluator.evaluate_security_classifier",
             default_timeout_sec=60
         ))
 
@@ -306,7 +306,7 @@ class ToolRegistry:
             purpose="Discover high-severity injection vectors across all web application layers.",
             input_schema={"type": "object", "properties": {"target_url": {"type": "string"}, "category": {"type": "string"}}, "required": ["target_url"]},
             output_schema={"type": "array", "items": {"type": "object"}},
-            backend_handler="core.injection_suite:injection_suite",
+            backend_handler="core.injection_suite:injection_suite.audit_xss",
             authorization_required=True,
             authorization_scope="authorized_lab",
             default_timeout_sec=60
@@ -364,55 +364,55 @@ _scanner_defs = [
     ("scanner_nmap", "Nmap Network Scanner", "recon",
      "Host discovery, port auditing, service fingerprinting, and OS detection.",
      "Identify open ports and fingerprint services on authorized targets with moderate timing.",
-     "core.scanner_integrations:ScannerIntegrations.run_nmap_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_nmap_safe"),
     ("scanner_nuclei", "Nuclei Vulnerability Scanner", "websec",
      "Fast, community-curated template-based security checks and misconfiguration detection.",
      "Execute community-curated, template-based security checks against authorized web endpoints.",
-     "core.scanner_integrations:ScannerIntegrations.run_nuclei_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_nuclei_safe"),
     ("scanner_owasp_zap", "OWASP ZAP Dynamic Web Prober", "websec",
      "Automated passive and active web application security baseline scanning and API assessment.",
      "Perform non-intrusive baseline passive vulnerability analysis against an approved web application.",
-     "core.scanner_integrations:ScannerIntegrations.run_zap_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_sqlmap", "SQLmap Lab Pentesting Engine", "websec",
      "Non-destructive detection of SQL injection flaws in authorized lab environments.",
      "Safe automated SQL injection detection and database fingerprinting.",
-     "core.scanner_integrations:ScannerIntegrations.run_sqlmap_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_sqlmap_safe_detection"),
     ("scanner_nikto", "Nikto Web Server Scanner", "websec",
      "Web server misconfiguration checks, default files, and outdated software detection.",
      "Scan web server for dangerous files, outdated versions, and misconfigurations.",
-     "core.scanner_integrations:ScannerIntegrations.run_nikto_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_tshark", "TShark Packet & Protocol Analyzer", "soc",
      "Packet capture analysis, protocol inspection, and network security diagnostics.",
      "Inspect PCAP captures and extract protocol conversation statistics.",
-     "core.scanner_integrations:ScannerIntegrations"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_semgrep", "Semgrep SAST Code Security Engine", "soc",
      "Static application security testing (SAST) for source code vulnerabilities and insecure coding patterns.",
      "Automated source code scanning for security vulnerabilities and secrets.",
-     "core.scanner_integrations:ScannerIntegrations.run_semgrep_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_bandit", "Bandit Python Security Linter", "soc",
      "Static code analysis to find common security issues in Python source code.",
      "AST-based Python security linting.",
-     "core.scanner_integrations:ScannerIntegrations.run_bandit_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_trivy", "Trivy Container & Dependency Auditor", "soc",
      "Comprehensive security scanner for container images, filesystems, and software dependencies.",
      "Audit dependencies and containers for known CVEs and misconfigurations.",
-     "core.scanner_integrations:ScannerIntegrations.run_trivy_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_gitleaks", "Gitleaks Secret Scanner", "soc",
      "Fast, regex and entropy-based secret detection for git repositories and files.",
      "Scan source repositories for committed API keys, tokens, and credentials.",
-     "core.scanner_integrations:ScannerIntegrations.run_gitleaks_scan"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_clamav", "ClamAV Antivirus Scanner", "blue_team",
      "Multi-threaded signature-based virus, trojan, and malicious document detection.",
      "Scan files and directories for malware and malicious signatures.",
-     "core.scanner_integrations:ScannerIntegrations"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_wazuh", "Wazuh Host EDR & SIEM Agent", "blue_team",
      "Endpoint detection & response (EDR), file integrity monitoring (FIM), and threat detection.",
      "Query local host endpoint telemetry, agent status, and intrusion events.",
-     "core.scanner_integrations:ScannerIntegrations"),
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe"),
     ("scanner_defender", "Microsoft Defender Antivirus & EDR", "blue_team",
      "Real-time virus, malware, trojan, spyware, and ransomware protection with quarantine and signature updates.",
      "Native Windows host antivirus and EDR inspection.",
-     "core.scanner_integrations:ScannerIntegrations")
+     "core.scanner_integrations:ScannerIntegrations.run_scanner_safe")
 ]
 
 for sid, sname, scat, sdesc, spurp, shandler in _scanner_defs:

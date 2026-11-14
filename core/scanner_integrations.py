@@ -1262,3 +1262,197 @@ class ScannerIntegrations:
                 pass
 
         return findings
+
+    # =====================================================================
+    # Generic Safe Scanner Execution
+    # =====================================================================
+    @staticmethod
+    async def run_scanner_safe(
+        tool_id: str,
+        target: str,
+        timeout: int = 120
+    ) -> Dict[str, Any]:
+        """
+        Executes a registered scanner against ``target`` using a safe,
+        non-destructive command line.
+
+        This is the generic counterpart to the specialised ``run_nmap_safe`` /
+        ``run_nuclei_safe`` / ``run_sqlmap_safe_detection`` helpers.  It exists
+        so that every scanner declared in the tool registry has a *real*
+        execution path instead of a declarative string that nothing resolves.
+
+        Safety rules enforced here:
+
+        * the target must pass the scope policy before any process is spawned;
+        * the target may not begin with ``-`` (argument-injection guard);
+        * only the fixed, non-destructive argument template for the selected
+          tool is used -- the caller cannot inject extra flags;
+        * the subprocess is executed with an argument list, never a shell.
+
+        Returns a dict that always contains ``executed`` so callers can tell a
+        real run from a refusal or a missing binary.
+        """
+        canonical_id = tool_id.lower().strip()
+        if canonical_id.startswith("scanner_"):
+            canonical_id = canonical_id[len("scanner_"):]
+
+        inventory = ScannerIntegrations.get_tool_inventory()
+        tool = inventory.get(canonical_id)
+        if not tool:
+            return {
+                "tool": tool_id,
+                "executed": False,
+                "status": "NOT_FOUND",
+                "reason": f"Unknown scanner identifier '{tool_id}'.",
+            }
+
+        if not tool.get("installed"):
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "NOT_INSTALLED",
+                "reason": f"{tool['name']} is not installed on this host.",
+                "install_guide": tool.get("install_guide"),
+            }
+
+        if not target or not str(target).strip():
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "INVALID_TARGET",
+                "reason": "No target was supplied.",
+            }
+
+        target = str(target).strip()
+        if target.startswith("-"):
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "INVALID_TARGET",
+                "reason": "Target may not start with '-' (argument injection guard).",
+            }
+
+        # Scope enforcement happens before anything is executed.
+        try:
+            from core.scope_policy import validate_tool_target
+            scope = validate_tool_target(target, tool_id=canonical_id)
+        except Exception as exc:
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "SCOPE_CHECK_FAILED",
+                "reason": f"Scope validation could not be completed: {exc}",
+            }
+
+        if not scope.is_allowed:
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "SCOPE_REFUSED",
+                "reason": f"Scope refusal: {scope.reason}",
+                "error_code": scope.error_code,
+            }
+
+        command = ScannerIntegrations._build_safe_command(canonical_id, target)
+        if command is None:
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "NOT_IMPLEMENTED",
+                "reason": (
+                    f"No safe command template is defined for '{canonical_id}'. "
+                    f"Use the documented command reference for this tool."
+                ),
+                "command_reference": "GET /api/tools/command-reference",
+            }
+
+        binary, args = command
+        argv = [binary] + args
+
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                *argv,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(), timeout=float(timeout)
+            )
+        except asyncio.TimeoutError:
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "TIMEOUT",
+                "reason": f"{tool['name']} timed out after {timeout}s.",
+            }
+        except Exception as exc:
+            return {
+                "tool": canonical_id,
+                "executed": False,
+                "status": "ERROR",
+                "reason": f"{tool['name']} could not be executed: {exc}",
+            }
+
+        out_text = stdout.decode("utf-8", errors="ignore")
+        err_text = stderr.decode("utf-8", errors="ignore")
+
+        return {
+            "tool": canonical_id,
+            "executed": True,
+            "status": "COMPLETED",
+            "exit_code": proc.returncode,
+            "command": " ".join(argv),
+            "stdout": out_text[:65536],
+            "stderr": err_text[:8192],
+            "output_lines": [line for line in out_text.splitlines() if line.strip()][:500],
+        }
+
+    @staticmethod
+    def _build_safe_command(tool_id: str, target: str) -> Optional[Tuple[str, List[str]]]:
+        """
+        Builds the fixed, non-destructive argument template for a scanner.
+
+        Returns ``(binary_path, args)`` or ``None`` when no safe template
+        exists for the requested tool.  The target is always appended last so
+        it can never be interpreted as a flag.
+        """
+        inventory = ScannerIntegrations.get_tool_inventory()
+        tool = inventory.get(tool_id)
+        if not tool or not tool.get("installed"):
+            return None
+
+        binary = tool["binary_path"]
+
+        if tool_id == "nmap":
+            return binary, ["-sV", "-T3", "-Pn", "--open", "--version-light", target]
+        if tool_id == "nuclei":
+            return binary, [
+                "-u", target,
+                "-tags", "cve,misconfig",
+                "-severity", "low,medium,high",
+                "-exclude-tags", "dos,fuzz",
+                "-silent", "-jsonl",
+            ]
+        if tool_id == "nikto":
+            return binary, ["-nointeractive", "-Tuning", "123457890", target]
+        if tool_id == "sqlmap":
+            return binary, [
+                "-u", target,
+                "--batch", "--level=1", "--risk=1",
+                "--technique=BEUST",
+                "--smart",
+            ]
+        if tool_id == "semgrep":
+            return binary, ["--config=auto", "--json", "--quiet", target]
+        if tool_id == "bandit":
+            return binary, ["-r", target, "-f", "json"]
+        if tool_id == "trivy":
+            return binary, ["fs", "--scanners", "vuln,misconfig", "--format", "json", target]
+        if tool_id == "gitleaks":
+            return binary, ["detect", "--no-banner", "--redact", "--report-format", "json", "--report-path", "-", target]
+        if tool_id == "tshark":
+            return binary, ["-r", target, "-q", "-z", "conv,tcp"]
+        if tool_id == "owasp_zap":
+            return binary, ["-cmd", f"-quickurl {target}"]
+
+        return None

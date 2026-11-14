@@ -42,6 +42,7 @@ from core.kill_chain.db import (
     list_incidents,
     count_incidents,
     count_evidence,
+    count_findings,
 )
 
 
@@ -66,6 +67,49 @@ class CyberKillChainEngine:
         self.ai_analyzer = KillChainAIAnalyzer()
         self.incident_manager = IncidentManager()
         self.reporter = KillChainReportGenerator()
+
+    # The number of findings that are read for correlation and reporting.
+    # Correlation needs the *complete* corpus: when it is truncated, an
+    # attack path can be computed from an incomplete set of stages and look
+    # like a single-stage finding set rather than a real progression.
+    CORRELATION_FINDING_LIMIT = 5000
+
+    def load_correlation_corpus(self) -> Dict[str, Any]:
+        """
+        Loads the findings, evidence, and indicators used for correlation.
+
+        Returns a dict with the loaded collections plus a ``truncation``
+        block that records, per collection, whether the read hit the limit.
+        Callers surface this so an incomplete corpus is visible instead of
+        silently producing a partial attack-path picture.
+        """
+        findings = list_findings(limit=self.CORRELATION_FINDING_LIMIT)
+        evidence = list_evidence(limit=self.CORRELATION_FINDING_LIMIT)
+        indicators = list_indicators()
+
+        total_findings = count_findings()
+        total_evidence = count_evidence()
+
+        truncation = {
+            "findings": {
+                "loaded": len(findings),
+                "total": total_findings,
+                "truncated": total_findings > len(findings),
+            },
+            "evidence": {
+                "loaded": len(evidence),
+                "total": total_evidence,
+                "truncated": total_evidence > len(evidence),
+            },
+        }
+
+        return {
+            "findings": findings,
+            "evidence": evidence,
+            "indicators": indicators,
+            "truncation": truncation,
+            "any_truncated": any(v["truncated"] for v in truncation.values()),
+        }
 
     def analyze_telemetry(self, telemetry: Dict[str, Any], target: Optional[str] = None) -> Dict[str, Any]:
         """
@@ -99,9 +143,10 @@ class CyberKillChainEngine:
         # Run correlation across all persistent findings.
         # The same data is handed to get_overview(), which used to re-read
         # the corpus from SQLite and correlate it a second time.
-        all_db_findings = list_findings()
-        all_db_evidence = list_evidence()
-        all_db_indicators = list_indicators()
+        corpus = self.load_correlation_corpus()
+        all_db_findings = corpus["findings"]
+        all_db_evidence = corpus["evidence"]
+        all_db_indicators = corpus["indicators"]
 
         attack_paths = self.correlation_engine.correlate(
             findings=all_db_findings,
@@ -125,6 +170,7 @@ class CyberKillChainEngine:
             "stage_results": {k: v.dict() for k, v in stage_results.items()},
             "attack_paths": [p.dict() for p in attack_paths],
             "overview": overview.dict(),
+            "truncation": corpus["truncation"],
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         }
 
