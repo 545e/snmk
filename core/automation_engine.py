@@ -702,6 +702,26 @@ class AutomationEngine:
 
         return self.get_execution(exec_id)
 
+    def cancel_execution(self, exec_id: str) -> bool:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT status, workflow_id FROM workflow_executions WHERE id = ?", (exec_id,))
+            row = cursor.fetchone()
+            if not row or row[0] not in ("RUNNING", "PENDING", "QUEUED"):
+                return False
+            now_iso = datetime.datetime.now(datetime.UTC).isoformat()
+            cursor.execute("UPDATE workflow_executions SET status = 'CANCELLED', completed_at = ?, error = 'Execution cancelled by security operator' WHERE id = ?", (now_iso, exec_id))
+            cursor.execute("UPDATE automation_workflows SET last_status = 'CANCELLED' WHERE id = ?", (row[1],))
+            conn.commit()
+            return True
+
+    def get_scheduled_workflows(self) -> list[dict[str, Any]]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT id, name, trigger_type, schedule_cron, enabled, last_run_at FROM automation_workflows WHERE trigger_type != 'manual'")
+            cols = [col[0] for col in cursor.description]
+            return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
 
 # Global singleton instance
 automation_engine = AutomationEngine()

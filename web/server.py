@@ -28,6 +28,7 @@ import json
 import logging
 import os
 import time
+import uuid
 
 # NOTE: .env is loaded by the launchers (run.py, swa_cli.py) before they import
 # the app, NOT here — importing this module directly (e.g. tests) must not
@@ -82,6 +83,18 @@ from core.queue_manager import queue_manager
 from core.version import __version__
 from plugins.plugin_manager import plugin_manager
 from reports.generator import ReportGenerator
+from core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    ConfigurationValidationError,
+    DatabaseStorageError,
+    LLMProviderError,
+    SecurityScopeError,
+    SNMKError,
+    StandardErrorEnvelope,
+    ToolExecutionError,
+    WorkflowExecutionError,
+)
 
 app = FastAPI(
 
@@ -149,9 +162,9 @@ app.add_middleware(
 
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 
-    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "X-Request-ID", "X-Correlation-ID"],
 
-    expose_headers=["Content-Length", "X-Total-Count"],
+    expose_headers=["Content-Length", "X-Total-Count", "X-Request-ID", "X-Correlation-ID"],
 
     max_age=86400,
 
@@ -160,6 +173,45 @@ app.add_middleware(
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
 _SERVER_START_TIME = time.time()
+
+
+@app.middleware("http")
+async def request_correlation_middleware(request: Request, call_next):
+    """Enterprise correlation ID middleware ensuring complete request traceability."""
+    req_id = request.headers.get("X-Request-ID") or request.headers.get("X-Correlation-ID")
+    if not req_id:
+        req_id = f"req-{uuid.uuid4().hex[:12]}"
+    request.state.request_id = req_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = req_id
+    return response
+
+
+@app.exception_handler(SNMKError)
+async def snmk_error_handler(request: Request, exc: SNMKError):
+    """Centralized enterprise exception handler mapping typed SNMK errors to standard envelopes."""
+    req_id = getattr(request.state, "request_id", "")
+    status_code = 500
+    if isinstance(exc, SecurityScopeError):
+        status_code = 403
+    elif isinstance(exc, AuthenticationError):
+        status_code = 401
+    elif isinstance(exc, AuthorizationError):
+        status_code = 403
+    elif isinstance(exc, ConfigurationValidationError):
+        status_code = 422
+    elif isinstance(exc, (ToolExecutionError, LLMProviderError)):
+        status_code = 502
+    elif isinstance(exc, (WorkflowExecutionError, DatabaseStorageError)):
+        status_code = 500
+
+    payload = StandardErrorEnvelope.create(
+        code=exc.error_code,
+        message=exc.message,
+        request_id=req_id,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 
