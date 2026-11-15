@@ -246,6 +246,18 @@ async function launchScan() {
             showToast(`Assessment started for ${target}!`);
         }
     } catch (e) {
+        const didYouMean = (e.message || '').match(/Did you mean '([^']+)'\?/i);
+        if (didYouMean && didYouMean[1]) {
+            const suggestedDomain = didYouMean[1];
+            if (confirm(`${e.message}\n\nSwitch target to '${suggestedDomain}' and start assessment now?`)) {
+                if (input) input.value = suggestedDomain;
+                const ctxTargetEl = document.getElementById('ctxTargetText');
+                if (ctxTargetEl) ctxTargetEl.textContent = suggestedDomain;
+                return launchScan();
+            }
+            return;
+        }
+
         if (e.message && e.message.includes('not listed in configured scope allowlist')) {
             const cleanDomain = target.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
             const doAuth = confirm(`Target Scope Authorization Required:\n\nTarget '${cleanDomain}' is not yet in the authorized scope allowlist.\n\nAuthorize '${cleanDomain}' and start assessment now?`);
