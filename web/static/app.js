@@ -1,19 +1,128 @@
 function renderSubdomains(subs) {
     const container = document.getElementById("subdomainsContainer");
+    const badge = document.getElementById("subdomainsCountBadge");
+    const count = (Array.isArray(subs) ? subs.length : 0);
+    if (badge) badge.textContent = count;
     if (!container) return;
+
     if (!subs || subs.length === 0) {
-        container.innerHTML = '<div style="text-align: center; padding: 30px; color: var(--text-muted);">No subdomains discovered for this target.</div>';
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">No Subdomains Discovered</div>
+                <div style="font-size: 12px;">Run the Autonomous Subdomain Engine to map assets across this target scope.</div>
+            </div>`;
         return;
     }
+
+    const liveCount = subs.filter(s => typeof s === 'object' && (s.status === 200 || s.http_responsive || s.status_code === 200)).length;
+    const confirmedDns = subs.filter(s => typeof s === 'object' && s.dns_confirmed !== false && (s.ip || (s.ips && s.ips.length))).length;
+
     container.innerHTML = `
-        <div style="display: flex; flex-direction: column; gap: 8px;">
-            ${subs.map(s => {
+        <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="font-size: 13px; font-weight: 700; color: var(--text-title);">Discovered Assets (${subs.length})</span>
+                <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 600;">${liveCount} Live HTTP</span>
+                <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(99, 102, 241, 0.15); color: #818cf8; font-weight: 600;">${confirmedDns} DNS Resolved</span>
+            </div>
+            <input type="text" id="subdomainFilterInput" placeholder="Filter subdomains by name, IP, or server..." oninput="filterSubdomainsUI(this.value)" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-title); min-width: 260px;">
+        </div>
+        <div id="subdomainsListWrapper" style="display: flex; flex-direction: column; gap: 8px;">
+            ${subs.map((s, idx) => {
                 const name = typeof s === 'string' ? s : (s.subdomain || s.name || '');
-                const ip = (typeof s === 'object' && s.ip) ? s.ip : '';
+                const ip = typeof s === 'object' ? (s.ip || (s.ip_addresses && s.ip_addresses[0]) || '') : '';
+                const allIps = typeof s === 'object' && s.ip_addresses ? s.ip_addresses.join(', ') : ip;
+                const status = typeof s === 'object' ? (s.status || s.status_code || '') : '';
+                const server = typeof s === 'object' ? (s.server || '') : '';
+                const title = typeof s === 'object' ? (s.title || '') : '';
+                const cname = typeof s === 'object' ? (s.cname || '') : '';
+                const sources = typeof s === 'object' && s.sources ? s.sources.join(', ') : '';
+                const takeover = typeof s === 'object' && s.takeover_risk;
+
+                const statusColor = (status === 200) ? '#10b981' : ((status >= 300 && status < 400) ? '#38bdf8' : ((status >= 400 && status < 500) ? '#f59e0b' : '#6b7280'));
+                const statusBg = (status === 200) ? 'rgba(16, 185, 129, 0.12)' : ((status >= 300 && status < 400) ? 'rgba(56, 189, 248, 0.12)' : 'rgba(107, 114, 128, 0.12)');
+
                 return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px;">
-                        <span style="font-family: var(--mono); font-size: 13px; color: var(--text-title);">${escapeHtml(name)}</span>
-                        ${ip ? `<span style="font-family: var(--mono); font-size: 11px; color: var(--text-muted);">${escapeHtml(ip)}</span>` : ''}
+                    <div class="subdomain-card-row" data-sub="${escapeHtml(name.toLowerCase())}" data-ip="${escapeHtml(allIps.toLowerCase())}" data-server="${escapeHtml(server.toLowerCase())}" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; gap: 12px; transition: border-color 0.15s ease;">
+                        <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 2;">
+                            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${statusColor}; flex-shrink: 0;"></span>
+                            <div style="min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <a href="https://${escapeHtml(name)}" target="_blank" rel="noopener noreferrer" style="font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text-title); text-decoration: none;" onmouseover="this.style.color='var(--brand)'" onmouseout="this.style.color='var(--text-title)'">
+                                        ${escapeHtml(name)}
+                                    </a>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                </div>
+                                ${title ? `<div style="font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; margin-top: 2px;">${escapeHtml(title)}</div>` : ''}
+                                ${cname ? `<div style="font-size: 10.5px; font-family: var(--mono); color: #818cf8; margin-top: 1px;">CNAME ➔ ${escapeHtml(cname)}</div>` : ''}
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                            ${server ? `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(99, 102, 241, 0.1); color: #a5b4fc; font-weight: 500;">${escapeHtml(server)}</span>` : ''}
+                            ${status ? `<span style="font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; background: ${statusBg}; color: ${statusColor}; font-weight: 700;">${status}</span>` : '<span style="font-size: 10.5px; color: var(--text-muted);">DNS</span>'}
+                            ${allIps ? `<span style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); background: var(--bg-subtle); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border);">${escapeHtml(ip)}</span>` : ''}
+                            ${takeover ? `<span style="font-size: 10.5px; padding: 2px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.2); color: #ef4444; font-weight: 700;">TAKEOVER RISK</span>` : ''}
+                            ${sources ? `<span style="font-size: 10px; color: var(--text-muted); opacity: 0.7;">[${escapeHtml(sources.split(',')[0])}]</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function filterSubdomainsUI(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.subdomain-card-row');
+    rows.forEach(r => {
+        if (!q) {
+            r.style.display = 'flex';
+        } else {
+            const sub = r.getAttribute('data-sub') || '';
+            const ip = r.getAttribute('data-ip') || '';
+            const srv = r.getAttribute('data-server') || '';
+            r.style.display = (sub.includes(q) || ip.includes(q) || srv.includes(q)) ? 'flex' : 'none';
+        }
+    });
+}
+
+function renderFuzzingResults(fuzzResults) {
+    const container = document.getElementById("fuzzingContainer");
+    const badge = document.getElementById("fuzzingCountBadge");
+    const count = (Array.isArray(fuzzResults) ? fuzzResults.length : 0);
+    if (badge) badge.textContent = count;
+    if (!container) return;
+
+    if (!fuzzResults || fuzzResults.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.6;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">Zero Exposed Sensitive Assets Discovered</div>
+                <div style="font-size: 12px;">Target endpoint boundaries and hidden paths verified clean.</div>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="margin-bottom: 12px; font-size: 13px; font-weight: 700; color: var(--text-title);">Discovered Fuzzed Assets (${fuzzResults.length})</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${fuzzResults.map(f => {
+                const url = f.url || f.path || '';
+                const path = f.path || url;
+                const status = f.status || f.status_code || 200;
+                const title = f.title || '';
+                const length = f.content_length ? `${f.content_length} bytes` : '';
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
+                        <div>
+                            <div style="font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text-title);">${escapeHtml(path)}</div>
+                            ${title ? `<div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(title)}</div>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            ${length ? `<span style="font-size: 11px; color: var(--text-muted);">${length}</span>` : ''}
+                            <span style="font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">HTTP ${status}</span>
+                        </div>
                     </div>
                 `;
             }).join('')}
@@ -336,6 +445,15 @@ function pollScanStatus(scanId) {
                 tasksText.textContent = `(Findings: ${scan.findings_count || 0})`;
             }
 
+            if (scan.recon_data) {
+                if (Array.isArray(scan.recon_data.subdomains) && scan.recon_data.subdomains.length > 0) {
+                    renderSubdomains(scan.recon_data.subdomains);
+                }
+                if (Array.isArray(scan.recon_data.fuzzing_results) && scan.recon_data.fuzzing_results.length > 0) {
+                    renderFuzzingResults(scan.recon_data.fuzzing_results);
+                }
+            }
+
             if (scan.status === 'COMPLETED' || scan.status === 'FAILED' || scan.status === 'CANCELLED') {
                 clearInterval(scanPollInterval);
                 scanPollInterval = null;
@@ -480,6 +598,13 @@ async function loadScans(triggerBtn) {
             `).join('');
         }
 
+        // Auto-select latest active scan or maintain current selection
+        if (!currentScanId && scans.length > 0) {
+            selectScan(scans[0].id);
+        } else if (currentScanId && scansData[currentScanId]) {
+            selectScan(currentScanId);
+        }
+
         if (triggerBtn) {
             if (typeof loadDashboardFindings === 'function') loadDashboardFindings();
             if (typeof showToast === 'function') showToast(`Refreshed ${scans.length} assessments & telemetry`);
@@ -493,17 +618,25 @@ async function loadScans(triggerBtn) {
     }
 }
 
-function selectScan(scanId) {
-    if (!scanId || !scansData[scanId]) return;
+async function selectScan(scanId) {
+    if (!scanId) return;
     currentScanId = scanId;
-    const scan = scansData[scanId];
+    let scan = scansData[scanId];
+
+    if (!scan || !scan.recon_data) {
+        try {
+            const res = await fetch(`/api/scans/${scanId}`);
+            if (res.ok) {
+                scan = await res.json();
+                scansData[scanId] = scan;
+            }
+        } catch (_) {}
+    }
+    if (!scan) return;
 
     const pane = document.getElementById('activeDetailsContent');
     if (pane) {
         pane.style.display = 'block';
-        try {
-            pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } catch (_) {}
     }
 
     const tEl = document.getElementById('activeScanTarget');
@@ -528,6 +661,26 @@ function selectScan(scanId) {
     const pctText = document.getElementById('activeScanProgressText');
     if (bar) bar.style.width = (scan.status === 'COMPLETED' ? '100%' : '50%');
     if (pctText) pctText.textContent = (scan.status === 'COMPLETED' ? '100%' : '50%');
+
+    // Synchronize Topbar Assessment Dropdown
+    const topSelect = document.getElementById('topbarAssessmentSelect');
+    if (topSelect && topSelect.value !== scanId) {
+        topSelect.value = scanId;
+    }
+
+    // Update Subdomains Badge and Content
+    const recon = scan.recon_data || {};
+    const subs = recon.subdomains || [];
+    renderSubdomains(subs);
+
+    // Update Fuzzed Assets Badge and Content
+    const fuzzed = recon.fuzzing_results || [];
+    renderFuzzingResults(fuzzed);
+
+    // Update Blue Team Defenses badge
+    if (typeof loadDefensiveRules === 'function') {
+        loadDefensiveRules();
+    }
 
     loadFindings(scanId);
     if (typeof recalculateActiveScanScore === 'function') {
@@ -3215,6 +3368,14 @@ function switchTab(tabId, btn) {
         } else {
             loadFindings(currentScanId || null);
         }
+    } else if (tabId === 'tabSubdomains') {
+        const scan = currentScanId ? scansData[currentScanId] : null;
+        const subs = (scan && scan.recon_data && scan.recon_data.subdomains) || [];
+        renderSubdomains(subs);
+    } else if (tabId === 'tabFuzzing') {
+        const scan = currentScanId ? scansData[currentScanId] : null;
+        const fuzzed = (scan && scan.recon_data && scan.recon_data.fuzzing_results) || [];
+        renderFuzzingResults(fuzzed);
     } else if (tabId === 'tabReports') {
         loadReportsCenter();
     } else if (tabId === 'tabAssets') {
