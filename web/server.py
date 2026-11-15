@@ -7932,9 +7932,10 @@ async def get_automation_execution_details(exec_id: str):
 _ASSET_VERSION_CACHE: dict[str, Any] = {}
 
 
-@app.middleware("http")
-async def _serve_assets_with_content_version(request, call_next):
-    """Serve ``index.html`` with content-addressed asset URLs.
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/index.html", response_class=HTMLResponse, include_in_schema=False)
+async def serve_index_with_content_version(request: Request):
+    """Serve ``index.html`` with content-addressed asset URLs and full security headers.
 
     The static assets used to be referenced with a hand-maintained
     ``?v=3.5.1`` query string that was never bumped when the files changed,
@@ -7948,28 +7949,25 @@ async def _serve_assets_with_content_version(request, call_next):
     * a changed asset always gets a new URL (no stale cache possible), and
     * an unchanged asset keeps its URL (so it can be cached immutably).
     """
-    path = request.url.path
-    if path in ("/", "/index.html") and request.method == "GET":
-        try:
-            index_path = os.path.join(STATIC_DIR, "index.html")
-            with open(index_path, "r", encoding="utf-8") as fh:
-                html = fh.read()
-            from core.asset_versions import inject_asset_versions
+    try:
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        with open(index_path, "r", encoding="utf-8") as fh:
+            html = fh.read()
+        from core.asset_versions import inject_asset_versions
 
-            html = inject_asset_versions(html, STATIC_DIR, _ASSET_VERSION_CACHE)
-            return HTMLResponse(
-                content=html,
-                headers={
-                    # The document itself must never be cached, otherwise a
-                    # browser can hold on to a document that references an
-                    # asset URL that no longer exists.
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                },
-            )
-        except OSError:
-            pass
-    return await call_next(request)
+        html = inject_asset_versions(html, STATIC_DIR, _ASSET_VERSION_CACHE)
+        return HTMLResponse(
+            content=html,
+            headers={
+                # The document itself must never be cached, otherwise a
+                # browser can hold on to a document that references an
+                # asset URL that no longer exists.
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+            },
+        )
+    except OSError:
+        return HTMLResponse("<h1>SNMK Cybersecurity Platform</h1>", status_code=500)
 
 
 # Mount static web UI files
