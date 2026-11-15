@@ -29,7 +29,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 from core.models import Severity, VulnerabilityFinding
 
