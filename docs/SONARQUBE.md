@@ -126,10 +126,11 @@ The first full analysis produced **1 132 open issues**:
 
 | | Before | After |
 |---|---|---|
-| Bugs | 119 | 2 |
-| Vulnerabilities | 40 | 1 |
-| Code smells | 973 | 823 |
-| Security hotspots | 119 | 119 (each needs a human decision) |
+| Bugs | 119 | 0 |
+| Vulnerabilities | 40 | 0 |
+| Code smells | 973 | 719 |
+| Open issues | 1 132 | 720 |
+| Security hotspots | 119 | 118 (each needs a human decision) |
 
 See `docs/DSA_ENGINEERING_REPORT.md` §I.0 for the write-up.
 

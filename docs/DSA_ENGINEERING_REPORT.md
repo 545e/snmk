@@ -714,10 +714,10 @@ full account.
 
 | Measure | Before | After |
 |---|---|---|
-| Bugs | 119 | 2 |
+| Bugs | 119 | 0 |
 | Vulnerabilities | 40 | 0 |
 | Code smells | 973 | 719 |
-| Open issues | 1 132 | 721 |
+| Open issues | 1 132 | 720 |
 
 The real defects it surfaced and that were fixed:
 
@@ -748,6 +748,16 @@ reacted to `onclick` became native `<button>` elements, 71 `<label>`
 elements were associated with their control, 6 anchors used as buttons
 became real buttons, and the landmarks, table headers and font stacks were
 corrected.
+
+The six sortable column headers of the findings table now hold a real
+`<button>` inside the `<th>`, which is the canonical accessible pattern for
+a sortable table, and the "select all" checkbox listens for `change` rather
+than `click` -- a checkbox is already operable with the Space key, and
+`change` fires for both mouse and keyboard interaction.
+
+`core/tls_policy.py` is covered by `tests/test_tls_policy.py`, which also
+guards the invariant that no other module may disable certificate
+verification without going through the policy.
 
 
 ### I.1 High priority — not implemented

@@ -1,0 +1,27 @@
+test(tls): cover the TLS policy, and close the last accessibility findings
+
+The SonarQube quality gate reported that the new code was only 64.8 %
+covered, below the 80 % the gate requires. The gap was `core/tls_policy.py`,
+which is new and had no tests of its own.
+
+- `tests/test_tls_policy.py` covers the policy directly: the environment
+  switch, the client keyword mapping, both inspection contexts and the
+  machine-readable description.
+- One of the tests is a guard: it parses every module in the tree and
+  fails if certificate verification is disabled anywhere except
+  `core/tls_policy.py`. The check is made on the syntax tree, so example
+  code inside a string literal is not mistaken for a real connection.
+  That guard is what will stop the 40 scattered `verify=False` calls from
+  coming back.
+
+The last two accessibility findings are also closed:
+
+- The six sortable column headers of the findings table now hold a real
+  `<button>` inside the `<th>`, which is the canonical accessible pattern
+  for a sortable table. The handler moved onto the button, so it is no
+  longer fired twice.
+- The "select all" checkbox listens for `change` instead of `click`. A
+  checkbox is already operable with the Space key, and `change` fires for
+  both mouse and keyboard interaction; `onclick` made it look mouse-only.
+
+Tests: 414 passed, 0 failed.

@@ -2285,14 +2285,14 @@
         <table class="vuln-table" id="vfDataTable">
             <thead>
                 <tr>
-                    <th style="width: 38px;"><input type="checkbox" id="vfSelectAllCheckbox" onclick="toggleSelectAllFindings(this.checked)"></th>
-                    <th onclick="toggleSortColumn('severity')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Severity</th>
-                    <th onclick="toggleSortColumn('title')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Finding Title & Identifiers</th>
-                    <th onclick="toggleSortColumn('endpoint')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Affected Asset / Endpoint</th>
-                    <th onclick="toggleSortColumn('lifecycle_status')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Lifecycle Status</th>
-                    <th onclick="toggleSortColumn('remediation_status')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Remediation</th>
+                    <th style="width: 38px;"><input type="checkbox" id="vfSelectAllCheckbox" onchange="toggleSelectAllFindings(this.checked)"></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('severity')">Severity</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('title')">Finding Title & Identifiers</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('endpoint')">Affected Asset / Endpoint</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('lifecycle_status')">Lifecycle Status</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('remediation_status')">Remediation</button></th>
                     <th>PoC Verification</th>
-                    <th onclick="toggleSortColumn('cvss_score')" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">CVSS / EPSS</th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('cvss_score')">CVSS / EPSS</button></th>
                     <th style="text-align: right;">Actions</th>
                 </tr>
             </thead>
