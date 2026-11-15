@@ -539,8 +539,11 @@ async function loadScans(triggerBtn) {
                 recentTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">No security assessments recorded yet. Launch a scan above.</td></tr>`;
             } else {
                 recentTbody.innerHTML = scans.slice(0, 10).map(s => {
-                    const statusClass = s.status === 'COMPLETED' ? 'status-COMPLETED' : (s.status === 'RUNNING' ? 'status-RUNNING' : 'status-FAILED');
-                    const statusDot = s.status === 'COMPLETED' ? '<span class="status-dot-pulse dot-green"></span>' : (s.status === 'RUNNING' ? '<span class="status-dot-pulse dot-blue"></span>' : '<span class="status-dot-pulse dot-red"></span>');
+                    const isCompleted = s.status === 'COMPLETED';
+                    const isRunning = s.status === 'RUNNING';
+                    const isCancelled = s.status === 'CANCELLED';
+                    const statusClass = isCompleted ? 'status-COMPLETED' : (isRunning ? 'status-RUNNING' : (isCancelled ? 'status-CANCELLED' : 'status-FAILED'));
+                    const statusDot = isCompleted ? '<span class="status-dot-pulse dot-green"></span>' : (isRunning ? '<span class="status-dot-pulse dot-blue"></span>' : (isCancelled ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#9ca3af;"></span>' : '<span class="status-dot-pulse dot-red"></span>'));
                     const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '--';
                     return `
                         <tr>
@@ -569,7 +572,10 @@ async function loadScans(triggerBtn) {
                 allTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">No assessment records found.</td></tr>`;
             } else {
                 allTbody.innerHTML = scans.map(s => {
-                    const statusClass = s.status === 'COMPLETED' ? 'status-COMPLETED' : (s.status === 'RUNNING' ? 'status-RUNNING' : 'status-FAILED');
+                    const isCompleted = s.status === 'COMPLETED';
+                    const isRunning = s.status === 'RUNNING';
+                    const isCancelled = s.status === 'CANCELLED';
+                    const statusClass = isCompleted ? 'status-COMPLETED' : (isRunning ? 'status-RUNNING' : (isCancelled ? 'status-CANCELLED' : 'status-FAILED'));
                     const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '--';
                     return `
                         <tr>

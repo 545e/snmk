@@ -3566,6 +3566,24 @@ class Database:
 
 
 
+    def reconcile_orphaned_scans(self) -> int:
+        """Marks any scans stuck in RUNNING from a prior interrupted server process as CANCELLED."""
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE scans
+                SET status = 'CANCELLED',
+                    completed_at = COALESCE(completed_at, ?),
+                    error_message = COALESCE(error_message, 'Assessment was interrupted when the server stopped.')
+                WHERE status = 'RUNNING'
+            """, (now_iso,))
+            reconciled = cursor.rowcount
+            conn.commit()
+            return reconciled
+
+
+
 
 
 

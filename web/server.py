@@ -193,6 +193,18 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 _SERVER_START_TIME = time.time()
 
 
+@app.on_event("startup")
+async def on_startup():
+    """Startup event: reconcile orphaned scans from prior server sessions and refresh state."""
+    try:
+        reconciled = db.reconcile_orphaned_scans()
+        if reconciled > 0:
+            logger.info(f"Reconciled {reconciled} orphaned scan(s) from prior session to CANCELLED.")
+    except Exception as e:
+        logger.warning(f"Error reconciling orphaned scans on startup: {e}")
+
+
+
 @app.middleware("http")
 async def request_correlation_middleware(request: Request, call_next):
     """Enterprise correlation and distributed tracing middleware."""
@@ -1507,18 +1519,21 @@ async def launch_scan(config: ScanConfig):
 
 
 @app.get("/api/scans", response_model=list[ScanJob])
-
-
-
 async def list_scans():
-
-
-
-    """List all scans with status, duration, and finding counts."""
-
-
-
-    return db.list_scans()
+    """List all scans with status, duration, and finding counts, reconciling dead in-memory tasks."""
+    scans = db.list_scans()
+    active_ids = set(queue_manager.active_tasks.keys())
+    for s in scans:
+        if s.status == ScanStatus.RUNNING and s.id not in active_ids:
+            try:
+                created_dt = datetime.datetime.fromisoformat(s.created_at) if s.created_at else None
+                # If the scan was created more than 5 minutes ago and has no active task in memory, reconcile to CANCELLED
+                if not created_dt or (datetime.datetime.now(datetime.UTC) - created_dt).total_seconds() > 300:
+                    db.update_scan_status(s.id, ScanStatus.CANCELLED)
+                    s.status = ScanStatus.CANCELLED
+            except Exception:
+                pass
+    return scans
 
 
 
@@ -1559,29 +1574,16 @@ async def get_scan(scan_id: str):
 
 
 @app.post("/api/scans/{scan_id}/cancel")
-
-
-
 async def cancel_scan(scan_id: str):
-
-
-
-    """Cancel an active background scan."""
-
-
-
+    """Cancel an active background scan or reconcile an orphaned scan."""
     success = queue_manager.cancel_scan(scan_id)
-
-
-
     if not success:
-
-
-
+        # Check if the scan is marked RUNNING in the database
+        scan = db.get_scan(scan_id)
+        if scan and scan.status == ScanStatus.RUNNING:
+            db.update_scan_status(scan_id, ScanStatus.CANCELLED)
+            return {"status": "cancelled", "scan_id": scan_id, "note": "Reconciled orphaned scan to CANCELLED"}
         raise HTTPException(status_code=400, detail="Scan is not running or already completed")
-
-
-
     return {"status": "cancelled", "scan_id": scan_id}
 
 
