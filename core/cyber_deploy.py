@@ -138,7 +138,7 @@ class CyberDeployEngine:
             dep["status"] = "PRECHECK"
             dep["current_step"] = "1/11: PRECHECK"
             log_step("PRECHECK", f"Checking system prerequisites on {sys.platform}...")
-            total, used, free = shutil.disk_usage(self.repo_root)
+            _, _, free = shutil.disk_usage(self.repo_root)
             free_gb = round(free / (1024**3), 2)
             if free_gb < 0.5:
                 raise RuntimeError(f"Insufficient disk space: {free_gb} GB available (minimum 0.5 GB required).")

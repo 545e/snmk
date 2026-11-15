@@ -610,7 +610,6 @@ class SecureToolInstaller:
                 pass
             return True
         return False
-        self._cancellation_tokens: set[str] = set()
 
     def _get_lock(self, tool_id: str) -> asyncio.Lock:
         if tool_id not in self._locks:
@@ -867,7 +866,7 @@ class SecureToolInstaller:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, stderr = await proc.communicate()
+        _, stderr = await proc.communicate()
         if proc.returncode != 0:
             err = stderr.decode("utf-8", errors="ignore").strip()
             raise RuntimeError(f"npm install failed: {err[:200]}")
@@ -1394,14 +1393,22 @@ class ToolHealthEngine:
         v_args = v_args_map.get(item.tool_id, ["--version"])
 
         try:
-            proc = await asyncio.create_subprocess_exec(
-                bin_path,
-                *v_args,
-                stdin=asyncio.subprocess.DEVNULL,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE
-            )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15.0)
+            if sys.platform == "win32" and bin_path.lower().endswith((".cmd", ".bat")):
+                proc = await asyncio.create_subprocess_exec(
+                    "cmd.exe", "/c", bin_path, *v_args,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+            else:
+                proc = await asyncio.create_subprocess_exec(
+                    bin_path,
+                    *v_args,
+                    stdin=asyncio.subprocess.PIPE,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(input=b"\n"), timeout=15.0)
             raw_out = (stdout.decode("utf-8", errors="ignore") + " " + stderr.decode("utf-8", errors="ignore")).strip()
             first_line = raw_out.splitlines()[0] if raw_out else "Active"
             diag.installed_version = first_line[:60]

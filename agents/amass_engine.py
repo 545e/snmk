@@ -57,6 +57,8 @@ except ImportError:
 from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
+from core import tls_policy
+
 # Comprehensive 350+ Curated Enterprise, Microservices & Cloud Infrastructure Wordlist
 AMASS_EXPANDED_WORDLIST = [
     # Core & Common
@@ -598,7 +600,7 @@ class AmassSubdomainEngine:
         """Query Certificate Transparency logs via crt.sh with JSON & HTML regex fallback."""
         url = f"https://crt.sh/?q=%25.{self.base_domain}&output=json"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=7.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=7.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     entries = resp.json()
@@ -617,7 +619,7 @@ class AmassSubdomainEngine:
         # HTML regex fallback if crt.sh JSON endpoint times out or errors
         try:
             html_url = f"https://crt.sh/?q=%25.{self.base_domain}"
-            async with httpx.AsyncClient(verify=False, timeout=6.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
                 r = await client.get(html_url)
                 if r.status_code == 200:
                     matches = set(re.findall(rf"[\w\.-]+\.{re.escape(self.base_domain)}", r.text, re.IGNORECASE))
@@ -630,7 +632,7 @@ class AmassSubdomainEngine:
         """Query HackerTarget passive host search registry."""
         url = f"https://api.hackertarget.com/hostsearch/?q={self.base_domain}"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=6.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200 and "API count exceeded" not in resp.text:
                     lines = resp.text.strip().splitlines()
@@ -645,7 +647,7 @@ class AmassSubdomainEngine:
         """Query AlienVault OTX Passive DNS threat indicators."""
         url = f"https://otx.alienvault.com/api/v1/indicators/domain/{self.base_domain}/passive_dns"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=6.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -660,7 +662,7 @@ class AmassSubdomainEngine:
         """Query SSLMate CertSpotter CT log issuances."""
         url = f"https://api.certspotter.com/v1/issuances?domain={self.base_domain}&include_subdomains=true&expand=dns_names"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=6.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -674,7 +676,7 @@ class AmassSubdomainEngine:
         """Query Internet Archive Wayback Machine CDX API."""
         url = f"https://web.archive.org/cdx/search/cdx?url=*.{self.base_domain}/*&output=json&fl=original&collapse=urlkey&limit=150"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=6.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     rows = resp.json()
@@ -691,7 +693,7 @@ class AmassSubdomainEngine:
         """Query ThreatMiner cyber threat intelligence API."""
         url = f"https://api.threatminer.org/v2/domain.php?q={self.base_domain}&rt=5"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=5.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -704,7 +706,7 @@ class AmassSubdomainEngine:
         """Query URLScan.io index for recorded domain appearances."""
         url = f"https://urlscan.io/api/v1/search/?q=domain:{self.base_domain}&size=100"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=6.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -719,7 +721,7 @@ class AmassSubdomainEngine:
         """Query Subdomain Center API."""
         url = f"https://api.subdomain.center/subdomains/{self.base_domain}"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=5.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     subs = resp.json()
@@ -733,7 +735,7 @@ class AmassSubdomainEngine:
         """Query Anubis DB threat intelligence."""
         url = f"https://jldc.me/anubis/subdomains/{self.base_domain}"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=5.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     entries = resp.json()
@@ -747,7 +749,7 @@ class AmassSubdomainEngine:
         """Query RapidDNS public DNS records."""
         url = f"https://rapiddns.io/subdomain/{self.base_domain}?full=1"
         try:
-            async with httpx.AsyncClient(verify=False, timeout=5.0, headers=DEFAULT_HEADERS) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     matches = set(re.findall(rf"[\w\.-]+\.{re.escape(self.base_domain)}", resp.text, re.IGNORECASE))
@@ -1052,12 +1054,11 @@ class AmassSubdomainEngine:
                 http_responsive = False
 
                 if dns_confirmed:
-                    async with httpx.AsyncClient(
-                        verify=False,
+                    async with httpx.AsyncClient(**tls_policy.client_kwargs(
                         timeout=3.5,
                         follow_redirects=True,
                         headers=DEFAULT_HEADERS
-                    ) as client:
+                    )) as client:
                         try:
                             resp = await client.get(f"https://{sub}")
                             status_code = resp.status_code

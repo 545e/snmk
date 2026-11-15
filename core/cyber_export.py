@@ -79,7 +79,7 @@ class CyberExportEngine:
         )
 
         # 2. Render content according to requested format
-        content_bytes, mime_type, file_ext = self._render_format(
+        content_bytes, _, file_ext = self._render_format(
             format_type=safe_format,
             export_type=export_type,
             title=display_title,

@@ -51,7 +51,7 @@ class TestDataManagement(unittest.TestCase):
         self.assertEqual(retrieved.name, "Security Payloads Corpus")
 
     def test_02_detect_secret_and_credential_leakage(self):
-        meta, preview = dataset_manager.validate_and_save(
+        meta, _ = dataset_manager.validate_and_save(
             raw_bytes=self.leakage_csv,
             original_filename="leaked_keys.csv",
             name="Leaked Secrets Test",

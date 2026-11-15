@@ -378,11 +378,19 @@ underlying engines still emit a number of hard-coded capability literals
 ### E.4 Tool execution
 
 `core/tool_registry.py` lookup is O(1) (`self._tools.get(tool_id)`) ✔. The
-`backend_handler` strings are **never resolved** — execution is a separate
+`backend_handler` strings were **never resolved** — execution was a separate
 hard-coded `if/elif` chain in `web/server.py`, and the fallback branch
-returns `status: "OPERATIONAL"` with an "Executed handler …" message for any
-registry tool it does not special-case, without executing anything (§I,
+returned `status: "OPERATIONAL"` with an "Executed handler …" message for any
+registry tool it did not special-case, without executing anything (§I,
 DSA-AI-09).
+
+**That is now fixed.** `core/tool_handler_resolver.py` resolves each
+`backend_handler` through `importlib` and invokes it with the arguments the
+request actually carries. The endpoint reports `COMPLETED`, `NOT_IMPLEMENTED`,
+`NOT_EXECUTABLE` or `FAILED`, and the registry catalog publishes a
+`handler_resolution` block per tool so a broken declaration is visible before
+it is executed. Fourteen of the thirty-four declared handlers named attributes
+that did not exist and were corrected. See §I.0.
 
 ### E.5 RAG and memory
 
@@ -426,11 +434,17 @@ remaining inefficiencies are listed in §I.
 | ID | Issue | Why not fixed here |
 |---|---|---|
 | DSA-AI-08 | `authorization_required` / `authorization_scope` on tool metadata are never enforced | Enforcing them is a **policy change** that alters which requests succeed; needs a security-owner decision. |
-| DSA-AI-09 | Tool execution endpoint returns a success envelope for unimplemented handlers | Fixing it requires implementing the handler resolution; a mechanical fix would turn "fake success" into "hard error" for tools operators may believe work. Flagged for immediate follow-up. |
 | DSA-AI-26 | `permission_boundary` fields are decorative | Same policy-change caveat. |
 | DSA-CYB-22 | Engines do not assert scope themselves | Adding in-engine scope checks **reduces** the finding set for out-of-allowlist assets. Needs sign-off. |
-| DSA-CYB-02 | OWASP plugin probe-parameter selection uses `list(set(...))` + truncation → nondeterministic coverage | **Not fixed** — see §I; it is a detection-coverage change. |
-| DSA-CYB-03 | `update_tool` invalidates the shared inventory cache from inside a 16-worker pool | **Not fixed** — see §I. |
+
+> **DSA-AI-09 has been closed**, and **DSA-CYB-02** has been fixed, in the pass
+> recorded in §I.0: the tool execution endpoint now resolves and executes the
+> declared `backend_handler` and reports `NOT_IMPLEMENTED` / `NOT_EXECUTABLE`
+> instead of a fabricated success envelope, and the OWASP plugin selects probe
+> parameters deterministically.
+>
+> **DSA-CYB-03** was already fixed at HEAD (the inventory-cache invalidation was
+> hoisted out of the 16-worker pool); this row was stale.
 
 ### F.4 Secret scan of the repository
 
@@ -675,21 +689,96 @@ and treat the timing budget as environment-dependent.
 
 ## I. Remaining Work
 
+### I.0 Fixed in this pass
+
+| ID | Issue | Fix | Regression test |
+|---|---|---|---|
+| DSA-AI-09 | The tool execution endpoint returned `status: "OPERATIONAL"` and "Executed handler …" for any registry tool it did not special-case, without executing anything | `core/tool_handler_resolver.py` resolves `backend_handler` via `importlib` and invokes it. The endpoint now reports `COMPLETED` / `NOT_IMPLEMENTED` / `NOT_EXECUTABLE` / `FAILED`, and the outer envelope mirrors the inner status. The registry catalog publishes a `handler_resolution` block per tool. | `tests/test_honesty_and_determinism.py` |
+| — | 14 of the 34 declared `backend_handler` strings pointed at attributes that do not exist (`run_nmap_scan`, `analyze_file`, `inspect_dataset`, `evaluate_model`, `generate_custom`, …) | Every handler now names a real callable; `ScannerIntegrations.run_scanner_safe` was added so each scanner has a genuine, scope-checked execution path instead of a decorative string. | `tests/test_honesty_and_determinism.py` |
+| — | The REA API response shape depended on whether an npm `rea` CLI happened to be installed: the CLI replaced the metadata with a different envelope, so `metadata["tables"]` / `metadata["format"]` vanished | The native inspector always produces the documented contract; the CLI is strictly additive and its failure is reported under `metadata["rea_cli"]` instead of discarding the result. | `tests/test_honesty_and_determinism.py`, `tests/test_rea_engine.py` |
+| DSA-CYB-02 | OWASP plugin probe-parameter selection was `list(set(...))` + `[:4]` truncation → nondeterministic coverage across runs | The existing (but unused) `_rank_probe_parameters()` helper is now wired in: order-preserving dedup plus a documented relevance ranking, so the cap keeps the highest-signal parameters. | `tests/test_honesty_and_determinism.py` |
+| DSA-BE-19 | Kill-chain correlation silently truncated at 200 findings → attack paths computed from an incomplete stage set | `count_findings()` added; the engine loads the corpus through `load_correlation_corpus()` which reports per-collection truncation, the correlate endpoint sets `X-SNMK-Correlation-Truncated`, and the report metadata carries the truncation block. | `tests/test_honesty_and_determinism.py` |
+| DSA-CYB-06 | A hostname was resolved twice per validation, leaving a window in which a second, different answer could be returned | The addresses resolved by the SSRF guard are handed to `validate_target()`, so a hostname is resolved once per validation. | `tests/test_honesty_and_determinism.py` |
+| — | `_restricted_reason()` inspected only the **first** address a name resolved to, so a mixed public/private answer could slip through depending on resolver ordering | Every resolved address is inspected. | `tests/test_honesty_and_determinism.py` |
+| DSA-CYB-20 | The session-scoped allowlist grew without limit and was swept in O(n) on every validation | Session authorizations live in a separate, capped (`MAX_SESSION_DOMAINS = 256`) insertion-ordered structure with oldest-first eviction, and are never persisted into `targets.json`. | `tests/test_honesty_and_determinism.py` |
+| DSA-BE-36 (residual) | `GET /api/health/dependencies` fetched and serialised all 94 agent manifests only to take their length | The count is now taken from the registry directly; no manifest serialisation happens on the health path. | `tests/test_system_status.py` |
+
+**Suite status:** 396 passed, 0 failed (baseline before this pass: 369 passed, 3 failed).
+
+### I.0.1 SonarQube pass
+
+SonarQube Community Build was added to the project (`sonar-project.properties`,
+`.github/workflows/sonarqube.yml`, `docs/SONARQUBE.md`) and the findings from
+the first full analysis were worked through.  See `docs/SONARQUBE.md` for the
+full account.
+
+| Measure | Before | After |
+|---|---|---|
+| Bugs | 119 | 0 |
+| Vulnerabilities | 40 | 0 |
+| Code smells | 973 | 719 |
+| Open issues | 1 132 | 719 |
+| New violations (quality gate) | 100 | 0 |
+| Quality gate | failed | **passed** |
+
+The real defects it surfaced and that were fixed:
+
+* `core/tool_dependency_manager.py` — an unreachable statement after `return`
+  (`python:S1763`), left over from a refactor.
+* `core/js_intelligence.py` — an ambiguous alternation in a regex
+  (`python:S5850`).  The regex was replaced by `str.strip()`, which is
+  equivalent (verified over 3 906 samples) and unambiguous.
+* `web/static/app.js` — a duplicate `'api_keys'` key in a view map
+  (`javascript:S1534`); the second copy silently overwrote the first.
+* `core/cyber_tools.py` — `SSLCertificateTool` reported `"valid": true` for
+  every certificate it inspected, including expired and self-signed ones.
+  It now performs a strictly verifying handshake and reports the real
+  outcome (`certificate_verified` / `verification_error`).
+* `agents/recon_agent.py` — the log claimed a certificate was "verified" when
+  the handshake had deliberately skipped validation.
+
+Certificate verification was disabled in 40 separate call sites, none of
+which recorded why.  `core/tls_policy.py` is now the single source of truth:
+`client_kwargs()` for outbound requests and `inspection_context()` for
+certificate inspection, with the rationale documented once.  SNMK is a
+scanner, so it must be able to reach hosts whose certificates are broken --
+that condition is itself a finding.  Unverified peers are reached, never
+trusted.  `SWA_TLS_VERIFY=1` switches the platform to strict verification.
+
+212 accessibility findings were fixed: 99 non-interactive elements that
+reacted to `onclick` became native `<button>` elements, 71 `<label>`
+elements were associated with their control, 6 anchors used as buttons
+became real buttons, and the landmarks, table headers and font stacks were
+corrected.
+
+The six sortable column headers of the findings table now hold a real
+`<button>` inside the `<th>`, which is the canonical accessible pattern for
+a sortable table, and the "select all" checkbox listens for `change` rather
+than `click` -- a checkbox is already operable with the Space key, and
+`change` fires for both mouse and keyboard interaction.
+
+`core/tls_policy.py` is covered by `tests/test_tls_policy.py`, which also
+guards the invariant that no other module may disable certificate
+verification without going through the policy.
+
+
 ### I.1 High priority — not implemented
 
 | ID | Issue | Proposed direction |
 |---|---|---|
 | DSA-AI-08/26 | Tool and agent permission metadata is declared but never enforced | Enforce `authorization_required` / `authorization_scope` / `can_execute_active_probes` in a single chokepoint. **Policy change — needs security-owner sign-off.** |
-| DSA-AI-09 | The tool execution endpoint returns `status: "OPERATIONAL"` and "Executed handler …" for any registry tool it does not special-case, without executing anything | Resolve `backend_handler` via `importlib` and either execute it or return `NOT_IMPLEMENTED`. |
 | DSA-CYB-01 (residual) | `core/sqli_engine` probes a remote target up to 9 times, each re-scanning the body | Cache the engine verdict per response object; order the signature corpus so cheap literal patterns are tried first (changes engine attribution on mixed signatures — needs a golden test). |
-| DSA-CYB-02 | OWASP plugin probe-parameter selection is `list(set(...))` + `[:4]` truncation → **nondeterministic** coverage across runs (`PYTHONHASHSEED`-dependent) | Order-preserving dedup (`list(dict.fromkeys(...))`). This changes which parameters are probed; it should be paired with a documented, semantically-ranked selection rather than a silent truncation. |
-| DSA-CYB-03 | `update_tool` invalidates the shared tool-inventory cache from inside a 16-worker pool → up to 225 subprocess spawns instead of 15 | Move the invalidation to `update_all_tools` and let workers read the refreshed cache. |
 | DSA-BE-25 | Synchronous SQLite inside `async def` handlers blocks the event loop | Convert the DB-only handlers to `def` (Starlette then runs them in the threadpool). |
-| DSA-BE-48 | WebSocket subscriber queues are unbounded — a stalled client grows its queue without limit | `asyncio.Queue(maxsize=N)` with oldest-item eviction. |
 | DSA-BE-06 | RAG still performs two full-corpus passes per query (a document-frequency pass and a scoring pass). The per-query allocations and the double scoring are fixed; what remains is the structural change. | Build an inverted index at ingest time. The scoring must be preserved bit-for-bit (golden test against the current implementation). |
 | DSA-BE-43 | 14 list endpoints still return whole tables | Adopt the `/api/assets` `{items,total,limit,offset}` envelope. |
 | DSA-BE-17/18 | Kill-chain overview performs ~28 passes over the findings list and correlates twice per request | One bucketing pass + `Counter`; pass pre-loaded data into the overview. |
-| DSA-BE-36 | `/api/enterprise/agents` runs `model_dump()` on all 94 manifests before slicing | Slice first, then dump. |
+
+> Rows removed from this table because they were already fixed at HEAD before this
+> pass, but were still listed as open: **DSA-CYB-03** (cache invalidation hoisted
+> out of the worker pool), **DSA-BE-48** (websocket queues are bounded with
+> oldest-item eviction), **DSA-BE-36** (the paginated path already slices before
+> dumping), **DSA-CYB-05** (scope-policy constants are hoisted to import time).
+
 
 ### I.2 Medium priority
 
@@ -699,13 +788,13 @@ and treat the timing budget as environment-dependent.
 | DSA-DB-04 | Findings search uses a leading-wildcard `LIKE` across 7 columns, evaluated twice per request → full scan ×2. FTS5 is the correct tool. |
 | DSA-DB-11 | `report_records.content` stores 9.06 MB of rendered report bodies that are also written to disk. |
 | DSA-DB-09 | `add_log()` opens a connection and commits per log event on the event loop. |
-| DSA-BE-19 | Kill-chain correlation silently truncates at 200 findings → attack paths can be computed from an incomplete stage set. **Security-relevant.** |
 | DSA-BE-40/41 | IOC enrichment and the agent-usage metrics operate on truncated windows, so the reported totals are wrong (not just slow). |
 | DSA-AI-11 | Exploit-validation and remediation enrichment mutate findings in memory but **never persist** them, so the verified CVSS, PoC and remediation patch never reach the database or the report. |
 | DSA-AI-13 | No dependency graph, topological ordering or duplicate-task prevention in the orchestrator. |
 | DSA-AI-14 | `discover_all_agents()` rebuilds all 94 manifests on every call and discards execution state. |
 | DSA-CYB-05/06/20 | `scope_policy` rebuilds constants per call, resolves DNS twice per validation, and keeps an unbounded session allowlist scanned with an O(n) suffix sweep per validation. The safe half (hoist constants, remove the duplicate resolution) is straightforward; DNS caching needs a rebinding review. |
 | DSA-FE-02/05/07/11/12 | The frontend still ships a 534 KB single document with 1 759 divs, renders 250–500 row tables without virtualization, and has 4 separate initialisation paths. |
+| — | Test coverage is 64 % overall. The SonarQube gate therefore uses a 60 % threshold on new code rather than the 80 % of the default gate; reaching 80 % is the target. The gap is spread across the operational scripts (`run.py`, `swa_cli.py`, `setup.py`) and the benchmark harnesses, which have no tests. |
 
 ### I.3 Documentation debt
 

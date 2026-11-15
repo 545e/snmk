@@ -21,7 +21,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
 .switcher{position:fixed;top:0;left:0;right:0;height:56px;z-index:1000;display:flex;align-items:center;
   gap:6px;padding:0 16px;background:rgba(10,10,12,.86);backdrop-filter:blur(16px);
   border-bottom:1px solid rgba(255,255,255,.08)}
-.switcher .brand{font-family:'Space Grotesk';font-weight:700;font-size:15px;color:#fff;margin-right:14px;white-space:nowrap}
+.switcher .brand{font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:15px;color:#fff;margin-right:14px;white-space:nowrap}
 .switcher .brand b{color:#38bdf8}
 .sw-tab{appearance:none;border:1px solid transparent;background:transparent;color:#9ca3af;
   font:inherit;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:9px;cursor:pointer;
@@ -46,7 +46,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
    CONCEPT 1 — FOCUS FLOW  (task-first, minimal, calm)
    ============================================================ */
 .focus{--bg:#0d0f14;--panel:#141821;--line:#232a38;--txt:#e8ecf3;--mut:#8a94a6;--accent:#6366f1;--accent2:#818cf8;
-  background:var(--bg);color:var(--txt);font-family:'Inter';min-height:calc(100vh - 56px);display:grid;grid-template-columns:230px 1fr}
+  background:var(--bg);color:var(--txt);font-family:'Inter',sans-serif;min-height:calc(100vh - 56px);display:grid;grid-template-columns:230px 1fr}
 .focus .fnav{border-right:1px solid var(--line);padding:22px 14px;display:flex;flex-direction:column;gap:3px}
 .focus .flogo{display:flex;align-items:center;gap:10px;padding:4px 8px 22px}
 .focus .flogo .mk{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#6366f1,#38bdf8);display:grid;place-items:center;font-weight:800;color:#fff;font-size:14px}
@@ -134,7 +134,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
    CONCEPT 3 — ENTERPRISE SOC  (clean corporate, fixed version)
    ============================================================ */
 .soc{--bg:#0f1729;--side:#0b1120;--card:#162136;--line:#243249;--txt:#e8eef7;--mut:#8ea2bd;--acc:#3b82f6;--acc2:#60a5fa;
-  background:var(--bg);color:var(--txt);font-family:'Plus Jakarta Sans';min-height:calc(100vh - 56px);display:grid;grid-template-columns:240px 1fr}
+  background:var(--bg);color:var(--txt);font-family:'Plus Jakarta Sans',sans-serif;min-height:calc(100vh - 56px);display:grid;grid-template-columns:240px 1fr}
 .soc .sside{background:var(--side);border-right:1px solid var(--line);padding:18px 12px;overflow:auto}
 .soc .slogo{display:flex;align-items:center;gap:10px;padding:4px 8px 18px}
 .soc .slogo .mk{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1e3a8a,#3b82f6);display:grid;place-items:center}
@@ -178,7 +178,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
 .soc tr:last-child td{border-bottom:none}
 .soc tr:hover td{background:#13203a}
 .soc .sb{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;display:inline-block}
-.soc .mono{font-family:'JetBrains Mono';font-size:11.5px;color:var(--mut)}
+.soc .mono{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--mut)}
 .soc .ag{display:flex;align-items:center;gap:12px;padding:13px 18px;border-bottom:1px solid #1b2840}
 .soc .ag:last-child{border:none}
 .soc .ag .st{width:8px;height:8px;border-radius:50%;background:var(--c-ok);box-shadow:0 0 0 3px rgba(34,197,94,.18)}
@@ -188,7 +188,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
 /* ============================================================
    CONCEPT 4 — LIGHT & FRIENDLY  (approachable, plain english)
    ============================================================ */
-.friendly{background:#f4f6fb;color:#1e293b;font-family:'Plus Jakarta Sans';min-height:calc(100vh - 56px);display:grid;grid-template-columns:238px 1fr}
+.friendly{background:#f4f6fb;color:#1e293b;font-family:'Plus Jakarta Sans',sans-serif;min-height:calc(100vh - 56px);display:grid;grid-template-columns:238px 1fr}
 .friendly .lside{background:#fff;border-right:1px solid #e8edf5;padding:22px 16px}
 .friendly .llogo{display:flex;align-items:center;gap:11px;padding:0 6px 24px}
 .friendly .llogo .mk{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center;color:#fff;font-weight:800}
@@ -230,7 +230,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
 /* ============================================================
    CONCEPT 5 — REPORT-CENTRIC  (Linear/Jira style, findings hero)
    ============================================================ */
-.report{background:#0c0d10;color:#e4e4e7;font-family:'Inter';min-height:calc(100vh - 56px);display:grid;grid-template-columns:52px 300px 1fr}
+.report{background:#0c0d10;color:#e4e4e7;font-family:'Inter',sans-serif;min-height:calc(100vh - 56px);display:grid;grid-template-columns:52px 300px 1fr}
 .report .ricon{background:#0a0a0c;border-right:1px solid #1c1d22;display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:10px}
 .report .ricon .mk{width:30px;height:30px;border-radius:9px;background:linear-gradient(135deg,#8b5cf6,#ec4899);display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px;margin-bottom:8px}
 .report .ricon a{width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:#71717a;cursor:pointer}
@@ -251,7 +251,7 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
 .report .ri .sd{width:7px;height:7px;border-radius:2px}
 .report .ri .tt{font-size:13.5px;font-weight:600;color:#e4e4e7;line-height:1.3}
 .report .ri .l2{display:flex;align-items:center;gap:10px;font-size:11.5px;color:#71717a}
-.report .ri .l2 .mono{font-family:'JetBrains Mono';font-size:11px}
+.report .ri .l2 .mono{font-family:'JetBrains Mono',monospace;font-size:11px}
 .report .rsev{font-size:9.5px;font-weight:700;padding:2px 7px;border-radius:5px;letter-spacing:.3px}
 .report .rmain{overflow:auto}
 .report .rdetail{max-width:860px;padding:34px 44px}
@@ -265,13 +265,13 @@ body{font-family:'Inter',system-ui,sans-serif;background:#0a0a0b;color:#e5e7eb;o
 .report .rsec{margin-bottom:26px}
 .report .rsec h4{font-size:12px;text-transform:uppercase;letter-spacing:.8px;color:#71717a;margin-bottom:11px;font-weight:700}
 .report .rsec p{font-size:14px;line-height:1.7;color:#c4c4cb}
-.report .rcode{background:#08080a;border:1px solid #1f1f24;border-radius:11px;padding:16px 18px;font-family:'JetBrains Mono';font-size:12.5px;line-height:1.8;color:#c9d1d9;overflow:auto;white-space:pre}
+.report .rcode{background:#08080a;border:1px solid #1f1f24;border-radius:11px;padding:16px 18px;font-family:'JetBrains Mono',monospace;font-size:12.5px;line-height:1.8;color:#c9d1d9;overflow:auto;white-space:pre}
 .report .rcode .cm{color:#6b7280}.report .rcode .st{color:#7ee787}.report .rcode .kw{color:#ff7b72}.report .rcode .fn{color:#d2a8ff}
 .report .rfixbox{background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.22);border-radius:11px;padding:16px 18px}
 .report .rfixbox .ft{font-size:13px;font-weight:700;color:#4ade80;margin-bottom:6px;display:flex;align-items:center;gap:8px}
 .report .rfixbox p{font-size:13.5px;color:#c4c4cb;line-height:1.65}
 .report .rpanel{border-left:1px solid #1c1d22}
-sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(249,115,22,.16);color:#fb923c}
+.rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(249,115,22,.16);color:#fb923c}
 .rs-M{background:rgba(245,158,11,.16);color:#fbbf24}.rs-L{background:rgba(56,189,248,.16);color:#38bdf8}
 .sd-C{background:#f43f5e}.sd-H{background:#f97316}.sd-M{background:#f59e0b}.sd-L{background:#38bdf8}
 @media(max-width:1200px){.report{grid-template-columns:52px 280px 1fr}}
@@ -298,7 +298,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
 <!-- ================= 1 · FOCUS FLOW ================= -->
 <section class="concept on" id="c-focus">
  <div class="focus">
-  <nav class="fnav">
+  <nav class="fnav" aria-label="Concept navigation">
     <div class="flogo"><div class="mk">S</div><b>SNMK</b></div>
     <a class="sel"><svg class="ico" viewBox="0 0 24 24"><path d="M3 12l2-2 4 4 7-7 5 5"/></svg>Scan</a>
     <a><svg class="ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 2"/></svg>Findings</a>
@@ -351,7 +351,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
 <section class="concept" id="c-console">
  <div class="console">
   <div class="cwrap">
-   <aside class="cside">
+   <aside class="cside" aria-label="Concept contents">
      <div class="cbrand">SNMK<span>://</span>soc</div>
      <div class="cgrp">OPERATE</div>
      <a class="sel">scan</a><a>findings</a><a>assets</a><a>recon</a>
@@ -397,7 +397,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
 <!-- ================= 3 · ENTERPRISE SOC ================= -->
 <section class="concept" id="c-soc">
  <div class="soc">
-  <aside class="sside">
+  <aside class="sside" aria-label="Concept status">
     <div class="slogo"><div class="mk"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M12 2L4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/></svg></div><div><b>SNMK</b><small>SOC CONSOLE</small></div></div>
     <div class="sgrp">OVERVIEW</div>
     <a class="sel"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Dashboard</a>
@@ -467,7 +467,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
 <!-- ================= 4 · LIGHT & FRIENDLY ================= -->
 <section class="concept" id="c-friendly">
  <div class="friendly">
-  <aside class="lside">
+  <aside class="lside" aria-label="Concept legend">
     <div class="llogo"><div class="mk">S</div><b>SNMK</b></div>
     <a class="sel"><svg class="ico" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>Home</a>
     <a><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Check a website</a>
@@ -510,7 +510,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
 <!-- ================= 5 · REPORT-CENTRIC ================= -->
 <section class="concept" id="c-report">
  <div class="report">
-  <nav class="ricon">
+  <nav class="ricon" aria-label="Concept resources">
     <div class="mk">S</div>
     <a class="sel" title="Findings"><svg class="ico" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></a>
     <a title="Scan"><svg class="ico" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></a>
@@ -540,7 +540,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
         <span class="rmeta" style="margin-left:auto">Status <b>Open</b></span>
       </div>
 
-      <div class="rsec"><h4>Summary</h4><p>The <code style="font-family:'JetBrains Mono';background:#18181d;padding:2px 6px;border-radius:5px;font-size:13px">q</code> parameter on <b style="color:#e4e4e7">/search</b> is vulnerable to SQL injection. SNMK confirmed it two ways — a boolean-differential test and a time-based test — so this is not a guess. No data was extracted; the check is non-destructive.</p></div>
+      <div class="rsec"><h4>Summary</h4><p>The <code style="font-family:'JetBrains Mono',monospace;background:#18181d;padding:2px 6px;border-radius:5px;font-size:13px">q</code> parameter on <b style="color:#e4e4e7">/search</b> is vulnerable to SQL injection. SNMK confirmed it two ways — a boolean-differential test and a time-based test — so this is not a guess. No data was extracted; the check is non-destructive.</p></div>
 
       <div class="rsec"><h4>Proof of concept (reproduce)</h4><div class="rcode"><span class="cm"># boolean-differential — these two return different pages</span>
 <span class="fn">curl</span> <span class="st">"https://target.example.com/search?q=test' AND 1=1-- -"</span>   <span class="cm"># 200, results shown</span>
@@ -549,7 +549,7 @@ sv-C{} .rs-C{background:rgba(244,63,94,.16);color:#fb7185}.rs-H{background:rgba(
 <span class="cm"># time-based — response delayed ~5s confirms injection</span>
 <span class="fn">curl</span> <span class="st">"https://target.example.com/search?q=test'; WAITFOR DELAY '0:0:5'-- -"</span></div></div>
 
-      <div class="rsec"><h4>Recommended fix</h4><div class="rfixbox"><div class="ft"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Use parameterized queries</div><p>Replace string-built SQL with a prepared statement / parameter binding so user input is never concatenated into the query. Add input validation on <code style="font-family:'JetBrains Mono';background:#0f2016;padding:1px 5px;border-radius:4px">q</code> and a least-privilege DB account as defense in depth.</p></div></div>
+      <div class="rsec"><h4>Recommended fix</h4><div class="rfixbox"><div class="ft"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#4ade80" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>Use parameterized queries</div><p>Replace string-built SQL with a prepared statement / parameter binding so user input is never concatenated into the query. Add input validation on <code style="font-family:'JetBrains Mono',monospace;background:#0f2016;padding:1px 5px;border-radius:4px">q</code> and a least-privilege DB account as defense in depth.</p></div></div>
     </div>
   </main>
  </div>

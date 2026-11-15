@@ -116,7 +116,7 @@ class TestMapSubsystem:
         assert len(detail.ascii_dump) > 0
 
         # Retransmission check
-        summary2, detail2 = dissector.dissect(raw_tcp, 2, "Wi-Fi", 0.0)
+        summary2, _ = dissector.dissect(raw_tcp, 2, "Wi-Fi", 0.0)
         assert summary2.no == 2
 
     # 5. PCAP Header Validation

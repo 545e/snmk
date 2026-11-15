@@ -14,6 +14,8 @@ import httpx
 
 from core.integrations.base import BaseIntegrationAdapter
 
+from core import tls_policy
+
 
 class WazuhAdapter(BaseIntegrationAdapter):
     provider_id = "wazuh"
@@ -43,7 +45,7 @@ class WazuhAdapter(BaseIntegrationAdapter):
         
         start = time.perf_counter()
         try:
-            async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
                 res = await client.post(f"{url}/security/user/authenticate", auth=(username, password))
                 latency = int((time.perf_counter() - start) * 1000)
                 if res.status_code == 200:
@@ -77,7 +79,7 @@ class SplunkAdapter(BaseIntegrationAdapter):
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Endpoint URL and HEC token required.", "latency_ms": 0}
         start = time.perf_counter()
         try:
-            async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
                 res = await client.get(f"{url}/services/collector/health", headers={"Authorization": f"Splunk {token}"})
                 latency = int((time.perf_counter() - start) * 1000)
                 if res.status_code == 200:
@@ -109,7 +111,7 @@ class ElasticSecurityAdapter(BaseIntegrationAdapter):
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Elasticsearch URL and API key required.", "latency_ms": 0}
         start = time.perf_counter()
         try:
-            async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
                 res = await client.get(f"{url}/", headers={"Authorization": f"ApiKey {api_key}"})
                 latency = int((time.perf_counter() - start) * 1000)
                 if res.status_code == 200:
@@ -223,7 +225,7 @@ class DefectDojoAdapter(BaseIntegrationAdapter):
         token_hdr = key if key.startswith("Token ") else f"Token {key}"
         start = time.perf_counter()
         try:
-            async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
                 res = await client.get(f"{url}/users/", headers={"Authorization": token_hdr})
                 latency = int((time.perf_counter() - start) * 1000)
                 if res.status_code == 200:

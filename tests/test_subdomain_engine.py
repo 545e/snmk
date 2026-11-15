@@ -43,7 +43,7 @@ class TestSubdomainEngine(unittest.TestCase):
                     with patch.object(engine, "_generate_and_probe_permutations", new_callable=AsyncMock):
                         with patch.object(engine, "_query_crt_sh", new_callable=AsyncMock):
                             with patch.object(engine, "_query_hackertarget", new_callable=AsyncMock):
-                                results, takeovers = await engine.run()
+                                results, _ = await engine.run()
 
             hostnames = [r["subdomain"] for r in results]
             self.assertIn("api.example.com", hostnames)

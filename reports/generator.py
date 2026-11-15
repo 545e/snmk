@@ -203,7 +203,7 @@ class ReportGenerator:
         s = self.scan
         posture = self._compute_posture()
         lines = [
-            f"# SWA AI Penetration Test Report",
+            "# SWA AI Penetration Test Report",
             f"**Target:** `{s.target_url}`  ",
             f"**Scan ID:** `{s.id}`  ",
             f"**Security Grade:** `{posture['grade']}` ({posture['score']}/100) — {posture['risk']}  ",

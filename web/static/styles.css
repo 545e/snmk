@@ -3258,7 +3258,7 @@ input, select, textarea, button {
 body {
     background-color: var(--bg-main) !important;
     color: #E2E8F0;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-family:'Plus Jakarta Sans',sans-serif,-apple-system,BlinkMacSystemFont;
 }
 
 .swa-app-layout {
@@ -6483,6 +6483,56 @@ html { scroll-behavior: smooth; }
     transition: background-color .18s ease, color .18s ease, border-color .18s ease,
                 box-shadow .22s ease, transform .16s cubic-bezier(.22,.61,.36,1) !important;
 }
+
+/* Link-styled buttons.
+   These controls trigger an action rather than navigate somewhere, so they
+   are real <button> elements (keyboard focusable, activated with Enter or
+   Space).  This rule restores the appearance an <a> would have had. */
+button.link-btn {
+    display: inline-block;
+    background: none;
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+}
+button.link-btn:hover,
+button.link-btn:focus-visible {
+    background: none;
+    border: 0;
+}
+
+/* Controls that used to be a <div> or a <span> with an inline onclick.
+   They are real <button> elements now, which is what makes them focusable
+   and Enter/Space activated without any script.
+
+   Every rule is wrapped in :where() so that it keeps a specificity of zero.
+   The element's own class and its inline styles therefore always win, and
+   only the browser's default button chrome -- the background, the border,
+   the padding and the font that buttons do not inherit -- is removed. */
+:where(button.swa-plain) {
+    appearance: none;
+    -webkit-appearance: none;
+    background: none;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    margin: 0;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    text-decoration: inherit;
+    cursor: pointer;
+}
+/* A <div> is a block-level box; a <span> is inline. */
+:where(button.swa-plain-block) { display: block; }
+:where(button.swa-plain-inline) { display: inline-block; }
 
 /* Nav items glide a touch to the right on hover */
 .swa-sidebar-nav .nav-sec > .swa-sidebar-link:hover { transform: translateX(3px); }

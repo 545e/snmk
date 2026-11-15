@@ -52,6 +52,16 @@ SWA/
 backups/
 reports/kc_rep_*
 
+# Coverage & static-analysis artefacts
+coverage.xml
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.scannerwork/
+.sonar/
+sonar-project-local.properties
+
 
 # Downloaded & Sandboxed Security Tool Binaries
 tools/bin/*

@@ -15,6 +15,8 @@ import httpx
 from core.models import LogEvent, ReconResult, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
+from core import tls_policy
+
 COMMON_PORTS = [80, 443, 8080, 8443, 3000, 5000, 8000, 8888, 22, 21, 3306, 5432, 6379, 27017]
 
 COMMON_SUBDOMAINS = [
@@ -162,7 +164,7 @@ class ReconAgent:
         async def check_port(port: int):
             try:
                 conn = asyncio.open_connection(self.domain, port)
-                reader, writer = await asyncio.wait_for(conn, timeout=1.2)
+                _, writer = await asyncio.wait_for(conn, timeout=1.2)
                 writer.close()
                 await writer.wait_closed()
                 service = "http" if port in [80, 8080, 3000, 5000, 8000] else "https" if port in [443, 8443] else "service"
@@ -183,7 +185,7 @@ class ReconAgent:
     async def inspect_http_and_tech(self, recon: ReconResult):
         await self.log("Analyzing HTTP headers, security policies, and tech signatures...", "INFO")
         try:
-            async with httpx.AsyncClient(verify=False, timeout=self.timeout, follow_redirects=True) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=True)) as client:
                 resp = await client.get(self.base_url)
                 
                 # Security Headers Check
@@ -244,14 +246,17 @@ class ReconAgent:
     async def inspect_ssl(self, recon: ReconResult):
         try:
             loop = asyncio.get_running_loop()
+
             def get_cert():
-                ctx = ssl.create_default_context()
-                ctx.check_hostname = False
-                ctx.verify_mode = ssl.CERT_NONE
+                # Certificate *inspection*: the peer is reached without
+                # validation so that a broken certificate can be read at all
+                # (see core/tls_policy.py).  The certificate is therefore
+                # observed, not trusted -- the log message below says so.
+                ctx = tls_policy.inspection_context()
                 with socket.create_connection((self.domain, 443), timeout=3.0) as sock:
                     with ctx.wrap_socket(sock, server_hostname=self.domain) as ssock:
                         return ssock.getpeercert(binary_form=False)
-            
+
             cert = await loop.run_in_executor(None, get_cert)
             if cert:
                 recon.ssl_info = {
@@ -259,7 +264,10 @@ class ReconAgent:
                     "issuer": dict(x[0] for x in cert.get("issuer", [])),
                     "valid_until": cert.get("notAfter")
                 }
-                await self.log("SSL/TLS certificate verified and inspected.", "INFO")
+                await self.log(
+                    "SSL/TLS certificate observed (not chain-verified).",
+                    "INFO"
+                )
         except Exception:
             pass
 
@@ -269,7 +277,7 @@ class ReconAgent:
         sem = asyncio.Semaphore(10)
 
         limits = httpx.Limits(max_keepalive_connections=15, max_connections=25)
-        async with httpx.AsyncClient(verify=False, timeout=3.5, follow_redirects=False, limits=limits) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=3.5, follow_redirects=False, limits=limits)) as client:
             async def probe_single_path(path: str, title: str, severity: Severity, pattern: str):
                 url = f"{self.base_url}{path}"
                 async with sem:

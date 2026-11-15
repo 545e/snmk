@@ -89,13 +89,10 @@ class DeviceDiscoveryEngine:
             proc = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5)
             lines = proc.stdout.splitlines()
 
-            current_iface_ip = None
             for line in lines:
                 line_str = line.strip()
                 if "Interface:" in line_str:
-                    match = re.search(r"Interface:\s*([0-9.]+)", line_str)
-                    if match:
-                        current_iface_ip = match.group(1)
+                    # The interface header line carries no entry of its own.
                     continue
 
                 parts = line_str.split()

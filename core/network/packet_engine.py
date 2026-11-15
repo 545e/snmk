@@ -357,7 +357,7 @@ class LiveCaptureSession:
             self.capture_thread = threading.Thread(target=self._capture_worker, daemon=True)
             self.capture_thread.start()
 
-            driver_ok, driver_type = check_capture_drivers()
+            _, driver_type = check_capture_drivers()
             return {
                 "success": True,
                 "status": "RUNNING",

@@ -253,7 +253,7 @@ Return ONLY valid JSON with:
             if system_instruction and "--- VERIFIED REPOSITORY SECURITY CONTEXT ---" in system_instruction:
                 extracted = system_instruction.split("--- VERIFIED REPOSITORY SECURITY CONTEXT ---")[1].split("--- END REPOSITORY CONTEXT ---")[0].strip()
                 return (
-                    f"SNMK AI Autonomous Grounded Assessment:\n"
+                    "SNMK AI Autonomous Grounded Assessment:\n"
                     f"Verified knowledge context analyzed:\n{extracted}\n\n"
                     "Deterministic security heuristic active. Zero false-positive rules, CVSS v3.1 calculation, and remediation guidelines verified."
                 )
@@ -432,10 +432,10 @@ Return ONLY valid JSON with:
             "owasp_category": owasp,
             "poc_curl": poc_curl,
             "explanation": (
-                f"Classified heuristically from the finding title keywords; "
+                "Classified heuristically from the finding title keywords; "
                 f"no active probe was executed against {endpoint} and no "
-                f"response signature was confirmed. Severity and OWASP "
-                f"category are a deterministic mapping, not a validation."
+                "response signature was confirmed. Severity and OWASP "
+                "category are a deterministic mapping, not a validation."
             ),
             "patch_suggestion": "Apply strict input validation, principle of least privilege, and sanitize user-controllable input."
         }

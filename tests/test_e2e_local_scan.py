@@ -96,7 +96,7 @@ class TestE2ELocalScan(unittest.TestCase):
             except Exception:
                 pass
             raise RuntimeError(
-                f"Failed to launch background SWA AI web server for E2E "
+                "Failed to launch background SWA AI web server for E2E "
                 f"tests (port {port}, url {cls.base_url}, last error: {last_exc}).{err}"
             )
 
@@ -186,7 +186,7 @@ class TestE2ELocalScan(unittest.TestCase):
 
         self.assertTrue(
             completed,
-            f"Scan did not reach COMPLETED status within the 300s budget "
+            "Scan did not reach COMPLETED status within the 300s budget "
             f"(last observed: {last_observed})",
         )
         self.assertGreaterEqual(final_data.get("progress_percent", 0), 100)
@@ -214,7 +214,7 @@ class TestE2ELocalScan(unittest.TestCase):
             time.sleep(1.5)
         self.assertGreater(
             len(findings), 0,
-            f"Expected at least 1 vulnerability finding on test target "
+            "Expected at least 1 vulnerability finding on test target "
             f"(last state: {last_findings_error})",
         )
 

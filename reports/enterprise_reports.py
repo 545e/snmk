@@ -146,7 +146,7 @@ class EnterpriseReportEngine:
     @classmethod
     def _build_vulnerability_report(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"Vulnerability & Exploit Intelligence Report — {target}"
-        summary = f"Technical catalog of detected vulnerabilities with CVSS scores, CWE categories, and proof-of-concept verification details."
+        summary = "Technical catalog of detected vulnerabilities with CVSS scores, CWE categories, and proof-of-concept verification details."
         data = {
             "target": target,
             "findings": [{
@@ -175,7 +175,7 @@ class EnterpriseReportEngine:
     def _build_api_security(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"REST & GraphQL API Security Assessment — {target}"
         api_findings = [f for f in findings if "api" in f.endpoint.lower() or "auth" in f.title.lower()]
-        summary = f"API endpoint security evaluation focusing on OWASP API Security Top 10, broken object-level authorization, and injection risks."
+        summary = "API endpoint security evaluation focusing on OWASP API Security Top 10, broken object-level authorization, and injection risks."
         data = {
             "target": target,
             "api_findings_count": len(api_findings),
@@ -199,7 +199,7 @@ class EnterpriseReportEngine:
     @classmethod
     def _build_compliance(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"Regulatory & Standards Compliance Matrix — {target}"
-        summary = f"Mapping of security posture against OWASP ASVS v4.0, NIST CSF, PCI-DSS v4.0, and SOC 2 Trust Services Criteria."
+        summary = "Mapping of security posture against OWASP ASVS v4.0, NIST CSF, PCI-DSS v4.0, and SOC 2 Trust Services Criteria."
         data = {
             "target": target,
             "standards_evaluated": ["OWASP ASVS v4.0", "NIST CSF 2.0", "PCI-DSS v4.0", "SOC 2 Type II"],
@@ -213,7 +213,7 @@ class EnterpriseReportEngine:
     @classmethod
     def _build_remediation(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"Remediation Roadmap & Patch Implementation Guide — {target}"
-        summary = f"Actionable remediation tasks, code-level patches, configuration guidance, and verification procedures for engineering teams."
+        summary = "Actionable remediation tasks, code-level patches, configuration guidance, and verification procedures for engineering teams."
         data = {
             "target": target,
             "remediation_items": [{
@@ -228,7 +228,7 @@ class EnterpriseReportEngine:
     def _build_retest(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"Vulnerability Retest & Verification Report — {target}"
         tickets = db.get_remediation_tickets(scan_id=scan.id if scan else None)
-        summary = f"Independent retest verification results assessing whether deployed fixes successfully closed identified security flaws."
+        summary = "Independent retest verification results assessing whether deployed fixes successfully closed identified security flaws."
         data = {
             "target": target,
             "retest_summary": {
@@ -244,7 +244,7 @@ class EnterpriseReportEngine:
     def _build_continuous_monitoring(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"Continuous Attack Surface Monitoring (EASM) — {target}"
         drift_events = db.get_drift_events(limit=20)
-        summary = f"Historical delta report tracking external attack surface modifications, DNS changes, and newly discovered endpoints."
+        summary = "Historical delta report tracking external attack surface modifications, DNS changes, and newly discovered endpoints."
         data = {
             "target": target,
             "drift_events_count": len(drift_events),
@@ -258,7 +258,7 @@ class EnterpriseReportEngine:
         from core.scanner_integrations import ScannerIntegrations
         inventory = ScannerIntegrations.get_tool_inventory()
         tasks = db.get_agent_tasks(scan_id=scan.id if scan else None)
-        summary = f"Auditable record of all automated security engines, versions, exit codes, and task timings executed during assessment."
+        summary = "Auditable record of all automated security engines, versions, exit codes, and task timings executed during assessment."
         data = {
             "target": target,
             "tool_inventory": {k: {"version": v.get("version"), "status": v.get("health_status")} for k, v in inventory.items()},
@@ -269,7 +269,7 @@ class EnterpriseReportEngine:
     @classmethod
     def _build_platform_health(cls, scan: Optional[ScanJob], findings: List[VulnerabilityFinding], target: str):
         title = f"SWA Platform Operational Health & Diagnostics — {target}"
-        summary = f"Platform subsystem health report covering background workers, SQLite database responsiveness, and tool adapter statuses."
+        summary = "Platform subsystem health report covering background workers, SQLite database responsiveness, and tool adapter statuses."
         data = {
             "platform": "SNMK Autonomous Cybersecurity Platform",
             "version": "2.2.0-Enterprise",

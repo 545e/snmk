@@ -54,7 +54,7 @@
     <!-- Master SNMK Enterprise App Layout -->
 <div class="swa-app-layout">
     <!-- Left Persistent Enterprise Sidebar -->
-    <aside class="swa-sidebar" id="appSidebar">
+    <aside class="swa-sidebar" id="appSidebar" aria-label="Application sidebar">
         <div class="swa-sidebar-header">
             <a href="/" class="swa-sidebar-brand" onclick="navToView('dashboard'); return false;">
                 <div class="brand-icon brand-icon-cyber">
@@ -76,7 +76,7 @@
 
         <!-- Sidebar Navigation (Maintains soc-nav-bar and all required view dispatches) -->
                 <!-- Sidebar Navigation (Maintains soc-nav-bar and all required view dispatches) -->
-        <nav class="swa-sidebar-nav soc-nav-bar" id="socTopNav">
+        <nav class="swa-sidebar-nav soc-nav-bar" id="socTopNav" aria-label="Security operations navigation">
             <div class="nav-sec" style="--sec:#6366f1">
             <!-- OVERVIEW -->
             <div class="swa-sidebar-group-title">OVERVIEW</div>
@@ -382,7 +382,7 @@
         </header>
 
         <!-- Master Horizontal SOC Top Navigation Bar (Always Visible Across All Screen Sizes) -->
-        <nav class="soc-top-strip" id="socTopStrip">
+        <nav class="soc-top-strip" id="socTopStrip" aria-label="Security operations quick navigation">
             <button class="soc-nav-item active" id="topNavDashboard" onclick="navToView('dashboard')">
                 <span>⚡ Dashboard</span>
             </button>
@@ -415,7 +415,7 @@
                 <span>⚙️ Settings</span>
             </button>
         </nav>
-        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()"></div>
+        <button type="button" class="sidebar-backdrop swa-plain swa-plain-block" id="sidebarBackdrop" onclick="closeMobileSidebar()"></button>
 
         <!-- Viewport Container -->
         <main class="swa-viewport" id="mainViewport">
@@ -445,10 +445,10 @@
                 <span class="ctx-label">POSTURE GRADE</span>
                 <span class="ctx-value grade-badge" id="ctxPostureGrade">Grade B (85)</span>
             </div>
-            <div class="ctx-item ctx-tasks" onclick="navToView('agents')" style="cursor: pointer;" title="View all 85 Specialist Agents">
+            <button type="button" class="ctx-item ctx-tasks swa-plain swa-plain-block" onclick="navToView('agents')" style="cursor: pointer;" title="View all 85 Specialist Agents">
                 <span class="ctx-label">ACTIVE AGENTS</span>
                 <span class="ctx-value" id="ctxActiveAgents" style="font-family: var(--mono); color: #38bdf8;">85 Ready</span>
-            </div>
+            </button>
             <div class="ctx-item ctx-approvals">
                 <span class="ctx-label">PENDING APPROVALS</span>
                 <span class="ctx-value" id="ctxPendingApprovals" style="font-family: var(--mono); color: #f0883e;">0</span>
@@ -469,7 +469,7 @@
         <!-- 4 Enterprise Cybersecurity KPI Cards -->
         <div class="swa-soc-kpi-grid">
             <!-- Card 1: Discovered Vulnerabilities -->
-            <div class="soc-kpi-card" onclick="navToView('vulnerabilities')" style="cursor: pointer;" title="Click to view all discovered vulnerabilities">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="navToView('vulnerabilities')" style="cursor: pointer;" title="Click to view all discovered vulnerabilities">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Discovered Vulnerabilities</span>
                     <div class="soc-kpi-icon-disc disc-alert">
@@ -490,10 +490,10 @@
                         <div class="soc-kpi-bar-fill fill-low" style="width: 87%;" title="428 Low/Info Headers"></div>
                     </div>
                 </div>
-            </div>
+            </button>
 
             <!-- Card 2: 85 Autonomous AI Agents Workforce -->
-            <div class="soc-kpi-card" onclick="navToView('agents')" style="cursor: pointer;" title="Click to inspect all 85 Specialist Agents">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="navToView('agents')" style="cursor: pointer;" title="Click to inspect all 85 Specialist Agents">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Autonomous AI Fleet</span>
                     <div class="soc-kpi-icon-disc disc-agents">
@@ -514,10 +514,10 @@
                         <span class="soc-status-text">100% Operational &bull; Multi-Agent Pipeline Ready</span>
                     </div>
                 </div>
-            </div>
+            </button>
 
             <!-- Card 3: Security Posture & Exploit Defense -->
-            <div class="soc-kpi-card" onclick="recalculatePostureGrade()" style="cursor: pointer;" title="Click to recalculate real-time security posture grade">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="recalculatePostureGrade()" style="cursor: pointer;" title="Click to recalculate real-time security posture grade">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Security Posture Grade</span>
                     <div class="soc-kpi-icon-disc disc-posture">
@@ -535,10 +535,10 @@
                         <div class="soc-posture-fill" style="width: 85%;"></div>
                     </div>
                 </div>
-            </div>
+            </button>
 
             <!-- Card 4: Target Scope & Perimeter Status -->
-            <div class="soc-kpi-card" onclick="verifyCurrentTargetScope()" style="cursor: pointer;" title="Click to verify RFC-1918 loopback authorization & SSRF guard">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="verifyCurrentTargetScope()" style="cursor: pointer;" title="Click to verify RFC-1918 loopback authorization & SSRF guard">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Audit Target Scope</span>
                     <div class="soc-kpi-icon-disc disc-target">
@@ -556,7 +556,7 @@
                         <span class="soc-status-text">186 Scans Executed &bull; Target Ingress: 4ms</span>
                     </div>
                 </div>
-            </div>
+            </button>
         </div>
 
         <!-- Interactive Target Assessment & Multi-Agent Collaboration Bar -->
@@ -602,24 +602,24 @@
             <div class="soc-profile-selector">
                 <span class="soc-profile-lbl">AUDIT PROFILE:</span>
                 <div class="profile-pills">
-                    <div class="pill-item active" data-profile="standard" onclick="selectProfile('standard', this)">
+                    <button type="button" class="pill-item active swa-plain swa-plain-block" data-profile="standard" onclick="selectProfile('standard', this)">
                         <span>⚡ Standard Assessment</span>
-                    </div>
-                    <div class="pill-item" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)">
                         <span>🧪 Authorized Lab (127.0.0.1)</span>
-                    </div>
-                    <div class="pill-item" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)">
                         <span>🛡️ Passive OSINT Recon</span>
-                    </div>
-                    <div class="pill-item" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)">
                         <span>💉 OWASP Top 10 Deep Scan</span>
-                    </div>
-                    <div class="pill-item" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)">
                         <span>🎯 Full Red Team Suite</span>
-                    </div>
-                        <div class="pill-item" data-profile="all_tools" onclick="selectProfile('all_tools', this)">
+                    </button>
+                        <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="all_tools" onclick="selectProfile('all_tools', this)">
                             <span>🛠️ All Tools Integrated Audit</span>
-                        </div>
+                        </button>
                 </div>
             </div>
         </div>
@@ -638,7 +638,7 @@
 
                 <div class="owasp-matrix-list">
                     <!-- A01 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A01')" style="cursor: pointer;" title="Filter findings by OWASP A01">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A01')" style="cursor: pointer;" title="Filter findings by OWASP A01">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A01</span>
                             <div>
@@ -649,10 +649,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Passed (0 findings)</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A02 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A02')" style="cursor: pointer;" title="Filter findings by OWASP A02">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A02')" style="cursor: pointer;" title="Filter findings by OWASP A02">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A02</span>
                             <div>
@@ -663,10 +663,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Secure</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A03 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A03')" style="cursor: pointer;" title="Filter findings by OWASP A03">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A03')" style="cursor: pointer;" title="Filter findings by OWASP A03">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A03</span>
                             <div>
@@ -677,10 +677,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Clean (0 Injections)</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A05 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A05')" style="border-color: rgba(249, 115, 22, 0.4); background: rgba(249, 115, 22, 0.05); cursor: pointer;" title="Filter findings by OWASP A05 (4 HIGH Findings)">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A05')" style="border-color: rgba(249, 115, 22, 0.4); background: rgba(249, 115, 22, 0.05); cursor: pointer;" title="Filter findings by OWASP A05 (4 HIGH Findings)">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge" style="background: rgba(249, 115, 22, 0.2); color: #FB923C;">A05</span>
                             <div>
@@ -691,10 +691,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-high">4 HIGH Findings</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A07 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A07')" style="cursor: pointer;" title="Filter findings by OWASP A07">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A07')" style="cursor: pointer;" title="Filter findings by OWASP A07">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A07</span>
                             <div>
@@ -705,10 +705,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Verified</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A10 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A10')" style="cursor: pointer;" title="Filter findings by OWASP A10">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A10')" style="cursor: pointer;" title="Filter findings by OWASP A10">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A10</span>
                             <div>
@@ -719,7 +719,7 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Guarded</span>
                         </div>
-                    </div>
+                    </button>
                 </div>
             </div>
 
@@ -872,55 +872,55 @@
 
             <!-- Profile Selector Pills with Crisp SVGs -->
             <div class="profile-pills">
-                <div class="pill-item" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)" title="Zero Active Traffic - OSINT, Certificates, DNS & Headers" style="font-weight: 700;">
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)" title="Zero Active Traffic - OSINT, Certificates, DNS & Headers" style="font-weight: 700;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>
                     <span>🛡️ Passive Recon</span>
-                </div>
-                <div class="pill-item active" data-profile="standard" onclick="selectProfile('standard', this)" title="Comprehensive standard assessment: Recon, Subdomains, Ports, OWASP Top 10" style="font-weight: 700;">
+                </button>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" data-profile="standard" onclick="selectProfile('standard', this)" title="Comprehensive standard assessment: Recon, Subdomains, Ports, OWASP Top 10" style="font-weight: 700;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
                     <span>⚡ Standard Assessment</span>
-                </div>
-                <div class="pill-item" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)" title="Authorized local/test lab assessment for 127.0.0.1, PortSwigger, DVWA" style="font-weight: 700; border-color: rgba(16, 185, 129, 0.45);">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)" title="Authorized local/test lab assessment for 127.0.0.1, PortSwigger, DVWA" style="font-weight: 700; border-color: rgba(16, 185, 129, 0.45);">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 2v7.31L4.69 18.2A2 2 0 0 0 6.4 21h11.2a2 2 0 0 0 1.71-2.8L14 9.31V2"></path></svg>
                     <span>🧪 Authorized Lab Assessment</span>
-                </div>
-                <div class="pill-item" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)" title="Full deep red team assessment with crawler and exploit validation">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)" title="Full deep red team assessment with crawler and exploit validation">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                     <span>Full Red Team</span>
-                </div>
-                <div class="pill-item" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)" title="Systematic OWASP Top 10 web vulnerabilities">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)" title="Systematic OWASP Top 10 web vulnerabilities">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>
                     <span>OWASP Top 10</span>
-                </div>
-                <div class="pill-item" data-profile="all_tools" onclick="selectProfile('all_tools', this)" title="Unified multi-engine execution">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="all_tools" onclick="selectProfile('all_tools', this)" title="Unified multi-engine execution">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                     <span>All Tools Suite</span>
-                </div>
+                </button>
             </div>
 
             <!-- Advanced Options Dropdown -->
             <div>
-                <span onclick="toggleAdvancedOptions()" style="color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
+                <button type="button" class="swa-plain swa-plain-inline" onclick="toggleAdvancedOptions()" style="color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span>Advanced Scope & Concurrency Controls</span>
                     <span id="advArrow" style="font-size: 11px;">▼</span>
-                </span>
+                </button>
 
                 <div id="advancedOptions" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Max Crawl Depth</label>
+                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;" for="optMaxDepth">Max Crawl Depth</label>
                         <input type="number" id="optMaxDepth" class="input-target" style="padding: 8px 12px; font-size: 13px;" value="2" min="1" max="5">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Concurrency (Threads)</label>
+                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;" for="optConcurrency">Concurrency (Threads)</label>
                         <input type="number" id="optConcurrency" class="input-target" style="padding: 8px 12px; font-size: 13px;" value="15" min="1" max="20">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Auth Bearer Token</label>
+                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;" for="optBearerToken">Auth Bearer Token</label>
                         <input type="text" id="optBearerToken" class="input-target" style="padding: 8px 12px; font-size: 13px;" placeholder="Optional Bearer token">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px;">
-                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Custom Header</label>
+                        <label style="font-size: 12px; color: var(--text-muted); font-weight: 600;" for="optCustomHeader">Custom Header</label>
                         <input type="text" id="optCustomHeader" class="input-target" style="padding: 8px 12px; font-size: 13px;" placeholder="X-Auth: secret">
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 4px; justify-content: flex-end;">
@@ -1492,11 +1492,11 @@
                     <div class="map-input-row" style="justify-content: space-between;">
                         <div class="map-quick-chips">
                             <span>Quick Targets:</span>
-                            <span class="map-chip" onclick="setQuickTarget('192.168.0.0/24')">192.168.0.0/24</span>
-                            <span class="map-chip" onclick="setQuickTarget('1.1.1.1')">1.1.1.1 (Cloudflare)</span>
-                            <span class="map-chip" onclick="setQuickTarget('8.8.8.8')">8.8.8.8 (Google)</span>
-                            <span class="map-chip" onclick="setQuickTarget('google.com')">google.com</span>
-                            <span class="map-chip" onclick="setQuickTarget('127.0.0.1')">127.0.0.1 (Localhost)</span>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('192.168.0.0/24')">192.168.0.0/24</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('1.1.1.1')">1.1.1.1 (Cloudflare)</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('8.8.8.8')">8.8.8.8 (Google)</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('google.com')">google.com</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('127.0.0.1')">127.0.0.1 (Localhost)</button>
                         </div>
                         <div style="display:flex; align-items:center; gap:16px;">
                             <label style="font-size:12px; color:#cbd5e1; display:flex; align-items:center; gap:6px; cursor:pointer;">
@@ -1978,11 +1978,11 @@
                     <div class="map-ai-box">
                         <h3 style="font-size:14px; margin:0; color:#38bdf8;">MAP AI Network Investigation Assistant</h3>
                         <div class="map-ai-chips">
-                            <span class="map-ai-chip" onclick="askMapAi('Identify the origin of this connection.')">Identify connection origin</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Explain this packet capture.')">Explain packet capture</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Find suspicious communication in this capture.')">Find suspicious flows</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Check for DNS tunneling anomalies.')">Check DNS anomalies</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Summarize this network capture.')">Executive summary</span>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Identify the origin of this connection.')">Identify connection origin</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Explain this packet capture.')">Explain packet capture</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Find suspicious communication in this capture.')">Find suspicious flows</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Check for DNS tunneling anomalies.')">Check DNS anomalies</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Summarize this network capture.')">Executive summary</button>
                         </div>
                         <div style="display:flex; gap:10px;">
                             <input type="text" class="map-primary-input" id="mapAiQueryInput" placeholder="Ask MAP AI specialist (e.g. 'Investigate origin of 49.204.237.171', 'Why is packet loss 0%?')" onkeydown="if(event.key==='Enter') askMapAi()">
@@ -2043,11 +2043,11 @@
 
         <div style="display: grid; grid-template-columns: 1fr 220px 180px; gap: 12px; margin-bottom: 16px; align-items: flex-end;" class="assessment-launch-grid">
             <div>
-                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">TARGET DOMAIN / URL</label>
+                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;" for="viewAssessTargetInput">TARGET DOMAIN / URL</label>
                 <input type="text" id="viewAssessTargetInput" class="input-target" placeholder="e.g. http://127.0.0.1:8000 or target-domain.com" style="width: 100%; padding: 9px 14px; font-size: 13.5px; border-radius: 8px;">
             </div>
             <div>
-                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;">SCAN PROFILE</label>
+                <label style="display: block; font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 6px;" for="viewAssessProfileSelect">SCAN PROFILE</label>
                 <select id="viewAssessProfileSelect" class="swa-topbar-select" style="width: 100%; padding: 9px 12px; font-size: 13px; border-radius: 8px;">
                     <option value="standard">Standard Pentest (OWASP Top 10)</option>
                     <option value="aggressive">Aggressive Full Probe</option>
@@ -2119,10 +2119,10 @@
             <div class="dropdown" style="position: relative; display: inline-block;">
                 <button class="btn btn-secondary" onclick="toggleVulnExportDropdown()" style="padding: 6px 14px; font-size: 12.5px;">Export Data &#9662;</button>
                 <div id="vfExportDropdown" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 4px; background: #111827; border: 1px solid #1f2937; border-radius: 6px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 100; min-width: 140px; overflow: hidden;">
-                    <a href="javascript:void(0)" onclick="exportVulnData('csv')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none; border-bottom: 1px solid #1f2937;">CSV Spreadsheet</a>
-                    <a href="javascript:void(0)" onclick="exportVulnData('json')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none; border-bottom: 1px solid #1f2937;">JSON Machine-Readable</a>
-                    <a href="javascript:void(0)" onclick="exportVulnData('pdf')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none; border-bottom: 1px solid #1f2937;">PDF Summary Document</a>
-                    <a href="javascript:void(0)" onclick="exportVulnData('markdown')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none;">Markdown Technical</a>
+                    <button type="button" class="link-btn" onclick="exportVulnData('csv')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none; border-bottom: 1px solid #1f2937;">CSV Spreadsheet</button>
+                    <button type="button" class="link-btn" onclick="exportVulnData('json')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none; border-bottom: 1px solid #1f2937;">JSON Machine-Readable</button>
+                    <button type="button" class="link-btn" onclick="exportVulnData('pdf')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none; border-bottom: 1px solid #1f2937;">PDF Summary Document</button>
+                    <button type="button" class="link-btn" onclick="exportVulnData('markdown')" style="display: block; padding: 8px 14px; font-size: 12px; color: #e2e8f0; text-decoration: none;">Markdown Technical</button>
                 </div>
             </div>
         </div>
@@ -2131,65 +2131,65 @@
     <!-- 10 Summary KPI Cards (§8.1) -->
     <div class="vuln-summary-grid">
         <!-- 1. Total Findings -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('ALL')" title="All discovered security detections">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('ALL')" title="All discovered security detections">
             <div class="vuln-stat-header"><span>Total Detections</span><span style="color:#38bdf8;">&#128065;</span></div>
             <div class="vuln-stat-value" id="vfStatTotal">472</div>
             <div class="vuln-stat-sub">Across all endpoints</div>
-        </div>
+        </button>
         <!-- 2. Open Vulnerabilities -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('OPEN_VULNS')" title="Unresolved active vulnerabilities">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('OPEN_VULNS')" title="Unresolved active vulnerabilities">
             <div class="vuln-stat-header"><span>Open Vulnerabilities</span><span style="color:#ef4444;">&#9888;</span></div>
             <div class="vuln-stat-value" id="vfStatOpen" style="color: #f87171;">472</div>
             <div class="vuln-stat-sub">Action required</div>
-        </div>
+        </button>
         <!-- 3. PoC Verified -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('POC_VERIFIED')" title="Vulnerabilities with authorized reproduction commands">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('POC_VERIFIED')" title="Vulnerabilities with authorized reproduction commands">
             <div class="vuln-stat-header"><span>PoC Verified</span><span style="color:#22c55e;">&#10004;</span></div>
             <div class="vuln-stat-value" id="vfStatPoc" style="color: #4ade80;">470</div>
             <div class="vuln-stat-sub">Exploitability proven</div>
-        </div>
+        </button>
         <!-- 4. Critical Findings -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('SEV_CRITICAL')" title="CVSS 9.0 - 10.0 Critical findings">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('SEV_CRITICAL')" title="CVSS 9.0 - 10.0 Critical findings">
             <div class="vuln-stat-header"><span>Critical Findings</span><span style="color:#ef4444;">&#9873;</span></div>
             <div class="vuln-stat-value" id="vfStatCrit" style="color: #f87171;">0</div>
             <div class="vuln-stat-sub">CVSS 9.0 - 10.0</div>
-        </div>
+        </button>
         <!-- 5. High Findings -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('SEV_HIGH')" title="CVSS 7.0 - 8.9 High findings">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('SEV_HIGH')" title="CVSS 7.0 - 8.9 High findings">
             <div class="vuln-stat-header"><span>High Findings</span><span style="color:#f97316;">&#9873;</span></div>
             <div class="vuln-stat-value" id="vfStatHigh" style="color: #fb923c;">45</div>
             <div class="vuln-stat-sub">CVSS 7.0 - 8.9</div>
-        </div>
+        </button>
         <!-- 6. False Positives -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('FALSE_POSITIVES')" title="Suppressed and reviewed false alarms">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('FALSE_POSITIVES')" title="Suppressed and reviewed false alarms">
             <div class="vuln-stat-header"><span>False Positives</span><span style="color:#94a3b8;">&#10006;</span></div>
             <div class="vuln-stat-value" id="vfStatFp" style="color: #94a3b8;">0</div>
             <div class="vuln-stat-sub">Analyst suppressed</div>
-        </div>
+        </button>
         <!-- 7. Needs Validation -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('NEEDS_VALIDATION')" title="Findings requiring analyst review">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('NEEDS_VALIDATION')" title="Findings requiring analyst review">
             <div class="vuln-stat-header"><span>Needs Validation</span><span style="color:#f59e0b;">&#9684;</span></div>
             <div class="vuln-stat-value" id="vfStatNeedsVal" style="color: #fbbf24;">0</div>
             <div class="vuln-stat-sub">Triage queue</div>
-        </div>
+        </button>
         <!-- 8. Fix In Progress -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('FIX_IN_PROGRESS')" title="Remediation active in engineering">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('FIX_IN_PROGRESS')" title="Remediation active in engineering">
             <div class="vuln-stat-header"><span>Fix In Progress</span><span style="color:#0ea5e9;">&#9881;</span></div>
             <div class="vuln-stat-value" id="vfStatFixProg" style="color: #38bdf8;">0</div>
             <div class="vuln-stat-sub">Assigned to engineers</div>
-        </div>
+        </button>
         <!-- 9. Pending Retest -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('PENDING_RETEST')" title="Fix submitted awaiting autonomous verification">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('PENDING_RETEST')" title="Fix submitted awaiting autonomous verification">
             <div class="vuln-stat-header"><span>Pending Retest</span><span style="color:#8b5cf6;">&#8635;</span></div>
             <div class="vuln-stat-value" id="vfStatRetest" style="color: #a78bfa;">0</div>
             <div class="vuln-stat-sub">Verification queue</div>
-        </div>
+        </button>
         <!-- 10. Resolved & Verified -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('RESOLVED_VERIFIED')" title="Vulnerabilities fixed and confirmed resolved">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('RESOLVED_VERIFIED')" title="Vulnerabilities fixed and confirmed resolved">
             <div class="vuln-stat-header"><span>Resolved & Verified</span><span style="color:#22c55e;">&#9989;</span></div>
             <div class="vuln-stat-value" id="vfStatResolved" style="color: #4ade80;">0</div>
             <div class="vuln-stat-sub">Closure confirmed</div>
-        </div>
+        </button>
     </div>
 
     <!-- Visual Distribution Bars (§8.2) -->
@@ -2285,14 +2285,14 @@
         <table class="vuln-table" id="vfDataTable">
             <thead>
                 <tr>
-                    <th style="width: 38px;"><input type="checkbox" id="vfSelectAllCheckbox" onclick="toggleSelectAllFindings(this.checked)"></th>
-                    <th onclick="toggleSortColumn('severity')">Severity</th>
-                    <th onclick="toggleSortColumn('title')">Finding Title & Identifiers</th>
-                    <th onclick="toggleSortColumn('endpoint')">Affected Asset / Endpoint</th>
-                    <th onclick="toggleSortColumn('lifecycle_status')">Lifecycle Status</th>
-                    <th onclick="toggleSortColumn('remediation_status')">Remediation</th>
+                    <th style="width: 38px;"><input type="checkbox" id="vfSelectAllCheckbox" onchange="toggleSelectAllFindings(this.checked)"></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('severity')">Severity</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('title')">Finding Title & Identifiers</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('endpoint')">Affected Asset / Endpoint</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('lifecycle_status')">Lifecycle Status</button></th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('remediation_status')">Remediation</button></th>
                     <th>PoC Verification</th>
-                    <th onclick="toggleSortColumn('cvss_score')">CVSS / EPSS</th>
+                    <th scope="col"><button type="button" class="link-btn" onclick="toggleSortColumn('cvss_score')">CVSS / EPSS</button></th>
                     <th style="text-align: right;">Actions</th>
                 </tr>
             </thead>
@@ -2333,7 +2333,7 @@
 <!-- =========================================================================
      Finding Detail Drawer & Backdrop (§8.5)
      ========================================================================= -->
-<div id="vulnDrawerBackdrop" class="vuln-drawer-backdrop" onclick="closeVulnDrawer()"></div>
+<button type="button" id="vulnDrawerBackdrop" class="vuln-drawer-backdrop swa-plain swa-plain-block" onclick="closeVulnDrawer()"></button>
 <div id="vulnDetailDrawer" class="vuln-drawer">
     <div class="vuln-drawer-header">
         <div>
@@ -2545,12 +2545,12 @@ Content-Type: application/json
         <p style="font-size: 13px; color: #94a3b8; margin: 0 0 16px 0;">Record contradictory evidence and senior analyst sign-off to suppress or classify this finding.</p>
         
         <div style="margin-bottom: 14px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Target Finding</label>
+            <span style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Target Finding</label>
             <strong id="fpModalFindingLabel" style="font-size: 13px; color: #38bdf8;">FIND-TEST-0000</strong>
         </div>
 
         <div style="margin-bottom: 14px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Classification Justification</label>
+            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;" for="fpModalReasonSelect">Classification Justification</label>
             <select id="fpModalReasonSelect" class="vuln-filter-select" style="width: 100%;">
                 <option value="WAF / Defense-in-Depth blocks execution payload">WAF / Defense-in-Depth blocks execution payload</option>
                 <option value="Non-exploitable architectural configuration">Non-exploitable architectural configuration</option>
@@ -2561,12 +2561,12 @@ Content-Type: application/json
         </div>
 
         <div style="margin-bottom: 14px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Contradictory Replay Evidence / Notes</label>
+            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;" for="fpModalEvidenceText">Contradictory Replay Evidence / Notes</label>
             <textarea id="fpModalEvidenceText" rows="3" style="width: 100%; background: #0b0f19; border: 1px solid #1f2937; border-radius: 6px; color: #f8fafc; padding: 8px; font-size: 12.5px; resize: vertical;" placeholder="Document sanitized responses, 403 blocks, or reproduction failures..."></textarea>
         </div>
 
         <div style="margin-bottom: 20px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Reviewing Senior Analyst</label>
+            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;" for="fpModalReviewer">Reviewing Senior Analyst</label>
             <input type="text" id="fpModalReviewer" class="vuln-search-input" value="Lead Application Security Engineer" style="width: 100%;">
         </div>
 
@@ -2586,7 +2586,7 @@ Content-Type: application/json
         <p style="font-size: 13px; color: #94a3b8; margin: 0 0 16px 0;">Select one of the 5 specialized vulnerability assessment reports (§10.1 - §10.5).</p>
         
         <div style="margin-bottom: 14px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Report Template</label>
+            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;" for="vfReportTypeSelect">Report Template</label>
             <select id="vfReportTypeSelect" class="vuln-filter-select" style="width: 100%;">
                 <option value="executive">Executive Vulnerability Report (§10.1)</option>
                 <option value="technical" selected>Technical Vulnerability Assessment Report (§10.2)</option>
@@ -2596,7 +2596,7 @@ Content-Type: application/json
         </div>
 
         <div style="margin-bottom: 14px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Output Format</label>
+            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;" for="vfReportFormatSelect">Output Format</label>
             <select id="vfReportFormatSelect" class="vuln-filter-select" style="width: 100%;">
                 <option value="html" selected>HTML (Interactive Standalone Document)</option>
                 <option value="pdf">PDF (Printable Executive Report)</option>
@@ -2607,7 +2607,7 @@ Content-Type: application/json
         </div>
 
         <div style="margin-bottom: 20px;">
-            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;">Target System</label>
+            <label style="display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px;" for="vfReportTargetInput">Target System</label>
             <input type="text" id="vfReportTargetInput" class="vuln-search-input" value="127.0.0.1:8000" style="width: 100%;">
         </div>
 
@@ -2976,6 +2976,19 @@ Content-Type: application/json
 
                     <div id="tabForensics" class="tab-content" style="display: block;">
 
+                        <!-- Digital Forensics & Data Recovery Sub-Navigation -->
+                        <div class="dfir-subnav-bar" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; padding-bottom: 2px;">
+                            <button type="button" class="dfir-subtab-btn active" id="btnSubtabLogs" onclick="switchForensicsSubtab('dfirPaneLogs', this)" style="background: none; border: none; border-bottom: 2px solid #818cf8; color: #818cf8; font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">📜 Log Footprints</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabStorage" onclick="switchForensicsSubtab('dfirPaneStorage', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">💾 Physical Media & Disk Images</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabPhotorec" onclick="switchForensicsSubtab('dfirPanePhotorec', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">🔍 PhotoRec Carving Station</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabAutopsy" onclick="switchForensicsSubtab('dfirPaneAutopsy', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">📁 Autopsy Case Manager</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabExif" onclick="switchForensicsSubtab('dfirPaneExif', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">📷 ExifTool & GPS Extractor</button>
+                            <button type="button" class="dfir-subtab-btn" id="btnSubtabCustody" onclick="switchForensicsSubtab('dfirPaneCustody', this)" style="background: none; border: none; border-bottom: 2px solid transparent; color: var(--text-muted); font-weight: 700; font-size: 13px; padding: 8px 14px; cursor: pointer;">🛡️ Chain-of-Custody Ledger</button>
+                        </div>
+
+                        <!-- 1. DFIR Server Logs Pane -->
+                        <div id="dfirPaneLogs" class="dfir-subtab-pane" style="display: block;">
+
                         <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
 
                             <div>
@@ -3131,6 +3144,221 @@ Content-Type: application/json
                             <!-- Filled dynamically when a scan is selected -->
 
                         </div>
+                        </div><!-- /dfirPaneLogs -->
+
+                        <!-- 2. Physical Storage & Forensic Disk Images Pane -->
+                        <div id="dfirPaneStorage" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                        <span>💾 Physical Media & Forensic Disk Images</span>
+                                        <span class="os-pill" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">Read-Only Guaranteed</span>
+                                    </h3>
+                                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                        Inspect physical drives (NVMe, SSD, HDD, USB) and raw forensic bitstream images (.dd, .raw, .img, .e01, .aff) with sector size and partition validation.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="loadStorageDevices()" style="padding: 6px 12px; font-size: 12px;">🔄 Refresh Media</button>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
+                                            <th style="padding: 10px 12px;">Storage Device / Image</th>
+                                            <th style="padding: 10px 12px;">Type</th>
+                                            <th style="padding: 10px 12px;">Capacity</th>
+                                            <th style="padding: 10px 12px;">Scheme / Filesystem</th>
+                                            <th style="padding: 10px 12px;">Forensic State</th>
+                                            <th style="padding: 10px 12px;">Serial / Checksum</th>
+                                            <th style="padding: 10px 12px; text-align: right;">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dfirStorageList">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 3. PhotoRec Carving Station with Left Back Navigation -->
+                        <div id="dfirPanePhotorec" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px;">
+                                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                    <span>🔍 PhotoRec Deep File Carving Station</span>
+                                    <span class="os-pill" style="background: rgba(168, 85, 247, 0.15); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.3);">Bitstream Sector Scraper</span>
+                                </h3>
+                                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                    Perform deep unallocated cluster carving across damaged partitions and forensic dumps using signature-based headers/footers.
+                                </p>
+                            </div>
+
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; margin-bottom: 16px;">
+                                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                    <h4 style="font-size: 13.5px; font-weight: 700; color: #818cf8; margin-bottom: 12px;">1. Carving Source & Mode</h4>
+
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 4px;" for="dfirCarveTargetSelect">Target Storage Media / Disk Image:</label>
+                                        <select id="dfirCarveTargetSelect" class="form-select" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: #e2e8f0; padding: 8px; border-radius: 6px; font-size: 12px;">
+                                            <option value="DEV-DISK-001">Primary Forensic SSD (476.94 GB) [NTFS]</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 4px;" for="dfirCarveModeSelect">Partition Carving Boundary:</label>
+                                        <select id="dfirCarveModeSelect" class="form-select" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: #e2e8f0; padding: 8px; border-radius: 6px; font-size: 12px;">
+                                            <option value="WHOLE">Whole Partition / Disk (All Sectors)</option>
+                                            <option value="UNALLOCATED">Free / Unallocated Clusters Only</option>
+                                        </select>
+                                    </div>
+
+                                    <div style="margin-bottom: 12px;">
+                                        <label style="display: block; font-size: 11.5px; color: var(--text-muted); margin-bottom: 4px;" for="dfirCarveDestInput">Carving Destination Directory:</label>
+                                        <input type="text" id="dfirCarveDestInput" value="forensics/recovered" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: #e2e8f0; padding: 8px; border-radius: 6px; font-family: var(--mono); font-size: 12px;">
+                                    </div>
+
+                                    <!-- Mandatory 'Left Back' Directory Navigation Explorer -->
+                                    <div style="background: rgba(0,0,0,0.3); border: 1px solid var(--border); border-radius: 6px; padding: 10px; margin-bottom: 14px;">
+                                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                                            <div style="display: flex; align-items: center; gap: 8px;">
+                                                <button type="button" class="btn btn-secondary" id="dfirBtnLeftBack" style="padding: 4px 10px; font-size: 11.5px; font-weight: 700; background: rgba(99,102,241,0.2); border-color: #818cf8; color: #818cf8;">
+                                                    ⬅ Left Back
+                                                </button>
+                                                <span style="font-size: 11px; color: var(--text-muted);">Current Folder:</span>
+                                            </div>
+                                            <span id="dfirBrowseBreadcrumb" style="font-family: var(--mono); font-size: 11px; color: #38bdf8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px;">.</span>
+                                        </div>
+                                        <div id="dfirDirItemList" style="max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.2); border-radius: 4px; padding: 4px;">
+                                            <!-- Items dynamically loaded -->
+                                        </div>
+                                    </div>
+
+                                    <button type="button" class="btn btn-primary" onclick="startPhotorecCarving()" style="width: 100%; padding: 10px; font-weight: 700; font-size: 13px; background: #818cf8; color: #0b0f17;">
+                                        ⚡ Launch PhotoRec Deep File Carve
+                                    </button>
+                                </div>
+
+                                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px;">
+                                    <h4 style="font-size: 13.5px; font-weight: 700; color: #818cf8; margin-bottom: 12px;">2. File Signature Filters</h4>
+                                    <div id="dfirSignatureCheckboxes" style="display: flex; flex-direction: column; gap: 10px; max-height: 380px; overflow-y: auto;">
+                                        <!-- Loaded dynamically -->
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Live Carving Telemetry Dashboard -->
+                            <div id="dfirCarveLiveArea" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                    <div style="display: flex; align-items: center; gap: 10px;">
+                                        <span style="font-weight: 700; font-size: 14px; color: #e2e8f0;">Real-Time Carver Telemetry:</span>
+                                        <span id="dfirCarveStatusBadge" class="badge" style="background: #38bdf8; color: #0b0f17; font-size: 11px; font-weight: 700;">RUNNING</span>
+                                    </div>
+                                    <div style="display: flex; gap: 12px; font-size: 12px;">
+                                        <span id="dfirCarveSectorsText" style="color: var(--text-muted); font-family: var(--mono);">0 / 1,000,000 Sectors</span>
+                                        <span id="dfirCarveRecoveredCount" style="color: #10b981; font-weight: 700;">0 Files Carved</span>
+                                        <button type="button" class="btn btn-secondary" onclick="cancelPhotorecCarving()" style="padding: 2px 8px; font-size: 11px; color: #f85149;">Stop Carve</button>
+                                    </div>
+                                </div>
+
+                                <div style="background: rgba(0,0,0,0.4); border-radius: 6px; height: 10px; overflow: hidden; margin-bottom: 12px;">
+                                    <div id="dfirCarveProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #818cf8, #38bdf8); transition: width 0.3s;"></div>
+                                </div>
+
+                                <div id="dfirCarveLogTerminal" style="background: #080c14; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px; font-family: var(--mono); font-size: 11px; color: #94a3b8; height: 140px; overflow-y: auto;">
+                                    <!-- Log messages -->
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. Autopsy Case Manager Pane -->
+                        <div id="dfirPaneAutopsy" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                        <span>📁 Autopsy Digital Forensic Case Manager</span>
+                                        <span class="os-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">Ingest Pipelines Active</span>
+                                    </h3>
+                                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                        Coordinate evidence data sources, NSRL known hash triage, keyword indexing, and automated forensic artifact extraction.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-primary" onclick="loadAutopsyCases()" style="padding: 6px 14px; font-size: 12px;">🔄 Refresh Cases</button>
+                                </div>
+                            </div>
+
+                            <div id="dfirAutopsyCasesList">
+                                <!-- Loaded dynamically -->
+                            </div>
+                        </div>
+
+                        <!-- 5. ExifTool & GPS Extractor Pane (Strictly Zero Cloudinary) -->
+                        <div id="dfirPaneExif" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px;">
+                                <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                    <span>📷 ExifTool Metadata &amp; GPS Geolocation Extractor</span>
+                                    <span class="os-pill" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.3);">Zero Cloudinary Enforced</span>
+                                </h3>
+                                <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                    Extract hardware serials, capture timestamps, camera lens optics, and GPS coordinates with direct mapping and Jimpl external verification.
+                                </p>
+                            </div>
+
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                                <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                                    <input type="file" id="dfirExifFileInput" accept="image/*,.pdf,.mp4" style="display: none;" onchange="runExifExtraction(this)">
+                                    <button type="button" class="btn btn-secondary" onclick="document.getElementById('dfirExifFileInput').click()" style="padding: 8px 16px; font-size: 12px;">
+                                        📁 Upload Evidence File (Image / Doc)
+                                    </button>
+                                    <button type="button" class="btn btn-primary" onclick="runExifExtraction(null)" style="padding: 8px 16px; font-size: 12px; background: #818cf8; color: #0b0f17;">
+                                        ⚡ Analyze Forensic GPS Baseline Sample
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="dfirExifReportArea">
+                                <!-- Results appear here -->
+                            </div>
+                        </div>
+
+                        <!-- 6. Chain of Custody Immutable Ledger Pane -->
+                        <div id="dfirPaneCustody" class="dfir-subtab-pane" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                                <div>
+                                    <h3 style="font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
+                                        <span>🛡️ Cryptographic Chain-of-Custody Evidence Ledger</span>
+                                        <span class="os-pill" style="background: rgba(16, 185, 129, 0.15); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.3);">SHA-256 / SHA-512 Dual Sealed</span>
+                                    </h3>
+                                    <p style="font-size: 12.5px; color: var(--text-muted); margin-top: 3px;">
+                                        Tamper-proof evidence tracking ledger. Every forensic artifact is hashed at acquisition and verifiable on-demand against disk state.
+                                    </p>
+                                </div>
+                                <div style="display: flex; gap: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="loadCustodyRecords()" style="padding: 6px 12px; font-size: 12px;">🔄 Refresh Ledger</button>
+                                </div>
+                            </div>
+
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; overflow-x: auto;">
+                                <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 12.5px;">
+                                    <thead>
+                                        <tr style="border-bottom: 1px solid var(--border); background: rgba(0,0,0,0.2); color: var(--text-muted); font-size: 11px; text-transform: uppercase;">
+                                            <th style="padding: 10px 12px;">Evidence ID</th>
+                                            <th style="padding: 10px 12px;">Evidence Item</th>
+                                            <th style="padding: 10px 12px;">Source Device</th>
+                                            <th style="padding: 10px 12px;">Examiner</th>
+                                            <th style="padding: 10px 12px;">SHA-256 Bitstream Hash</th>
+                                            <th style="padding: 10px 12px;">Status</th>
+                                            <th style="padding: 10px 12px; text-align: right;">Integrity Check</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dfirCustodyTableBody">
+                                        <!-- Rendered dynamically -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
 
                     </div>
 </div><!-- /viewCodeSecurity -->
@@ -3225,7 +3453,7 @@ Content-Type: application/json
             <!-- 6 Visual Template Cards -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;" id="templateCardsGrid">
                 <!-- Template A -->
-                <div class="swa-rep-template-card" data-template="template_a" onclick="selectReportTemplate('template_a')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_a" onclick="selectReportTemplate('template_a')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template A: Executive Summary</span>
                         <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-size: 10px; padding: 2px 6px;">CISO / Board</span>
@@ -3233,10 +3461,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Executive briefing on overall security posture, severity distribution, asset coverage, and strategic remediation.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template B -->
-                <div class="swa-rep-template-card active" data-template="template_b" onclick="selectReportTemplate('template_b')" style="background: var(--bg-card); border: 2px solid #6366f1; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
+                <button type="button" class="swa-rep-template-card active swa-plain swa-plain-block" data-template="template_b" onclick="selectReportTemplate('template_b')" style="background: var(--bg-card); border: 2px solid #6366f1; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template B: Detailed Technical</span>
                         <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; font-size: 10px; padding: 2px 6px;">Security SOC</span>
@@ -3244,10 +3472,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Complete technical dossier with host details, CVSS v3.1/v4.0 vectors, EPSS scores, evidence, and exact code patches.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template C -->
-                <div class="swa-rep-template-card" data-template="template_c" onclick="selectReportTemplate('template_c')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_c" onclick="selectReportTemplate('template_c')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template C: Vulnerabilities by Host</span>
                         <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 10px; padding: 2px 6px;">SysAdmins</span>
@@ -3255,10 +3483,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Host-centric vulnerability inventory grouping all findings, open ports, and risk profiles by discovered IP and FQDN.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template D -->
-                <div class="swa-rep-template-card" data-template="template_d" onclick="selectReportTemplate('template_d')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_d" onclick="selectReportTemplate('template_d')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template D: By Plugin / Rule</span>
                         <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 10px; padding: 2px 6px;">Vuln Mgmt</span>
@@ -3266,10 +3494,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Analysis grouped by SNMK detection rules and vulnerability categories with affected host rosters.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template E -->
-                <div class="swa-rep-template-card" data-template="template_e" onclick="selectReportTemplate('template_e')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_e" onclick="selectReportTemplate('template_e')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template E: Remediation Plan</span>
                         <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9; font-size: 10px; padding: 2px 6px;">DevOps</span>
@@ -3277,10 +3505,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Action-oriented tracking report detailing official solutions, workaround steps, ticket owners, and retest states.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template F -->
-                <div class="swa-rep-template-card" data-template="template_f" onclick="selectReportTemplate('template_f')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_f" onclick="selectReportTemplate('template_f')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template F: False-Positive Review</span>
                         <span class="badge" style="background: rgba(249, 115, 22, 0.15); color: #f97316; font-size: 10px; padding: 2px 6px;">Audit</span>
@@ -3288,7 +3516,7 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Auditable review of suppressed findings, potential false positives, analyst determinations, and evidence dossiers.
                     </div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -3377,24 +3605,24 @@ Content-Type: application/json
                         Step 6: Deliverable Format
                     </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        <label class="btn btn-secondary swa-fmt-btn active" data-format="pdf" onclick="selectExportFormat('pdf')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer; border-color: #6366f1; background: rgba(99, 102, 241, 0.15); color: #818cf8;">
+                        <button type="button" class="btn btn-secondary swa-fmt-btn active swa-plain swa-plain-inline" data-format="pdf" onclick="selectExportFormat('pdf')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer; border-color: #6366f1; background: rgba(99, 102, 241, 0.15); color: #818cf8;">
                             <input type="radio" name="reportFormat" value="pdf" checked style="display: none;"> PDF (Print-Ready)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="html" onclick="selectExportFormat('html')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="html" onclick="selectExportFormat('html')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="html" style="display: none;"> HTML (Interactive)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="csv" onclick="selectExportFormat('csv')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="csv" onclick="selectExportFormat('csv')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="csv" style="display: none;"> CSV (23-Col)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="json" onclick="selectExportFormat('json')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="json" onclick="selectExportFormat('json')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="json" style="display: none;"> JSON
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="nessus" onclick="selectExportFormat('nessus')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="nessus" onclick="selectExportFormat('nessus')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="nessus" style="display: none;"> Nessus XML (.nessus)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="sarif" onclick="selectExportFormat('sarif')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="sarif" onclick="selectExportFormat('sarif')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="sarif" style="display: none;"> SARIF 2.1.0
-                        </label>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -3522,7 +3750,7 @@ Content-Type: application/json
                     Upload a standard Tenable Nessus v2 XML scan file. Findings will be imported into SNMK data models with original tool provenance preserved.
                 </p>
                 <div style="margin-bottom: 14px;">
-                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Select .nessus XML File:</label>
+                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;" for="nessusXmlFileInput">Select .nessus XML File:</label>
                     <input type="file" id="nessusXmlFileInput" accept=".nessus,.xml" style="width: 100%; font-size: 13px; color: var(--text-body);">
                 </div>
                 <div id="nessusImportStatus" style="font-size: 12.5px; color: var(--text-muted);"></div>
@@ -3600,11 +3828,11 @@ Content-Type: application/json
                             
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-bottom: 16px;">
                                 <div>
-                                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Base Scan (Older Assessment)</label>
+                                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="compareBaseScanSelect">Base Scan (Older Assessment)</label>
                                     <select id="compareBaseScanSelect" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px;"></select>
                                 </div>
                                 <div>
-                                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Comparison Scan (Newer Assessment)</label>
+                                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="compareTargetScanSelect">Comparison Scan (Newer Assessment)</label>
                                     <select id="compareTargetScanSelect" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px;"></select>
                                 </div>
                                 <div style="display: flex; align-items: flex-end;">
@@ -3647,15 +3875,15 @@ Content-Type: application/json
                                 <h4 style="font-size: 13.5px; color: var(--text-title); margin-bottom: 10px;">Upload Authorized Security Dataset</h4>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 12px;">
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Dataset File (.csv, .jsonl, .json, .txt)</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="datasetFileInput">Dataset File (.csv, .jsonl, .json, .txt)</label>
                                         <input type="file" id="datasetFileInput" class="input-target" style="width: 100%; padding: 6px;" accept=".csv,.jsonl,.json,.txt">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Corpus Name</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="datasetNameInput">Corpus Name</label>
                                         <input type="text" id="datasetNameInput" class="input-target" placeholder="e.g. OWASP Injection Payloads 2026">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Target Label Column (Optional)</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="datasetLabelInput">Target Label Column (Optional)</label>
                                         <input type="text" id="datasetLabelInput" class="input-target" placeholder="e.g. label, category">
                                     </div>
                                 </div>
@@ -3717,11 +3945,11 @@ Content-Type: application/json
                                 <h4 style="font-size: 13.5px; color: var(--text-title); margin-bottom: 12px;">Configure Model Training Job</h4>
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px;">
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Model Output Identifier</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="trainModelName">Model Output Identifier</label>
                                         <input type="text" id="trainModelName" class="input-target" value="swa-vuln-classifier-v1">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Base Model Architecture</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="trainBaseModel">Base Model Architecture</label>
                                         <select id="trainBaseModel" class="input-target">
                                             <option value="security-roberta-base">security-roberta-base</option>
                                             <option value="cyber-distilbert-uncased">cyber-distilbert-uncased</option>
@@ -3729,19 +3957,19 @@ Content-Type: application/json
                                         </select>
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Training Dataset</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="trainDatasetSelect">Training Dataset</label>
                                         <select id="trainDatasetSelect" class="input-target"></select>
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Epochs (1-20)</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="trainEpochs">Epochs (1-20)</label>
                                         <input type="number" id="trainEpochs" class="input-target" value="3" min="1" max="20">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Batch Size</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="trainBatchSize">Batch Size</label>
                                         <input type="number" id="trainBatchSize" class="input-target" value="16" min="1" max="128">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Learning Rate</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="trainLearningRate">Learning Rate</label>
                                         <input type="number" id="trainLearningRate" class="input-target" value="0.001" step="0.0001" min="0.00001" max="0.1">
                                     </div>
                                 </div>
@@ -3780,22 +4008,22 @@ Content-Type: application/json
                             <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 18px; margin-bottom: 20px;">
                                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 14px;">
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Evaluation Mode</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="evalTaskType">Evaluation Mode</label>
                                         <select id="evalTaskType" class="input-target" onchange="toggleEvalMode()">
                                             <option value="classification">Classification Benchmark (F1 & Confusion Matrix)</option>
                                             <option value="llm_inference">LLM Latency, Throughput & Cost Benchmark</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Target Model</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="evalModelName">Target Model</label>
                                         <input type="text" id="evalModelName" class="input-target" value="swa-vuln-classifier-v1">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Baseline Comparison</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="evalBaselineName">Baseline Comparison</label>
                                         <input type="text" id="evalBaselineName" class="input-target" value="heuristic-baseline-v1">
                                     </div>
                                     <div>
-                                        <label style="font-size: 11.5px; color: var(--text-muted);">Test Sample Size</label>
+                                        <label style="font-size: 11.5px; color: var(--text-muted);" for="evalSampleSize">Test Sample Size</label>
                                         <input type="number" id="evalSampleSize" class="input-target" value="150" min="10" max="1000">
                                     </div>
                                 </div>
@@ -3835,19 +4063,19 @@ Content-Type: application/json
                                     <table class="confusion-matrix-table">
                                         <thead>
                                             <tr>
-                                                <th>Actual \ Predicted</th>
-                                                <th>Predicted Attack</th>
-                                                <th>Predicted Benign</th>
+                                                <th scope="col">Actual \ Predicted</th>
+                                                <th scope="col">Predicted Attack</th>
+                                                <th scope="col">Predicted Benign</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             <tr>
-                                                <th style="text-align: left;">Actual Attack</th>
+                                                <th scope="row" style="text-align: left;">Actual Attack</th>
                                                 <td class="cell-tp" id="cmTP">TP: 0</td>
                                                 <td class="cell-fn" id="cmFN">FN: 0</td>
                                             </tr>
                                             <tr>
-                                                <th style="text-align: left;">Actual Benign</th>
+                                                <th scope="row" style="text-align: left;">Actual Benign</th>
                                                 <td class="cell-fp" id="cmFP">FP: 0</td>
                                                 <td class="cell-tn" id="cmTN">TN: 0</td>
                                             </tr>
@@ -3922,7 +4150,7 @@ Content-Type: application/json
 
                             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 18px; background: var(--bg-card); padding: 16px; border-radius: 8px; border: 1px solid var(--border);">
                                 <div>
-                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-title); display: block; margin-bottom: 6px;">Dataset Scope</label>
+                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-title); display: block; margin-bottom: 6px;" for="exportTypeSelect">Dataset Scope</label>
                                     <select id="exportTypeSelect" class="input-target" style="width: 100%; padding: 6px 10px; font-size: 12.5px;">
                                         <option value="findings">Verified Vulnerability Findings</option>
                                         <option value="executive">Executive Summary Report</option>
@@ -3935,7 +4163,7 @@ Content-Type: application/json
                                     </select>
                                 </div>
                                 <div>
-                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-title); display: block; margin-bottom: 6px;">Output Format</label>
+                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-title); display: block; margin-bottom: 6px;" for="exportFormatSelect">Output Format</label>
                                     <select id="exportFormatSelect" class="input-target" style="width: 100%; padding: 6px 10px; font-size: 12.5px;">
                                         <option value="json">JSON (Structured Schema v2.2)</option>
                                         <option value="csv">CSV (RFC 4180 Spreadsheet)</option>
@@ -3944,7 +4172,7 @@ Content-Type: application/json
                                     </select>
                                 </div>
                                 <div>
-                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-title); display: block; margin-bottom: 6px;">Severity Filter</label>
+                                    <label style="font-size: 12px; font-weight: 700; color: var(--text-title); display: block; margin-bottom: 6px;" for="exportSeveritySelect">Severity Filter</label>
                                     <select id="exportSeveritySelect" class="input-target" style="width: 100%; padding: 6px 10px; font-size: 12.5px;">
                                         <option value="">All Severities (Critical - Info)</option>
                                         <option value="CRITICAL,HIGH">Critical & High Only</option>
@@ -5059,7 +5287,7 @@ Content-Type: application/json
             </div>
 
             <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 16px;">
-                <label style="font-size: 13px; color: var(--text-muted);">Select Finding to Investigate:</label>
+                <label style="font-size: 13px; color: var(--text-muted);" for="kcAiFindingSelect">Select Finding to Investigate:</label>
                 <select id="kcAiFindingSelect" style="background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 12px; border-radius: 6px; font-size: 13px; flex: 1; max-width: 450px;">
                     <!-- Injected via app.js -->
                 </select>
@@ -5111,15 +5339,15 @@ Content-Type: application/json
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; margin-bottom: 16px;">
                 <div>
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Report Title</label>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcRepTitleInput">Report Title</label>
                     <input type="text" id="kcRepTitleInput" value="Enterprise Cyber Kill Chain Threat & Vulnerability Assessment" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 12.5px;">
                 </div>
                 <div>
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Assessment Scope</label>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcRepScopeInput">Assessment Scope</label>
                     <input type="text" id="kcRepScopeInput" value="Production Perimeter & Internal Endpoints" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 12.5px;">
                 </div>
                 <div>
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Assessor / Lead Analyst</label>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcRepAnalystInput">Assessor / Lead Analyst</label>
                     <input type="text" id="kcRepAnalystInput" value="Principal Cybersecurity Architect" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 12.5px;">
                 </div>
             </div>
@@ -5183,7 +5411,7 @@ Content-Type: application/json
         </div>
         <div style="display: flex; flex-direction: column; gap: 12px;">
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Kill Chain Stage</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcEvStageInput">Kill Chain Stage</label>
                 <select id="kcEvStageInput" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
                     <option value="reconnaissance">01. Reconnaissance</option>
                     <option value="weaponization">02. Weaponization</option>
@@ -5195,15 +5423,15 @@ Content-Type: application/json
                 </select>
             </div>
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Artifact Type</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcEvTypeInput">Artifact Type</label>
                 <input type="text" id="kcEvTypeInput" value="CUSTOM_FORENSIC_TELEMETRY" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
             </div>
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Affected Asset</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcEvAssetInput">Affected Asset</label>
                 <input type="text" id="kcEvAssetInput" value="127.0.0.1" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
             </div>
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Raw Artifact Data / Payload</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcEvRawInput">Raw Artifact Data / Payload</label>
                 <textarea id="kcEvRawInput" rows="4" placeholder="Enter log entry, network packet dump, hash, or header..." style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 12.5px; font-family: var(--mono);"></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
@@ -5223,12 +5451,12 @@ Content-Type: application/json
         </div>
         <div style="display: flex; flex-direction: column; gap: 12px;">
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Incident Title</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcIncTitleInput">Incident Title</label>
                 <input type="text" id="kcIncTitleInput" placeholder="e.g. Multi-stage credential theft & lateral hop" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
             </div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                 <div>
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Severity</label>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcIncSevInput">Severity</label>
                     <select id="kcIncSevInput" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
                         <option value="CRITICAL">Critical</option>
                         <option value="HIGH" selected>High</option>
@@ -5237,16 +5465,16 @@ Content-Type: application/json
                     </select>
                 </div>
                 <div>
-                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Assigned Analyst</label>
+                    <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcIncAnalystInput">Assigned Analyst</label>
                     <input type="text" id="kcIncAnalystInput" value="SOC Lead" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
                 </div>
             </div>
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Affected Assets (comma-separated)</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcIncAssetsInput">Affected Assets (comma-separated)</label>
                 <input type="text" id="kcIncAssetsInput" value="127.0.0.1" style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 13px;">
             </div>
             <div>
-                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;">Description & Containment Objectives</label>
+                <label style="font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 4px;" for="kcIncDescInput">Description & Containment Objectives</label>
                 <textarea id="kcIncDescInput" rows="3" placeholder="Enter incident summary..." style="width: 100%; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-title); padding: 8px 10px; border-radius: 6px; font-size: 12.5px;"></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px;">
@@ -5367,7 +5595,7 @@ Content-Type: application/json
     </div><!-- /swa-main-shell -->
 
     <!-- AI Security Copilot Slide-out Drawer -->
-    <aside class="swa-ai-drawer" id="aiCopilotDrawer">
+    <aside class="swa-ai-drawer" id="aiCopilotDrawer" aria-label="AI copilot drawer">
         <div class="swa-ai-drawer-header">
             <div class="swa-ai-drawer-title">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2"><circle cx="12" cy="12" r="3"></circle><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"></path></svg>
@@ -5733,7 +5961,7 @@ Content-Type: application/json
 
             <div style="margin-bottom: 14px;">
 
-                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">AI Reasoning Provider</label>
+                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;" for="setProvider">AI Reasoning Provider</label>
 
                 <select id="setProvider" class="input-target" style="width: 100%; padding: 10px 14px; font-size: 13px;">
 
@@ -5759,7 +5987,7 @@ Content-Type: application/json
 
             <div style="margin-bottom: 14px;">
 
-                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">Model ID</label>
+                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;" for="setModel">Model ID</label>
 
                 <input type="text" id="setModel" class="input-target" style="width: 100%; padding: 10px 14px; font-size: 13px;" placeholder="minimax/minimax-m3.1-flash:free or gpt-4o-mini">
 
@@ -5769,7 +5997,7 @@ Content-Type: application/json
 
             <div style="margin-bottom: 14px;">
 
-                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">API Key (Optional if env set or using Heuristic)</label>
+                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;" for="setApiKey">API Key (Optional if env set or using Heuristic)</label>
 
                 <input type="password" id="setApiKey" class="input-target" style="width: 100%; padding: 10px 14px; font-size: 13px;" placeholder="sk-...">
 
@@ -5779,7 +6007,7 @@ Content-Type: application/json
 
             <div style="margin-bottom: 20px;">
 
-                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;">API Base URL</label>
+                <label style="font-size: 12px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 6px;" for="setBaseUrl">API Base URL</label>
 
                 <input type="text" id="setBaseUrl" class="input-target" style="width: 100%; padding: 10px 14px; font-size: 13px;" placeholder="https://openrouter.ai/api/v1/chat/completions">
 
@@ -5913,27 +6141,27 @@ Content-Type: application/json
 
             <div class="profile-pills" id="dcPlatformTabs" style="margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px; gap: 6px;">
 
-                <div class="pill-item active" onclick="switchDcPlatform('modsec', this)"><span>🛡️ ModSecurity (OWASP CRS)</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="switchDcPlatform('modsec', this)"><span>🛡️ ModSecurity (OWASP CRS)</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('cloudflare', this)"><span>☁️ Cloudflare WAF</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('cloudflare', this)"><span>☁️ Cloudflare WAF</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('awswaf', this)"><span>🟧 AWS WAF v2</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('awswaf', this)"><span>🟧 AWS WAF v2</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('nginxwaf', this)"><span>⚡ Nginx WAF</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('nginxwaf', this)"><span>⚡ Nginx WAF</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('suricata', this)"><span>📡 Suricata IDS</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('suricata', this)"><span>📡 Suricata IDS</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('snort', this)"><span>🎯 Snort 3</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('snort', this)"><span>🎯 Snort 3</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('sigma', this)"><span>📊 Sigma YAML</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('sigma', this)"><span>📊 Sigma YAML</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('splunk', this)"><span>🔎 Splunk SPL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('splunk', this)"><span>🔎 Splunk SPL</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('elastic', this)"><span>⚡ Elastic KQL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('elastic', this)"><span>⚡ Elastic KQL</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('sentinel', this)"><span>🛡️ Sentinel KQL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('sentinel', this)"><span>🛡️ Sentinel KQL</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('hardening', this)"><span>🔒 Server Hardening</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('hardening', this)"><span>🔒 Server Hardening</span></button>
 
             </div>
 
@@ -6037,21 +6265,21 @@ Content-Type: application/json
 
             <div class="profile-pills" id="ctCategoryTabs" style="margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px; gap: 6px; flex-wrap: wrap;">
 
-                <div class="pill-item active" onclick="switchCtTab('subdomains', this)" style="border-color: rgba(99, 102, 241, 0.5); font-weight: 700;"><span>⚡ Autonomous Subdomains</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="switchCtTab('subdomains', this)" style="border-color: rgba(99, 102, 241, 0.5); font-weight: 700;"><span>⚡ Autonomous Subdomains</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('dns', this)"><span>🌐 DNS & Email Security</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('dns', this)"><span>🌐 DNS & Email Security</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('headers', this)"><span>🛡️ Headers & SSL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('headers', this)"><span>🛡️ Headers & SSL</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('probe', this)"><span>⚡ Vuln Prober (SQLi/XSS/LFI)</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('probe', this)"><span>⚡ Vuln Prober (SQLi/XSS/LFI)</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('crypto', this)"><span>🔐 Hashes, Encoding & JWT</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('crypto', this)"><span>🔐 Hashes, Encoding & JWT</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('subnet', this)"><span>🧮 CIDR / Subnet Calc</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('subnet', this)"><span>🧮 CIDR / Subnet Calc</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('revshell', this)"><span>💻 Shell & Payloads</span></div>
-                <div class="pill-item" onclick="switchCtTab('ghostjs', this)" style="border-color: rgba(168, 85, 247, 0.4);"><span>👻 JS & GhostJS Secrets</span></div>
-                <div class="pill-item" onclick="switchCtTab('scannertools', this)" style="border-color: rgba(16, 185, 129, 0.5); font-weight: 600;"><span>🛠️ Scanner Tools & Environment</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('revshell', this)"><span>💻 Shell & Payloads</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('ghostjs', this)" style="border-color: rgba(168, 85, 247, 0.4);"><span>👻 JS & GhostJS Secrets</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('scannertools', this)" style="border-color: rgba(16, 185, 129, 0.5); font-weight: 600;"><span>🛠️ Scanner Tools & Environment</span></button>
 
             </div>
 
@@ -6270,7 +6498,7 @@ Content-Type: application/json
                     <div style="margin-bottom: 10px;">
                         <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px; display: flex; justify-content: space-between;">
                             <span>Or paste raw JavaScript / JSON to analyze directly:</span>
-                            <a href="javascript:void(0)" onclick="ctRunJsCodeScan()" style="color: var(--brand); font-weight: 600;">Scan Pasted Code</a>
+                            <button type="button" class="link-btn" onclick="ctRunJsCodeScan()" style="color: var(--brand); font-weight: 600;">Scan Pasted Code</button>
                         </div>
                         <textarea id="ctJsCodeInput" class="input-target" placeholder="Paste JavaScript code, bundle content, or JSON payload here..." style="width: 100%; height: 75px; font-family: monospace; font-size: 12px; resize: vertical;"></textarea>
                     </div>
@@ -6465,14 +6693,14 @@ Content-Type: application/json
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
                 Drop any client-side JavaScript bundle, source-map, or config file for offline audit with 150+ GhostJS credential patterns, Shannon entropy thresholding, and dependency confusion detection.
             </p>
-            <div id="dropZone" style="border: 2px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 14px; background: var(--bg-subtle);" onclick="document.getElementById('fileInputDirect').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--brand)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="handleFileDrop(event)">
+            <button type="button" class="swa-plain swa-plain-block" id="dropZone" style="border: 2px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 14px; background: var(--bg-subtle);" onclick="document.getElementById('fileInputDirect').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--brand)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="handleFileDrop(event)">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" style="margin-bottom: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <div style="font-weight: 700; color: var(--text-title); font-size: 14px;">Drag & Drop .js, .json, .map, or .txt file here</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">or click to browse from your computer</div>
                 <input type="file" id="fileInputDirect" style="display: none;" onchange="handleFileSelect(this.files)" accept=".js,.json,.map,.txt,.ts,.env">
-            </div>
+            </button>
             <div style="margin-bottom: 14px;">
-                <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">Or Paste Source Code Directly:</label>
+                <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;" for="rawSourceInput">Or Paste Source Code Directly:</label>
                 <textarea id="rawSourceInput" class="input-target" style="width: 100%; height: 110px; font-family: var(--mono); font-size: 12px; padding: 10px; border-radius: 8px; resize: vertical;" placeholder="// Paste bundle code, webpack manifests, or source maps here..."></textarea>
             </div>
             <div style="display: flex; justify-content: flex-end; gap: 10px; margin-bottom: 16px;">
@@ -6508,12 +6736,12 @@ Content-Type: application/json
 
             <!-- Tool Category Filter Pills -->
             <div class="profile-pills" id="toolsCenterCategoryPills" style="margin-bottom: 14px; gap: 6px; flex-wrap: wrap;">
-                <div class="pill-item active" onclick="filterToolsCenter('ALL', this)"><span>All Tools (12)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Network Discovery & Analysis', this)"><span>🌐 Network Discovery (2)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Web Application Security', this)"><span>🕷️ Web App Security (3)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Application & Dependency Security', this)"><span>📦 SAST & Dependencies (4)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Specialist Pentesting (Authorized Labs Only)', this)"><span>💉 Specialist Lab (1)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Built-in Core Suite', this)"><span>⚡ Built-in Engine (1)</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="filterToolsCenter('ALL', this)"><span>All Tools (12)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Network Discovery & Analysis', this)"><span>🌐 Network Discovery (2)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Web Application Security', this)"><span>🕷️ Web App Security (3)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Application & Dependency Security', this)"><span>📦 SAST & Dependencies (4)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Specialist Pentesting (Authorized Labs Only)', this)"><span>💉 Specialist Lab (1)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Built-in Core Suite', this)"><span>⚡ Built-in Engine (1)</span></button>
             </div>
 
             <!-- Tools List Grid -->
@@ -6556,12 +6784,12 @@ Content-Type: application/json
 
             <!-- Command Category Pills -->
             <div class="profile-pills" id="cmdRefCategoryPills" style="margin-bottom: 14px; gap: 6px; flex-wrap: wrap;">
-                <div class="pill-item active" onclick="filterCommandRef('ALL', this)"><span>All Commands</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Network Discovery', this)"><span>🌐 Network (Nmap)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Web Application Security', this)"><span>🕷️ Web (Nuclei, ZAP)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Application & Dependency Security', this)"><span>📦 SAST & Deps (Bandit, Trivy, Gitleaks)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Specialist Pentesting', this)"><span>💉 Specialist (SQLmap)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Built-in Core Engine', this)"><span>⚡ SNMK Native Engine</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="filterCommandRef('ALL', this)"><span>All Commands</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Network Discovery', this)"><span>🌐 Network (Nmap)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Web Application Security', this)"><span>🕷️ Web (Nuclei, ZAP)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Application & Dependency Security', this)"><span>📦 SAST & Deps (Bandit, Trivy, Gitleaks)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Specialist Pentesting', this)"><span>💉 Specialist (SQLmap)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Built-in Core Engine', this)"><span>⚡ SNMK Native Engine</span></button>
             </div>
 
             <!-- Command Reference List -->
@@ -6601,11 +6829,11 @@ Content-Type: application/json
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Agent Name *</label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormName">Agent Name *</label>
                         <input type="text" id="agentFormName" class="form-input" style="width: 100%;" placeholder="e.g. Claude 3.5 Red Teamer" required>
                     </div>
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">AI Provider *</label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormProvider">AI Provider *</label>
                         <select id="agentFormProvider" class="form-input" style="width: 100%;" onchange="onProviderSelectChange(this.value)" required>
                             <option value="openai">OpenAI (GPT-4o, o1, GPT-4 Turbo)</option>
                             <option value="anthropic">Anthropic Claude (3.5 Sonnet, Haiku)</option>
@@ -6619,14 +6847,14 @@ Content-Type: application/json
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px;">
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Model Selection *</label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormModelSelect">Model Selection *</label>
                         <select id="agentFormModelSelect" class="form-input" style="width: 100%;" onchange="onModelSelectChange(this.value)">
                             <!-- Populated dynamically -->
                         </select>
                         <input type="text" id="agentFormModelCustom" class="form-input" style="width: 100%; margin-top: 6px; display: none;" placeholder="Enter custom model ID (e.g. mistral-large-2411)">
                     </div>
                     <div>
-                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Cybersecurity Role</label>
+                        <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormRole">Cybersecurity Role</label>
                         <select id="agentFormRole" class="form-input" style="width: 100%;">
                             <option value="Lead Autonomous Penetration Tester">Lead Autonomous Penetration Tester</option>
                             <option value="AppSec Vulnerability & Code Auditor">AppSec Vulnerability & Code Auditor</option>
@@ -6640,13 +6868,13 @@ Content-Type: application/json
 
                 <!-- Base URL -->
                 <div id="agentBaseUrlGroup" style="margin-bottom: 14px; display: none;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Custom API Base URL</label>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormBaseUrl">Custom API Base URL</label>
                     <input type="text" id="agentFormBaseUrl" class="form-input" style="width: 100%; font-family: var(--mono); font-size: 12px;" placeholder="e.g. http://127.0.0.1:11434/v1 or https://api.groq.com/openai/v1">
                 </div>
 
                 <!-- API Key -->
                 <div id="agentApiKeyGroup" style="margin-bottom: 14px;">
-                    <label style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">
+                    <label style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormApiKey">
                         <span>API Key <span id="apiKeyRequiredStar" style="color: #ef4444;">*</span></span>
                         <span id="apiKeyEncryptionBadge" style="font-size: 10.5px; color: #10b981; font-weight: 500;">🔒 AES-128-CBC Encrypted at Rest</span>
                     </label>
@@ -6658,7 +6886,7 @@ Content-Type: application/json
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;">Description / Prompt Focus</label>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 6px;" for="agentFormDescription">Description / Prompt Focus</label>
                     <textarea id="agentFormDescription" class="form-input" style="width: 100%; font-size: 12px; resize: vertical;" rows="2" placeholder="Specialized focus for this agent (e.g. OWASP Top 10 web vulnerabilities, SSRF validation, and exploit synthesis)."></textarea>
                 </div>
 
@@ -6767,7 +6995,7 @@ Content-Type: application/json
             <!-- Target Selection & Mode Tabs -->
             <div style="display: flex; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
                 <div style="flex: 1; min-width: 220px;">
-                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;">Target Category</label>
+                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;" for="reaTargetType">Target Category</label>
                     <select id="reaTargetType" class="input-target" style="width: 100%; padding: 8px 10px; font-size: 13px;">
                         <option value="auto">Auto-Detect from Extension</option>
                         <option value="javascript">JavaScript / Electron Application (.js, .mjs, .asar)</option>
@@ -6778,18 +7006,18 @@ Content-Type: application/json
                     </select>
                 </div>
                 <div style="flex: 2; min-width: 280px;">
-                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;">Local File Path</label>
+                    <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px; display: block;" for="reaPathInput">Local File Path</label>
                     <input type="text" id="reaPathInput" class="input-target" placeholder="e.g. swa_data.db or ./web/static/app.js or C:\target\app.exe" style="width: 100%; padding: 8px 12px; font-size: 13px;">
                 </div>
             </div>
 
             <!-- File Upload Drop Zone (Alternative) -->
-            <div id="reaDropZone" style="border: 2px dashed rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; margin-bottom: 12px; background: rgba(168, 85, 247, 0.03);" onclick="document.getElementById('reaFileInput').click()" ondragover="event.preventDefault(); this.style.borderColor='#c084fc';" ondragleave="this.style.borderColor='rgba(168, 85, 247, 0.35)';" ondrop="handleReaFileDrop(event)">
+            <button type="button" class="swa-plain swa-plain-block" id="reaDropZone" style="border: 2px dashed rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; margin-bottom: 12px; background: rgba(168, 85, 247, 0.03);" onclick="document.getElementById('reaFileInput').click()" ondragover="event.preventDefault(); this.style.borderColor='#c084fc';" ondragleave="this.style.borderColor='rgba(168, 85, 247, 0.35)';" ondrop="handleReaFileDrop(event)">
                 <input type="file" id="reaFileInput" style="display: none;" onchange="handleReaFileSelect(event)">
                 <div id="reaUploadLabel" style="font-size: 12.5px; color: var(--text-muted);">
                     📁 <strong style="color: var(--text-title);">Or click to upload an artifact file</strong> (Max 50MB, .exe, .dll, .js, .db, .pcap)
                 </div>
-            </div>
+            </button>
 
             <!-- Authorization Checkbox & Action Button -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; background: var(--bg-card); padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap; gap: 10px;">
@@ -6851,7 +7079,7 @@ Content-Type: application/json
         <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
             <h3 style="color: var(--text-title); font-size: 15px; margin-top: 0;">Adversarial Test Setup</h3>
             <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Target Model</label>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;" for="aiLabTargetModel">Target Model</label>
                 <select id="aiLabTargetModel" class="input-target" style="width: 100%;">
                     <option value="gpt-4o">GPT-4o (Active / Vault)</option>
                     <option value="claude-3-5-sonnet">Claude 3.5 Sonnet</option>
@@ -6860,7 +7088,7 @@ Content-Type: application/json
                 </select>
             </div>
             <div style="margin-bottom: 12px;">
-                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;">Adversarial Attack Vector</label>
+                <label style="display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 4px;" for="aiLabAttackVector">Adversarial Attack Vector</label>
                 <select id="aiLabAttackVector" class="input-target" style="width: 100%;">
                     <option value="all">-- All 12 Vectors (Comprehensive) --</option>
                     <option value="Direct Prompt Injection">LLM-01: Direct Prompt Injection & Delimiter Escape</option>
@@ -7048,6 +7276,7 @@ Content-Type: application/json
 
 
     <script src="app.js?v=3.5.1"></script>
+    <script src="digital_forensics.js"></script>
 
 <!-- ADD / EDIT / TEST API KEY MODAL -->
 <div id="apiKeyModal" class="modal-custom-overlay" style="display: none;">
@@ -7061,7 +7290,7 @@ Content-Type: application/json
         </div>
         <div class="modal-custom-body">
             <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Provider</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="modalApiKeyProviderSelect">Provider</label>
                 <select id="modalApiKeyProviderSelect" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px;" onchange="onModalProviderChange()">
                     <!-- Populated dynamically -->
                 </select>
@@ -7071,12 +7300,12 @@ Content-Type: application/json
             </div>
 
             <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Display Name</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="modalApiKeyDisplayName">Display Name</label>
                 <input type="text" id="modalApiKeyDisplayName" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px;" placeholder="e.g. Production Gemini Pro Key">
             </div>
 
             <div style="margin-bottom: 14px;">
-                <label style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">
+                <label style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="modalApiKeySecret">
                     <span>API Key / Secret Token <span style="color: #ef4444;">*</span></span>
                     <span style="font-size: 11px; color: #10b981;">Masked token never saved in plaintext</span>
                 </label>
@@ -7087,12 +7316,12 @@ Content-Type: application/json
             </div>
 
             <div id="modalBaseUrlRow" style="margin-bottom: 14px; display: none;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Custom Base URL (Optional)</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="modalApiKeyBaseUrl">Custom Base URL (Optional)</label>
                 <input type="text" id="modalApiKeyBaseUrl" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px; font-family: var(--mono);" placeholder="e.g. http://127.0.0.1:11434 or https://custom-endpoint.com/v1">
             </div>
 
             <div id="modalModelRow" style="margin-bottom: 14px; display: none;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Default Model</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="modalApiKeyModelSelect">Default Model</label>
                 <select id="modalApiKeyModelSelect" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px;">
                     <!-- Options populated per provider -->
                 </select>
@@ -7100,7 +7329,7 @@ Content-Type: application/json
 
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 14px;">
                 <div>
-                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">Scope</label>
+                    <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="modalApiKeyScope">Scope</label>
                     <select id="modalApiKeyScope" class="input-target" style="width: 100%; padding: 8px 12px; font-size: 13px;">
                         <option value="global" selected>Global (All Workspaces)</option>
                         <option value="workspace">Workspace Specific</option>
@@ -7149,7 +7378,7 @@ Content-Type: application/json
             </p>
             <input type="hidden" id="rotateIntegrationId">
             <div style="margin-bottom: 14px;">
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;">New API Key / Secret</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px;" for="rotateNewSecret">New API Key / Secret</label>
                 <div class="input-with-action">
                     <input type="password" id="rotateNewSecret" class="input-target" style="font-family: var(--mono); font-size: 13px;" placeholder="Enter new secret...">
                     <button type="button" onclick="toggleApiKeyInputMask('rotateNewSecret', this)">Show</button>
@@ -7166,7 +7395,7 @@ Content-Type: application/json
 
 
 <!-- INTERACTIVE TOOL DIAGNOSTIC POPOVER (§12 - §15) -->
-<div id="toolHealthPopoverOverlay" class="tool-health-popover-overlay" onclick="closeToolHealthPopoverOnBackdrop(event)">
+<button type="button" id="toolHealthPopoverOverlay" class="tool-health-popover-overlay swa-plain swa-plain-block" onclick="closeToolHealthPopoverOnBackdrop(event)">
     <div class="tool-health-popover" id="toolHealthPopover" role="dialog" aria-modal="true" aria-labelledby="popoverTitle">
         <!-- Header -->
         <div class="tool-popover-header">
@@ -7212,11 +7441,11 @@ Content-Type: application/json
                 ⚡ Install All Missing
             </button>
             <div style="display: flex; gap: 10px; align-items: center;">
-                <a href="javascript:void(0)" onclick="closeToolHealthPopover(); navToView('tools');" style="font-size: 12px; color: #818cf8; text-decoration: none; font-weight: 600;">Open Tool Dependency Center &rarr;</a>
+                <button type="button" class="link-btn" onclick="closeToolHealthPopover(); navToView('tools');" style="font-size: 12px; color: #818cf8; text-decoration: none; font-weight: 600;">Open Tool Dependency Center &rarr;</button>
             </div>
         </div>
     </div>
-</div>
+</button>
 
 <!-- SECURE TOOL INSTALLATION CONFIRMATION MODAL (§6 & §8) -->
 <div id="toolInstallConfirmModal" class="modal-custom-overlay" style="display: none;">

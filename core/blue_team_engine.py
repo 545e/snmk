@@ -76,7 +76,7 @@ class BlueTeamDefenseEngine:
                         f"SecRule REQUEST_URI \"@beginsWith {endpoint_path}\" \\\n"
                         f"    \"id:{rule_id},phase:2,deny,status:403,log,auditlog,\\\n"
                         f"    msg:'SWA-WAF: Blocked injection on {param}',\\\n"
-                        f"    chain\"\n"
+                        "    chain\"\n"
                         f"    SecRule ARGS:{param} \"@rx [\\'\\\"\\;\\-\\-\\(\\)]\" \"t:none,t:urlDecodeUni\"\n"
                     )
                 else:
@@ -90,16 +90,16 @@ class BlueTeamDefenseEngine:
         # Baseline Injection & Directory Traversal Protection
         modsec_lines.append(
             f"# Rule {sid_counter}: Generic Path Traversal & Dot-Dot-Slash Defense\n"
-            f"SecRule REQUEST_URI|ARGS \"@rx (?:\\.\\./|\\.\\.\\\\)\" \\\n"
+            "SecRule REQUEST_URI|ARGS \"@rx (?:\\.\\./|\\.\\.\\\\)\" \\\n"
             f"    \"id:{sid_counter},phase:2,deny,status:403,log,auditlog,\\\n"
-            f"    msg:'SWA-WAF: Directory Traversal sequence blocked'\"\n"
+            "    msg:'SWA-WAF: Directory Traversal sequence blocked'\"\n"
         )
         sid_counter += 1
         modsec_lines.append(
             f"# Rule {sid_counter}: Defensive SQLi Keyword Pattern Interception\n"
-            f"SecRule ARGS \"@rx (?i)(?:union\\s+select|select\\s+.*\\s+from|order\\s+by\\s+\\d+|sleep\\(\\d+\\))\" \\\n"
+            "SecRule ARGS \"@rx (?i)(?:union\\s+select|select\\s+.*\\s+from|order\\s+by\\s+\\d+|sleep\\(\\d+\\))\" \\\n"
             f"    \"id:{sid_counter},phase:2,deny,status:403,log,auditlog,\\\n"
-            f"    msg:'SWA-WAF: Potential SQL Injection query rejected'\"\n"
+            "    msg:'SWA-WAF: Potential SQL Injection query rejected'\"\n"
         )
 
         rules.append({
@@ -222,9 +222,9 @@ server {{
             endpoint_path = urlparse(f.endpoint).path or "/"
             if f.severity in [Severity.CRITICAL, Severity.HIGH]:
                 suricata_lines.append(
-                    f"alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
+                    "alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
                     f"msg:\"SWA-IDS: Inbound Probe against ({f.title[:30]})\"; "
-                    f"flow:established,to_server; "
+                    "flow:established,to_server; "
                     f"http.uri; content:\"{endpoint_path}\"; nocase; "
                     f"classtype:web-application-attack; sid:{sid}; rev:1;)"
                 )
@@ -232,28 +232,28 @@ server {{
 
         # Generic web attacks
         suricata_lines.append(
-            f"alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
-            f"msg:\"SWA-IDS: Path Traversal Dot-Dot Attempt\"; "
-            f"flow:established,to_server; "
-            f"http.uri; content:\"/..\"; nocase; "
+            "alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
+            "msg:\"SWA-IDS: Path Traversal Dot-Dot Attempt\"; "
+            "flow:established,to_server; "
+            "http.uri; content:\"/..\"; nocase; "
             f"classtype:web-application-attack; sid:{sid}; rev:1;)"
         )
         sid += 1
 
         suricata_lines.append(
-            f"alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
-            f"msg:\"SWA-IDS: Sensitive Environment Variables File Probe\"; "
-            f"flow:established,to_server; "
-            f"http.uri; content:\"/.env\"; nocase; "
+            "alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
+            "msg:\"SWA-IDS: Sensitive Environment Variables File Probe\"; "
+            "flow:established,to_server; "
+            "http.uri; content:\"/.env\"; nocase; "
             f"classtype:web-application-attack; sid:{sid}; rev:1;)"
         )
         sid += 1
 
         suricata_lines.append(
-            f"alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
-            f"msg:\"SWA-IDS: SQL Injection Pattern (UNION SELECT)\"; "
-            f"flow:established,to_server; "
-            f"http.uri; content:\"union\"; nocase; content:\"select\"; nocase; "
+            "alert http $EXTERNAL_NET any -> $HOME_NET $HTTP_PORTS ("
+            "msg:\"SWA-IDS: SQL Injection Pattern (UNION SELECT)\"; "
+            "flow:established,to_server; "
+            "http.uri; content:\"union\"; nocase; content:\"select\"; nocase; "
             f"classtype:web-application-attack; sid:{sid}; rev:1;)"
         )
 
@@ -337,12 +337,12 @@ level: high
 
         # 2. Splunk SPL Search Query
         splunk_query = (
-            f"# Splunk Search Processing Language (SPL)\n"
+            "# Splunk Search Processing Language (SPL)\n"
             f'index=web_logs host="*{self.domain}*"\n'
-            f'| where sc_status>=400\n'
-            f'| search (cs_uri_stem="*..*" OR cs_uri_stem="*.env*" OR cs_uri_query="*UNION*" OR cs_uri_query="*SELECT*")\n'
-            f'| stats count values(cs_uri_stem) as target_endpoints values(c_ip) as attacker_ips by cs_method, sc_status\n'
-            f'| sort - count'
+            '| where sc_status>=400\n'
+            '| search (cs_uri_stem="*..*" OR cs_uri_stem="*.env*" OR cs_uri_query="*UNION*" OR cs_uri_query="*SELECT*")\n'
+            '| stats count values(cs_uri_stem) as target_endpoints values(c_ip) as attacker_ips by cs_method, sc_status\n'
+            '| sort - count'
         )
         siem.append({
             "type": "Splunk SPL Query",
@@ -353,12 +353,12 @@ level: high
 
         # 3. Elastic (KQL) Query
         elastic_kql = (
-            f"# Elastic Lucene / KQL Query for Kibana / Elastic Security\n"
+            "# Elastic Lucene / KQL Query for Kibana / Elastic Security\n"
             f'url.domain: "{self.domain}" and (\n'
-            f'  url.path: (*..* or *.env* or *backup.sql* or *wp-config*)\n'
-            f'  or url.query: (*UNION* or *SELECT* or *sleep* or *<script*)\n'
-            f'  or http.response.status_code: 500\n'
-            f')'
+            '  url.path: (*..* or *.env* or *backup.sql* or *wp-config*)\n'
+            '  or url.query: (*UNION* or *SELECT* or *sleep* or *<script*)\n'
+            '  or http.response.status_code: 500\n'
+            ')'
         )
         siem.append({
             "type": "Elastic KQL Query",
@@ -370,12 +370,12 @@ level: high
         # 4. Microsoft Sentinel KQL Query
         sentinel_kql = (
             f"// Microsoft Sentinel KQL Detection for {self.domain}\n"
-            f"W3CIISLog\n"
+            "W3CIISLog\n"
             f"| where csHost has '{self.domain}'\n"
-            f"| where csUriStem has '..' or csUriStem has '.env' or csUriQuery has 'union' or csUriQuery has 'select'\n"
-            f"| where scStatus >= 400\n"
-            f"| summarize AttackCount = count(), Endpoints = make_set(csUriStem) by cIP, csMethod, bin(TimeGenerated, 5m)\n"
-            f"| sort by AttackCount desc"
+            "| where csUriStem has '..' or csUriStem has '.env' or csUriQuery has 'union' or csUriQuery has 'select'\n"
+            "| where scStatus >= 400\n"
+            "| summarize AttackCount = count(), Endpoints = make_set(csUriStem) by cIP, csMethod, bin(TimeGenerated, 5m)\n"
+            "| sort by AttackCount desc"
         )
         siem.append({
             "type": "Microsoft Sentinel KQL",

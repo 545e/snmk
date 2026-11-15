@@ -242,7 +242,7 @@ class TestCorrelationAndScoringMethodology(unittest.TestCase):
         conf_level_high, conf_score_high = analyzer.calculate_confidence(
             evidence_quality=1.0, source_reliability=1.0, corroboration_count=3, completeness=1.0
         )
-        conf_level_low, conf_score_low = analyzer.calculate_confidence(
+        _, conf_score_low = analyzer.calculate_confidence(
             evidence_quality=0.4, source_reliability=0.5, corroboration_count=0, completeness=0.5
         )
         self.assertEqual(conf_level_high, ConfidenceLevelEnum.CONFIRMED)

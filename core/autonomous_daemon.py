@@ -94,7 +94,6 @@ class AutonomousCyberDaemon:
             # 2. Compute Attack Surface Delta (New vs Previous)
             prev_hostnames = set(previous_state.get(domain, {}).get("subdomains", []))
             newly_discovered = current_hostnames - prev_hostnames
-            stale_removed = prev_hostnames - current_hostnames
 
             print(f"[✓] {domain}: Total Mapped: {len(subs)} | Live: {sum(1 for s in subs if s.get('status'))}")
             if newly_discovered:

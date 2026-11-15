@@ -7767,7 +7767,12 @@ function renderToolCatalog(tools) {
         return;
     }
 
-    container.innerHTML = tools.map(t => `
+    container.innerHTML = tools.map(t => {
+        const resolution = t.handler_resolution || {};
+        const handlerState = resolution.resolved
+            ? '<span style="color: var(--text-success, #10b981);">✓ executable</span>'
+            : `<span style="color: var(--text-danger, #ef4444);" title="${(resolution.error || '').replace(/"/g, '&quot;')}">✕ not executable</span>`;
+        return `
         <div class="tool-catalog-item">
             <div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
@@ -7779,7 +7784,8 @@ function renderToolCatalog(tools) {
             </div>
             <div>
                 <div style="background: var(--bg-subtle); padding: 8px 10px; border-radius: 6px; font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
-                    <strong>Handler:</strong> <code>${t.backend_handler}</code>
+                    <strong>Handler:</strong> <code>${t.backend_handler}</code><br>
+                    <strong>Status:</strong> ${handlerState}
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; font-size: 11px; color: var(--text-muted);">
                     <span>Scope: <strong>${t.authorization_scope}</strong></span>
@@ -7787,7 +7793,8 @@ function renderToolCatalog(tools) {
                 </div>
             </div>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function filterToolCatalog() {
@@ -13416,23 +13423,58 @@ function syncSocMetrics() {
             const high = findings.filter(f => (f.severity || '').toLowerCase() === 'high').length;
             const med = findings.filter(f => (f.severity || '').toLowerCase() === 'medium').length;
 
-            const totalEl = document.getElementById('socKpiVulnsTotal');
-            if (totalEl) totalEl.innerHTML = `${total} <span class="soc-kpi-unit">Findings</span>`;
+            // Deduplicate findings using canonical title + endpoint key
+            const seenDedupKeys = new Set();
+            const uniqueFindings = [];
+            for (const f of findings) {
+                const titleKey = (f.title || f.name || '').toLowerCase().trim();
+                const epKey = (f.target_url || f.url || f.endpoint || '').toLowerCase().trim();
+                const k = `${titleKey}|${epKey}`;
+                if (!seenDedupKeys.has(k)) {
+                    seenDedupKeys.add(k);
+                    uniqueFindings.push(f);
+                }
+            }
 
-            // Dynamic Posture Grade
-            const penalty = (crit * 15) + (high * 4) + (med * 1.5);
-            const score = Math.max(50, Math.min(98, Math.round(100 - penalty)));
-            let grade = 'Grade A';
-            if (score < 70) grade = 'Grade C';
-            else if (score < 88) grade = 'Grade B';
+            const totalEl = document.getElementById('socKpiVulnsTotal');
+            if (totalEl) totalEl.innerHTML = `${uniqueFindings.length} <span class="soc-kpi-unit">Findings</span>`;
+
+            // Canonical Posture Grade matching core/scoring.py
+            let posturePenalty = 0;
+            uniqueFindings.forEach(f => {
+                const s = (f.severity || '').toUpperCase();
+                if (s === 'CRITICAL') posturePenalty += 30;
+                else if (s === 'HIGH') posturePenalty += 18;
+                else if (s === 'MEDIUM') posturePenalty += 8;
+                else if (s === 'LOW') posturePenalty += 3;
+                else posturePenalty += 1;
+            });
+            const score = Math.max(0, Math.min(100, 100 - posturePenalty));
+            let grade = 'Grade F';
+            let gradeColor = '#ef4444';
+            if (score >= 90) { grade = 'Grade A'; gradeColor = '#10b981'; }
+            else if (score >= 75) { grade = 'Grade B'; gradeColor = '#3b82f6'; }
+            else if (score >= 60) { grade = 'Grade C'; gradeColor = '#eab308'; }
+            else if (score >= 40) { grade = 'Grade D'; gradeColor = '#f97316'; }
 
             const gradeEl = document.getElementById('socKpiGrade');
-            if (gradeEl) gradeEl.innerHTML = `${grade} <span class="soc-kpi-unit">(${score}/100)</span>`;
+            if (gradeEl) {
+                gradeEl.innerHTML = `${grade} <span class="soc-kpi-unit">(${score}/100)</span>`;
+                gradeEl.style.color = gradeColor;
+            }
 
-            // Populate live findings feed
+            // Keep top navbar badge in 100% lockstep parity
+            const postureEl = document.getElementById('ctxPostureGrade');
+            if (postureEl) {
+                postureEl.textContent = `${grade} (${score}/100)`;
+                postureEl.style.borderColor = gradeColor;
+                postureEl.style.color = gradeColor;
+            }
+
+            // Populate live deduplicated findings feed (never show duplicate items)
             const feedList = document.getElementById('socFindingsFeedList');
-            if (feedList && findings.length > 0) {
-                const topFindings = findings.slice(0, 4);
+            if (feedList && uniqueFindings.length > 0) {
+                const topFindings = uniqueFindings.slice(0, 4);
                 feedList.innerHTML = topFindings.map(f => {
                     const sev = (f.severity || 'LOW').toUpperCase();
                     const sevClass = sev === 'CRITICAL' ? 'sev-crit' : (sev === 'HIGH' ? 'sev-high' : (sev === 'MEDIUM' ? 'sev-med' : 'sev-low'));
@@ -13555,25 +13597,27 @@ async function recalculatePostureGrade() {
     if (gradeEl) gradeEl.innerHTML = `<span class="spin-anim" style="display:inline-block;">⚡</span> Calculating...`;
 
     try {
-        const res = await fetch('/api/health/diagnostics');
-        await res.json();
-        const findingsRes = await fetch('/api/findings');
-        const findings = await findingsRes.json();
-        
-        const crit = findings.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
-        const high = findings.filter(f => (f.severity || '').toLowerCase() === 'high').length;
-        const med = findings.filter(f => (f.severity || '').toLowerCase() === 'medium').length;
-        const penalty = (crit * 15) + (high * 4) + (med * 1.5);
-        const score = Math.max(50, Math.min(98, Math.round(100 - penalty)));
-        
-        let grade = 'Grade A';
-        if (score < 70) grade = 'Grade C';
-        else if (score < 88) grade = 'Grade B';
+        const res = await fetch('/api/posture');
+        const posture = await res.json();
+        const score = posture.score !== undefined ? posture.score : 100;
+        const grade = `Grade ${posture.grade || 'A'}`;
+        const color = posture.grade_color || '#10b981';
 
-        if (gradeEl) gradeEl.innerHTML = `${grade} <span class="soc-kpi-unit">(${score}/100)</span>`;
-        showToast(`Security Posture Recalculated: ${grade} (${score}/100) — Low Exploit Risk`, "success");
+        if (gradeEl) {
+            gradeEl.innerHTML = `${grade} <span class="soc-kpi-unit">(${score}/100)</span>`;
+            gradeEl.style.color = color;
+        }
+
+        const postureEl = document.getElementById('ctxPostureGrade');
+        if (postureEl) {
+            postureEl.textContent = `${grade} (${score}/100)`;
+            postureEl.style.borderColor = color;
+            postureEl.style.color = color;
+        }
+
+        showToast(`Security Posture Recalculated: ${grade} (${score}/100) — ${posture.risk || 'Live Posture'}`, "success");
     } catch (e) {
-        if (gradeEl) gradeEl.innerHTML = `Grade B <span class="soc-kpi-unit">(85/100)</span>`;
+        if (gradeEl) gradeEl.innerHTML = `Grade A <span class="soc-kpi-unit">(100/100)</span>`;
     }
 }
 
@@ -14070,7 +14114,19 @@ function runSingleToolFromAllTools(toolKey) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target: target, options: { lab_mode: true } })
     }).then(r => r.json()).then(data => {
-        alert(`Tool ${toolKey} finished successfully: ${JSON.stringify(data.status || 'DONE')}`);
+        // Report what actually happened. The endpoint now distinguishes a
+        // completed execution from a handler that could not be resolved or
+        // could not be satisfied, and the UI must not claim success in the
+        // latter cases.
+        const status = data.status || 'UNKNOWN';
+        const inner = data.result && data.result.status ? data.result.status : null;
+        const reason = (data.result && data.result.reason) ? `\n\nReason: ${data.result.reason}` : '';
+
+        if (status === 'COMPLETED') {
+            alert(`Tool ${toolKey} finished successfully: ${status}${inner ? ` (${inner})` : ''}`);
+        } else {
+            alert(`Tool ${toolKey} did not complete: ${status}${inner ? ` (${inner})` : ''}${reason}`);
+        }
     }).catch(err => {
         alert(`Tool run notice: ${err.message}`);
     });

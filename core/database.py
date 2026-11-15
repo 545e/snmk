@@ -9612,7 +9612,7 @@ class Database:
 
             for r in rows:
 
-                f_id, title, sev, cvss, verified, l_status, v_status, r_status, poc_state = r
+                _, _, sev, _, verified, l_status, v_status, r_status, poc_state = r
 
                 s_upper = (sev or "LOW").upper()
 

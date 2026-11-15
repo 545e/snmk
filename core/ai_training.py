@@ -134,7 +134,7 @@ class AITrainingEngine:
             os.makedirs(job_checkpoint_dir, exist_ok=True)
 
             # Ingest records
-            records, total = dataset_manager.get_dataset_records(job.config.dataset_id, limit=5000)
+            records, _ = dataset_manager.get_dataset_records(job.config.dataset_id, limit=5000)
             if not records:
                 # Generate controlled synthetic security classification dataset if records empty
                 records = [
@@ -144,7 +144,6 @@ class AITrainingEngine:
                     {"text": "http://169.254.169.254/latest/meta-data/", "label": "SSRF"},
                     {"text": "GET /api/v1/user/profile?id=99281 HTTP/1.1", "label": "BENIGN"}
                 ] * 20
-                total = len(records)
 
             job.logs.append(f"Loaded {len(records)} verified records for training.")
 

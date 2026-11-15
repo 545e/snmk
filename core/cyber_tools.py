@@ -28,6 +28,8 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunpar
 
 import httpx
 
+from core import tls_policy
+
 
 # =====================================================================
 # 1. DNS & Email Security (SPF / DMARC) Tool
@@ -57,10 +59,8 @@ class DNSLookupTool:
         }
 
         # Try dnspython first if installed
-        has_dnspython = False
         try:
             import dns.resolver
-            has_dnspython = True
             resolver = dns.resolver.Resolver()
             resolver.timeout = 3.0
             resolver.lifetime = 3.0
@@ -196,7 +196,7 @@ class SecurityHeadersTool:
         if not target_url.startswith(("http://", "https://")):
             target_url = f"https://{target_url}"
 
-        async with httpx.AsyncClient(verify=False, timeout=8.0, follow_redirects=True) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=True)) as client:
             try:
                 resp = await client.get(target_url)
                 headers_lower = {k.lower(): v for k, v in resp.headers.items()}
@@ -286,10 +286,12 @@ class SSLCertificateTool:
         loop = asyncio.get_running_loop()
 
         def _tls_probe():
-            ctx = ssl.create_default_context()
-            ctx.check_hostname = False
-            ctx.verify_mode = ssl.CERT_NONE
-
+            # Read the certificate with the platform's documented TLS policy
+            # (see core/tls_policy.py).  A certificate that fails validation
+            # is exactly what an inspection has to be able to read, so the
+            # probe is allowed to complete without validation -- but the
+            # validation outcome is recorded separately and reported below.
+            ctx = tls_policy.inspection_context()
             with socket.create_connection((target, port), timeout=6.0) as sock:
                 with ctx.wrap_socket(sock, server_hostname=target) as ssock:
                     cert = ssock.getpeercert(binary_form=False)
@@ -298,6 +300,22 @@ class SSLCertificateTool:
                     tls_version = ssock.version()
                     cipher = ssock.cipher()
                     return cert, bin_cert, tls_version, cipher
+
+        def _verify_tls():
+            # Independent, strictly verifying handshake.  Its outcome is the
+            # authoritative answer to "is this certificate actually valid?".
+            verify_ctx = tls_policy.inspection_context(verify=True)
+            try:
+                with socket.create_connection((target, port), timeout=6.0) as sock:
+                    with verify_ctx.wrap_socket(sock, server_hostname=target) as ssock:
+                        ssock.getpeercert(binary_form=True)
+                return True, None
+            except ssl.SSLCertVerificationError as exc:
+                return False, f"Certificate verification failed: {exc.verify_message or exc}"
+            except ssl.SSLError as exc:
+                return False, f"TLS handshake failed: {exc}"
+            except OSError as exc:
+                return False, f"Connection failed: {exc}"
 
         try:
             cert, bin_cert, tls_version, cipher = await loop.run_in_executor(None, _tls_probe)
@@ -308,6 +326,11 @@ class SSLCertificateTool:
                 "error": f"TLS Connection failed: {e!s}",
                 "valid": False
             }
+
+        # Determine whether the certificate would be accepted by a verifying
+        # client.  The probe above may succeed precisely *because* it does
+        # not verify, so the two results are reported separately.
+        verified, verification_error = await loop.run_in_executor(None, _verify_tls)
 
         # Parse certificate details
         subject_dict = {}
@@ -356,7 +379,13 @@ class SSLCertificateTool:
         return {
             "target": target,
             "port": port,
-            "valid": True,
+            # ``valid`` reflects a strictly verifying handshake, not merely
+            # "a certificate was presented".  Previously this was hard-coded
+            # to True, so an expired or self-signed certificate was reported
+            # as valid.
+            "valid": verified and not is_expired,
+            "certificate_verified": verified,
+            "verification_error": verification_error,
             "tls_version": tls_version,
             "cipher_suite": cipher[0] if cipher else None,
             "cipher_bits": cipher[2] if cipher else None,
@@ -711,7 +740,7 @@ class TargetedVulnProberTool:
         elif vuln_type in ["cors", "cors_misconfig"]:
             # Test custom Origin header
             evil_origin = "https://evil-attacker.example.com"
-            async with httpx.AsyncClient(verify=False, timeout=5.0) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0)) as client:
                 try:
                     r = await client.get(target_url, headers={"Origin": evil_origin})
                     acao = r.headers.get("access-control-allow-origin", "")
@@ -741,7 +770,7 @@ class TargetedVulnProberTool:
                     return {"target_url": target_url, "error": str(e), "vulnerable": False}
 
         # Execute tests for parameter-based probes
-        async with httpx.AsyncClient(verify=False, timeout=5.0) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0)) as client:
             for probe_val, label in test_payloads:
                 params_copy = dict(q_params)
                 params_copy[param_name] = [probe_val]

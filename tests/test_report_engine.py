@@ -349,7 +349,6 @@ class TestReportEngineAPIEndpoints:
         assert res.status_code == 200
         body = res.json()
         assert body["status"] == "SUCCESS"
-        report_id = body["report"]["id"]
         download_url = body["download_url"]
 
         # Download PDF

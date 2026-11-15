@@ -422,7 +422,7 @@ def main():
             return
 
         s = res.get("summary", {})
-        print(f"\n\033[92m[✓] JavaScript Intelligence Scan Completed!\033[0m")
+        print("\n\033[92m[✓] JavaScript Intelligence Scan Completed!\033[0m")
         print(f"[+] Total Scanned Assets: {res.get('scanned_assets_count', 1)}")
         print(f"[!] Discovered Secrets:   {len(res.get('secrets', []))} (Critical: {s.get('critical', 0)}, High: {s.get('high', 0)}, Med: {s.get('medium', 0)}, Low: {s.get('low', 0)})")
         print(f"[+] Discovered Endpoints: {len(res.get('api_endpoints', []))}")
@@ -441,17 +441,17 @@ def main():
                     print(f"    \033[90mSnippet: {sec['snippet'][:90]}\033[0m")
 
         if res.get("cloud_storage"):
-            print(f"\n\033[93m[!] Discovered Cloud Object Storage Buckets:\033[0m")
+            print("\n\033[93m[!] Discovered Cloud Object Storage Buckets:\033[0m")
             for cs in res["cloud_storage"]:
                 print(f"    - [{cs['provider']}] {cs['url']}")
 
         if res.get("source_maps"):
-            print(f"\n\033[93m[!] Discovered Source Map References:\033[0m")
+            print("\n\033[93m[!] Discovered Source Map References:\033[0m")
             for sm in res["source_maps"]:
                 print(f"    - {sm['resolved_url']}")
 
         if res.get("api_endpoints"):
-            print(f"\n\033[96m[+] Discovered Internal / API Endpoints (Top 15):\033[0m")
+            print("\n\033[96m[+] Discovered Internal / API Endpoints (Top 15):\033[0m")
             for ep in res["api_endpoints"][:15]:
                 print(f"    - {ep['path']}")
             if len(res["api_endpoints"]) > 15:
@@ -462,7 +462,7 @@ def main():
                 if args.export_js.endswith(".json"):
                     json.dump(res, f, indent=2)
                 else:
-                    f.write(f"=== SWA GHOSTJS INTELLIGENCE REPORT ===\n")
+                    f.write("=== SWA GHOSTJS INTELLIGENCE REPORT ===\n")
                     f.write(f"Target: {res.get('target_url') or args.js_file}\n\n")
                     f.write(f"--- SECRETS ({len(res.get('secrets', []))}) ---\n")
                     for sec in res.get("secrets", []):
@@ -497,7 +497,7 @@ def main():
             engine = AmassSubdomainEngine("cli_amass", target_sub_domain, recursive=args.recursive)
             subs, takeovers = await engine.run()
             live_count = sum(1 for s in subs if s.get("status"))
-            print(f"\n\033[92m[✓] Subdomain Discovery Completed!\033[0m")
+            print("\n\033[92m[✓] Subdomain Discovery Completed!\033[0m")
             print(f"[+] Total Discovered Assets: {len(subs)} | Live HTTP/S: {live_count} | Takeover Risks: {len(takeovers)}")
             print(f"\n{'SUBDOMAIN':<38} {'IP ADDRESS':<17} {'STATUS':<8} {'TITLE':<30} {'SOURCES'}")
             print("-" * 115)
@@ -547,7 +547,7 @@ def main():
         fe = ForensicsEngine(logs)
         results = fe.analyze()
         s = results["summary"]
-        print(f"\n\033[92m[✓] Forensic Analysis Completed!\033[0m")
+        print("\n\033[92m[✓] Forensic Analysis Completed!\033[0m")
         print(f"[!] Threat Posture: \033[91m{s['threat_level']}\033[0m - {s['threat_headline']}")
         print(f"[+] Total Lines Analyzed: {s['total_lines_analyzed']}")
         print(f"[+] Attack Footprints Detected: {s['total_attack_footprints']}")

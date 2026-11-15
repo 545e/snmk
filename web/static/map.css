@@ -139,7 +139,7 @@
     border-radius: 8px;
     padding: 11px 16px;
     font-size: 14px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     color: #38bdf8;
     outline: none;
     transition: border-color 0.2s;
@@ -170,7 +170,7 @@
     padding: 3px 10px;
     border-radius: 14px;
     cursor: pointer;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     font-size: 11px;
     transition: all 0.15s;
 }
@@ -214,7 +214,7 @@
     font-size: 17px;
     font-weight: 800;
     color: #f8fafc;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     word-break: break-all;
 }
 .map-card-sub {
@@ -286,7 +286,7 @@
     border-radius: 6px;
     padding: 6px 12px;
     color: #38bdf8;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     font-size: 13px;
     outline: none;
 }
@@ -298,7 +298,7 @@
     border-radius: 0 0 8px 8px;
     max-height: 380px;
     overflow-y: auto;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     font-size: 12px;
 }
 .packet-table {
@@ -358,7 +358,7 @@
     padding: 14px;
     height: 280px;
     overflow-y: auto;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     font-size: 12px;
 }
 .packet-tree-pane h4, .packet-hex-pane h4 {
@@ -379,7 +379,7 @@
 .hex-dump-view {
     display: flex;
     gap: 16px;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     font-size: 11px;
     line-height: 1.5;
     color: #38bdf8;
@@ -418,7 +418,7 @@
 .speed-gauge-val {
     font-size: 38px;
     font-weight: 900;
-    font-family: 'JetBrains Mono', monospace;
+    font-family:'JetBrains Mono',monospace;
     background: linear-gradient(135deg, #38bdf8, #818cf8);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -453,7 +453,7 @@
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
 }
 .topo-node-title { font-size: 13px; font-weight: 700; color: #38bdf8; margin-bottom: 4px; }
-.topo-node-ip { font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #94a3b8; }
+.topo-node-ip { font-family:'JetBrains Mono',monospace; font-size: 12px; color: #94a3b8; }
 .topo-arrow { color: #818cf8; font-size: 20px; font-weight: 800; animation: pulseArrow 1.5s infinite; }
 @keyframes pulseArrow { 0%, 100% { opacity: 0.5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.15); } }
 

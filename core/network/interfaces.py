@@ -150,7 +150,7 @@ def get_network_interfaces() -> list[NetworkInterfaceInfo]:
     results: list[NetworkInterfaceInfo] = []
     addrs = psutil.net_if_addrs()
     stats = psutil.net_if_stats()
-    capture_driver_ok, driver_type = check_capture_drivers()
+    _, _ = check_capture_drivers()
 
     gateway_ip, gateway_iface, _ = get_default_gateway_and_dns()
 

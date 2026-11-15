@@ -552,7 +552,16 @@ class PluginA03_Injection(BaseSecurityPlugin):
         for ep in endpoints[:15]:
             parsed = urlparse(ep.url)
             query_params = parse_qs(parsed.query)
-            params_to_test = list(set((ep.parameters or []) + list(query_params.keys())))
+            # Deterministic, relevance-ranked parameter selection.  The previous
+            # ``list(set(...))`` made the probe order depend on PYTHONHASHSEED,
+            # so the *same* endpoint could be probed for different parameters on
+            # different runs (and the ``[:4]`` cut then dropped a random subset).
+            # ``_rank_probe_parameters`` de-duplicates while preserving the first
+            # occurrence order and sorts by injection relevance, so the cap below
+            # always keeps the highest-signal parameters.
+            params_to_test = _rank_probe_parameters(
+                list(ep.parameters or []) + list(query_params.keys())
+            )
 
             # If no parameters exist, test common inputs
             if not params_to_test:

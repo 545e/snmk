@@ -13,6 +13,8 @@ from core.database import db
 from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
+from core import tls_policy
+
 # Common public generic packages to ignore (reduces noise)
 POPULAR_PUBLIC_PACKAGES = {
     "react", "react-dom", "vue", "angular", "lodash", "axios", "jquery",
@@ -74,7 +76,7 @@ class DependencyConfusionAgent:
     async def run(self) -> list[VulnerabilityFinding]:
         await self.log("Starting autonomous Dependency Confusion & Supply-Chain audit across client assets...", "INFO")
         
-        async with httpx.AsyncClient(verify=False, timeout=8.0) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
             # 1. Download and extract package candidates from JS files
             for js_url in self.js_urls:
                 try:
