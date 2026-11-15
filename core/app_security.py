@@ -40,6 +40,8 @@ PUBLIC_PATHS = {
     "/docs",
     "/redoc",
     "/sitemap.xml",
+    "/metrics",
+    "/api/metrics",
     "/api/auth/status",
     "/api/auth/login",
 }

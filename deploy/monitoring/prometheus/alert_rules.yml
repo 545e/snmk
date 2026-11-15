@@ -1,0 +1,145 @@
+groups:
+  - name: snmk_platform_alerts
+    rules:
+      # 1. Application Availability Alert
+      - alert: SNMKApplicationDown
+        expr: up{job="snmk-platform"} == 0
+        for: 30s
+        labels:
+          severity: critical
+          tier: platform
+        annotations:
+          summary: "SNMK Cybersecurity Platform instance is unreachable"
+          description: "Prometheus has been unable to scrape SNMK backend for over 30 seconds."
+
+      # 2. High API Error Rate Alert
+      - alert: SNMKHighApiErrorRate
+        expr: (sum(rate(snmk_http_errors_total[2m])) / sum(rate(snmk_http_requests_total[2m]))) * 100 > 5
+        for: 2m
+        labels:
+          severity: critical
+          tier: api
+        annotations:
+          summary: "SNMK API error rate exceeded 5%"
+          description: "HTTP 4xx and 5xx response rate is currently {{ $value | printf \"%.2f\" }}%."
+
+      # 3. High API Latency Alert
+      - alert: SNMKHighApiLatency
+        expr: histogram_quantile(0.95, sum(rate(snmk_http_request_duration_seconds_bucket[2m])) by (le)) > 0.5
+        for: 2m
+        labels:
+          severity: warning
+          tier: api
+        annotations:
+          summary: "High API request latency (P95 > 500ms)"
+          description: "95th percentile API response time is {{ $value | printf \"%.3f\" }}s over the last 2 minutes."
+
+      # 4. Host High CPU Utilization
+      - alert: SNMKHighCpuUtilization
+        expr: snmk_system_cpu_percent > 85
+        for: 3m
+        labels:
+          severity: warning
+          tier: infrastructure
+        annotations:
+          summary: "Host CPU utilization above 85%"
+          description: "Host system CPU utilization has sustained {{ $value | printf \"%.1f\" }}% for over 3 minutes."
+
+      # 5. Host High Memory Utilization
+      - alert: SNMKHighMemoryUtilization
+        expr: snmk_system_memory_used_percent > 85
+        for: 3m
+        labels:
+          severity: warning
+          tier: infrastructure
+        annotations:
+          summary: "Host Memory utilization above 85%"
+          description: "System RAM usage has sustained {{ $value | printf \"%.1f\" }}% for over 3 minutes."
+
+      # 6. Low Root Disk Space
+      - alert: SNMKLowDiskSpace
+        expr: snmk_system_disk_used_percent > 85
+        for: 2m
+        labels:
+          severity: critical
+          tier: infrastructure
+        annotations:
+          summary: "Storage volume space running low (< 15% free)"
+          description: "Disk usage on the primary volume has reached {{ $value | printf \"%.1f\" }}%."
+
+      # 7. Database Availability Alert
+      - alert: SNMKDatabaseUnavailable
+        expr: snmk_db_available == 0
+        for: 15s
+        labels:
+          severity: critical
+          tier: database
+        annotations:
+          summary: "SQLite persistence layer unavailable"
+          description: "SNMK backend cannot connect to or verify swa_data.db."
+
+      # 8. SQLite WAL File Bloat Alert
+      - alert: SNMKDatabaseWalBloat
+        expr: snmk_db_wal_size_bytes > 268435456  # 256 MB
+        for: 5m
+        labels:
+          severity: warning
+          tier: database
+        annotations:
+          summary: "SQLite Write-Ahead Log (WAL) exceeded 256MB"
+          description: "WAL size is currently {{ $value | humanize1024 }}B, indicating deferred checkpointing."
+
+      # 9. Automation Execution Queue Backlog Alert
+      - alert: SNMKAutomationQueueBacklog
+        expr: snmk_automation_queue_depth > 50
+        for: 3m
+        labels:
+          severity: warning
+          tier: automation
+        annotations:
+          summary: "Automation workflow queue depth exceeded 50 pending jobs"
+          description: "Automation engine execution queue depth is currently {{ $value }}."
+
+      # 10. Repeated Automation Failures Alert
+      - alert: SNMKAutomationFailures
+        expr: increase(snmk_automation_jobs_total{status="FAILED"}[5m]) > 5
+        for: 1m
+        labels:
+          severity: critical
+          tier: automation
+        annotations:
+          summary: "Excessive automation workflow failures (> 5 in 5 minutes)"
+          description: "Security workflows have experienced {{ $value }} failures in the last 5 minutes."
+
+      # 11. Autonomous AI Agent Execution Failure Alert
+      - alert: SNMKAgentExecutionFailure
+        expr: increase(snmk_ai_agent_task_executions_total{status="FAILED"}[5m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          tier: ai_agents
+        annotations:
+          summary: "Specialist AI Agent task failures detected"
+          description: "Autonomous security agents have encountered {{ $value }} failed tasks in 5 minutes."
+
+      # 12. Upstream AI / LLM Provider Down Alert
+      - alert: SNMKLLMProviderDown
+        expr: snmk_llm_provider_available == 0
+        for: 2m
+        labels:
+          severity: warning
+          tier: ai_models
+        annotations:
+          summary: "AI / LLM provider unavailable: {{ $labels.provider }}"
+          description: "Upstream LLM provider {{ $labels.provider }} has failed health checks."
+
+      # 13. Security Tool Failure Alert
+      - alert: SNMKSecurityToolFailure
+        expr: increase(snmk_security_tool_executions_total{status="FAILED"}[5m]) > 3
+        for: 1m
+        labels:
+          severity: warning
+          tier: tools
+        annotations:
+          summary: "Security tool execution failure: {{ $labels.tool_id }}"
+          description: "Security scanner {{ $labels.tool_id }} has experienced repeated failures."

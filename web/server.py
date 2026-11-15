@@ -95,6 +95,24 @@ from core.exceptions import (
     ToolExecutionError,
     WorkflowExecutionError,
 )
+from core.metrics import (
+    generate_prometheus_metrics,
+    HTTP_ACTIVE_REQUESTS,
+    HTTP_ERRORS_TOTAL,
+    HTTP_REQUEST_DURATION_SECONDS,
+    HTTP_REQUESTS_TOTAL,
+)
+from core.logging_config import (
+    current_agent_id,
+    current_request_id,
+    current_task_id,
+    current_trace_id,
+)
+from core.tracing import (
+    extract_trace_id_from_header,
+    generate_traceparent,
+    tracer,
+)
 
 app = FastAPI(
 
@@ -177,14 +195,63 @@ _SERVER_START_TIME = time.time()
 
 @app.middleware("http")
 async def request_correlation_middleware(request: Request, call_next):
-    """Enterprise correlation ID middleware ensuring complete request traceability."""
+    """Enterprise correlation and distributed tracing middleware."""
     req_id = request.headers.get("X-Request-ID") or request.headers.get("X-Correlation-ID")
     if not req_id:
         req_id = f"req-{uuid.uuid4().hex[:12]}"
+
+    traceparent = request.headers.get("traceparent")
+    trace_id = extract_trace_id_from_header(traceparent)
+    new_traceparent = generate_traceparent(trace_id)
+
     request.state.request_id = req_id
-    response = await call_next(request)
-    response.headers["X-Request-ID"] = req_id
-    return response
+    request.state.trace_id = trace_id
+
+    t_req = current_request_id.set(req_id)
+    t_trace = current_trace_id.set(trace_id)
+
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = req_id
+        response.headers["X-Trace-ID"] = trace_id
+        response.headers["traceparent"] = new_traceparent
+        return response
+    finally:
+        current_request_id.reset(t_req)
+        current_trace_id.reset(t_trace)
+
+
+@app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    """Real-time HTTP metrics recording for Prometheus and Grafana dashboards."""
+    path = request.url.path
+    if path in ("/metrics", "/api/metrics"):
+        return await call_next(request)
+
+    HTTP_ACTIVE_REQUESTS.inc()
+    start_time = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception:
+        status_code = 500
+        raise
+    finally:
+        duration = round(time.perf_counter() - start_time, 4)
+        HTTP_ACTIVE_REQUESTS.dec()
+
+        norm_path = path
+        if norm_path.startswith("/api/scans/") and len(norm_path.split("/")) > 3:
+            norm_path = "/api/scans/{id}"
+        elif norm_path.startswith("/api/tools/") and len(norm_path.split("/")) > 3:
+            norm_path = "/api/tools/{name}"
+
+        HTTP_REQUESTS_TOTAL.labels(method=request.method, endpoint=norm_path[:40], status_code=str(status_code)).inc()
+        HTTP_REQUEST_DURATION_SECONDS.labels(method=request.method, endpoint=norm_path[:40]).observe(duration)
+        if status_code >= 400:
+            HTTP_ERRORS_TOTAL.labels(endpoint=norm_path[:40], status_code=str(status_code)).inc()
 
 
 @app.exception_handler(SNMKError)
@@ -237,7 +304,7 @@ async def rate_limit_middleware(request: Request, call_next):
 
     exempt = (
 
-        path in ("/health", "/healthz", "/status", "/favicon.ico")
+        path in ("/health", "/healthz", "/status", "/favicon.ico", "/metrics", "/api/metrics")
 
         or path.startswith(("/static/", "/assets/", "/docs", "/redoc", "/openapi.json"))
 
@@ -460,6 +527,13 @@ async def favicon():
     svg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#6366f1"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
 
     return Response(content=svg, media_type="image/svg+xml")
+
+
+@app.get("/metrics", include_in_schema=False)
+@app.get("/api/metrics", include_in_schema=False)
+async def prometheus_metrics_endpoint():
+    """Prometheus exposition format metrics endpoint for Grafana scraping."""
+    return generate_prometheus_metrics()
 
 
 
