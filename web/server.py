@@ -4869,7 +4869,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         "target": req.target,
         "posture_score": posture_score,
         "posture_grade": grade,
-        "total_tools": 15,
+        "total_tools": 16,
         "executed_tools": executed_tools,
         "total_agents": 85,
         "agents_executed": workforce_results.get("executed_agents", 85),

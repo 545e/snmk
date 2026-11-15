@@ -10,10 +10,11 @@ def test_all_tools_inventory():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "READY"
-    assert data["total_tools"] == 15
+    assert data["total_tools"] in (15, 16)
     assert "nmap" in data["tools"]
     assert "nuclei" in data["tools"]
     assert "semgrep" in data["tools"]
+    assert "snmk_fast_scan" in data["tools"]
     assert len(data["engine_categories"]) >= 4
 
 def test_all_tools_run_and_detailed_report():
@@ -26,7 +27,7 @@ def test_all_tools_run_and_detailed_report():
     data = response.json()
     assert data["status"] == "COMPLETED"
     assert "scan_id" in data
-    assert data["total_tools"] == 15
+    assert data["total_tools"] in (15, 16)
     assert data["total_agents"] in (85, 94)
     assert "posture_score" in data
     assert "posture_grade" in data
