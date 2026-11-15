@@ -56,3 +56,7 @@ reports/kc_rep_*
 # Downloaded & Sandboxed Security Tool Binaries
 tools/bin/*
 !tools/bin/.gitkeep
+native/bin/
+*.exe
+*.o
+*.obj

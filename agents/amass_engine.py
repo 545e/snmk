@@ -816,7 +816,19 @@ class AmassSubdomainEngine:
     # =====================================================================
 
     async def _probe_dictionary_wordlist(self, zone: str):
-        """Active DNS probe using curated wordlist and async resolver."""
+        """Active DNS probe using curated wordlist, C++ native acceleration, and async resolver."""
+        # 1. C++ High-Speed Native Subdomain Probe
+        try:
+            from core.native_scanner import native_scanner
+            if native_scanner.is_available:
+                fast_results = await native_scanner.probe_subdomains(zone, timeout_ms=350, threads=32)
+                for res in fast_results:
+                    sub = res.get("subdomain")
+                    if sub and res.get("ips"):
+                        self._register(sub, "NativeCPP_FastScan")
+        except Exception:
+            pass
+
         resolver = self._create_resolver()
         sem = asyncio.Semaphore(self.concurrency)
 

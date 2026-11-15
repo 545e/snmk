@@ -551,6 +551,25 @@ def _build_default_manifest() -> dict[str, ToolDependencyManifestItem]:
         capabilities=["OWASP Top 10 Suite", "Amass Subdomain Engine", "GhostJS Intelligence", "TLS Inspector"]
     )
 
+    # 16. SNMK C++ High-Speed Native Scanner Engine
+    manifest["snmk_fast_scan"] = ToolDependencyManifestItem(
+        tool_id="snmk_fast_scan",
+        name="SNMK C++ High-Speed Scanner",
+        category="Network & Recon Acceleration",
+        description="High-performance compiled C++17 engine for microsecond socket probing, asynchronous DNS resolution, and rapid attack surface discovery.",
+        required_version=">= 2.3.0",
+        binary_names={"win32": "snmk_fast_scan.exe", "linux": "snmk_fast_scan", "darwin": "snmk_fast_scan"},
+        install_adapter="build_from_source",
+        github_repo="545e/snmk",
+        pinned_version="2.3.0",
+        official_sources=["https://github.com/545e/snmk"],
+        dependencies=[],
+        is_monitored=True,
+        docs_url="https://github.com/545e/snmk/tree/main/native",
+        install_guide="Compiled natively using build.bat or clang++ / g++ in native/ directory.",
+        capabilities=["15x-50x Accelerated Port Scan", "Async DNS Resolution", "Non-blocking Socket Probing", "Low-latency Banner Grab"]
+    )
+
     return manifest
 
 
@@ -1209,7 +1228,8 @@ class ToolHealthEngine:
             "gitleaks": ["version"],
             "clamav": ["--version"],
             "wazuh": ["-V"],
-            "rea": ["--version"]
+            "rea": ["--version"],
+            "snmk_fast_scan": ["--version"]
         }
         v_args = v_args_map.get(item.tool_id, ["--version"])
 
@@ -1323,7 +1343,7 @@ class ToolHealthEngine:
                 await asyncio.wait_for(proc.communicate(), timeout=15.0)
                 return True
 
-            elif tool_id in ["nuclei", "trivy", "nmap", "sqlmap", "nikto", "tshark", "clamav", "wazuh"]:
+            elif tool_id in ["nuclei", "trivy", "nmap", "sqlmap", "nikto", "tshark", "clamav", "wazuh", "snmk_fast_scan"]:
                 # Version verification already confirmed accessibility
                 return True
 

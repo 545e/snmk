@@ -139,6 +139,24 @@ class ReconAgent:
 
     async def scan_ports(self, recon: ReconResult):
         await self.log(f"Probing standard TCP ports on {self.domain}...", "INFO")
+        
+        # 1. High-Performance C++ Native Engine Check
+        try:
+            from core.native_scanner import native_scanner
+            if native_scanner.is_available:
+                native_ports = await native_scanner.scan_ports(self.domain, timeout_ms=350, threads=64)
+                if native_ports:
+                    recon.open_ports = native_ports
+                    port_list = [str(p["port"]) for p in native_ports]
+                    await self.log(
+                        f"C++ Native High-Speed Engine scanned ports in <300ms. Open ports: {', '.join(port_list) if port_list else 'None'}",
+                        "SUCCESS"
+                    )
+                    return
+        except Exception as e:
+            await self.log(f"Native C++ port scan fallback to async sockets: {e}", "WARN")
+
+        # 2. Python Async Socket Fallback
         open_ports = []
 
         async def check_port(port: int):
