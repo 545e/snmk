@@ -203,7 +203,11 @@ class ShannonEntropyFilter:
         if min_entropy > 0.0:
             if re.search(r"\s", v):
                 return True
-            core = re.sub(r"^(?:['\"`]+)|(?:['\"`]+$)", "", v)
+            # Strip the quoting characters from both ends of the value.
+            # ``str.strip`` does exactly this and is unambiguous, where the
+            # equivalent regular expression needs an alternation whose
+            # precedence is easy to misread.
+            core = v.strip("'\"`")
             if "_" in core:
                 core = core.split("_")[-1]
             if len(core) >= 12 and cls.shannon_entropy(core) < min_entropy:

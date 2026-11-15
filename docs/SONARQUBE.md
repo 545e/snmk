@@ -122,8 +122,16 @@ sonar.newCode.referencePeriod=30
 
 ## 4. Findings that were fixed
 
-The first full analysis produced **1 132 issues**. The following were
-resolved; see `docs/DSA_ENGINEERING_REPORT.md` §I.0 for the full write-up.
+The first full analysis produced **1 132 open issues**:
+
+| | Before | After |
+|---|---|---|
+| Bugs | 119 | 2 |
+| Vulnerabilities | 40 | 1 |
+| Code smells | 973 | 823 |
+| Security hotspots | 119 | 119 (each needs a human decision) |
+
+See `docs/DSA_ENGINEERING_REPORT.md` §I.0 for the write-up.
 
 ### 4.1 Real defects
 
@@ -157,13 +165,43 @@ at every site.
 
 | Rule | Finding | Fix |
 |---|---|---|
-| `Web:MouseEventWithoutKeyboardEquivalentCheck` | 99 `<div>` / `<span>` elements reacted to `onclick` but could not be reached or activated from the keyboard | Added `tabindex="0"`, `role="button"` and an Enter/Space `onkeydown` handler that calls `this.click()`, so the keyboard and mouse paths run the same code |
-| `Web:S6853` | 71 `<label>` elements were not associated with their control | Added the missing `for` attributes; one label that captions a value rather than a control was rewritten as a `<span>` |
-| `Web:S6844` | 6 anchors with `href="javascript:void(0)"` were used as buttons | Converted to real `<button type="button" class="link-btn">` elements, with a CSS rule that preserves their appearance |
-| `Web:S5255` | 9 `<nav>` / `<aside>` landmarks had no accessible name | Added `aria-label` |
-| `Web:TableHeaderHasIdOrScopeCheck` | 5 `<th>` elements had no `scope` | Added `scope="col"` / `scope="row"` |
-| `css:S4649` | 22 `font-family` declarations named no generic fallback | Added the generic family |
-| `css:S4670` | A stray `sv-C{}` selector in `ui-concepts.html` | Removed the dead rule |
+| `Web:MouseEventWithoutKeyboardEquivalentCheck` (100) | `<div>` / `<span>` elements reacted to `onclick` but could not be reached or activated from the keyboard | Converted to native `<button type="button">` elements |
+| `Web:S6819` | `role="button"` on a non-native element | Avoided entirely by using native buttons |
+| `Web:S6845` | `tabindex` on a non-interactive element | Avoided entirely by using native buttons |
+| `Web:S6853` (71) | `<label>` elements were not associated with their control | Added the missing `for` attributes; one label that captions a value rather than a control was rewritten as a `<span>` |
+| `Web:S6844` (6) | Anchors with `href="javascript:void(0)"` were used as buttons | Converted to real `<button type="button" class="link-btn">` elements, with a CSS rule that preserves their appearance |
+| `Web:S5255` (9) | `<nav>` / `<aside>` landmarks had no accessible name | Added `aria-label` |
+| `Web:TableHeaderHasIdOrScopeCheck` (5) | `<th>` elements had no `scope` | Added `scope="col"` / `scope="row"` |
+| `css:S4649` (22) | `font-family` declarations named no generic fallback | Added the generic family |
+| `css:S4670` (1) | A stray `sv-C{}` selector in `ui-concepts.html` | Removed the dead rule |
+
+#### Why native buttons
+
+The first attempt made the non-interactive elements *behave* like buttons by
+adding `role="button"`, `tabindex="0"` and an Enter/Space `onkeydown`
+handler.  That fixed the keyboard access, but SonarQube's `Web:S6819` is
+right that a native `<button>` is better: it is focusable and activated
+without any script, it participates in forms, and assistive technology
+announces it correctly without help.
+
+The appearance is preserved by the `swa-plain` class.  Its rules are wrapped
+in `:where()`, which keeps their specificity at zero, so the element's own
+class and its inline styles always win and only the browser's default button
+chrome -- the background, the border, the padding and the font that buttons
+do not inherit -- is removed:
+
+```css
+:where(button.swa-plain) {
+    appearance: none;
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;      /* buttons do not inherit the font */
+    color: inherit;
+    text-align: inherit; /* buttons default to centred text */
+}
+```
+
 
 ### 4.4 Code smells
 

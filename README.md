@@ -412,13 +412,14 @@ Comprehensive documentation is available in the `docs/` directory:
 - [macOS Installation Guide](docs/INSTALLATION_MACOS.md)
 - [Multi-Agent Workforce Guide](docs/AGENT_GUIDE.md)
 - [Security & Governance Policy](docs/SECURITY.md)
+- [SonarQube Static Analysis](docs/SONARQUBE.md)
 - [Troubleshooting Manual](docs/TROUBLESHOOTING.md)
 
 ---
 
 ## 19. Contribution Guide
 
-Contributions are welcome! Please review [CONTRIBUTING.md](docs/CONTRIBUTING.md) before submitting pull requests. Ensure all automated tests pass (`pytest`) and CodeQL SAST checks remain green.
+Contributions are welcome! Please review [CONTRIBUTING.md](docs/CONTRIBUTING.md) before submitting pull requests. Ensure all automated tests pass (`pytest`), CodeQL SAST checks remain green, and the [SonarQube quality gate](docs/SONARQUBE.md) does not report new violations.
 
 ---
 

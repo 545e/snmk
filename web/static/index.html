@@ -415,7 +415,7 @@
                 <span>⚙️ Settings</span>
             </button>
         </nav>
-        <div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeMobileSidebar()" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"></div>
+        <button type="button" class="sidebar-backdrop swa-plain swa-plain-block" id="sidebarBackdrop" onclick="closeMobileSidebar()"></button>
 
         <!-- Viewport Container -->
         <main class="swa-viewport" id="mainViewport">
@@ -445,10 +445,10 @@
                 <span class="ctx-label">POSTURE GRADE</span>
                 <span class="ctx-value grade-badge" id="ctxPostureGrade">Grade B (85)</span>
             </div>
-            <div class="ctx-item ctx-tasks" onclick="navToView('agents')" style="cursor: pointer;" title="View all 85 Specialist Agents" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="ctx-item ctx-tasks swa-plain swa-plain-block" onclick="navToView('agents')" style="cursor: pointer;" title="View all 85 Specialist Agents">
                 <span class="ctx-label">ACTIVE AGENTS</span>
                 <span class="ctx-value" id="ctxActiveAgents" style="font-family: var(--mono); color: #38bdf8;">85 Ready</span>
-            </div>
+            </button>
             <div class="ctx-item ctx-approvals">
                 <span class="ctx-label">PENDING APPROVALS</span>
                 <span class="ctx-value" id="ctxPendingApprovals" style="font-family: var(--mono); color: #f0883e;">0</span>
@@ -469,7 +469,7 @@
         <!-- 4 Enterprise Cybersecurity KPI Cards -->
         <div class="swa-soc-kpi-grid">
             <!-- Card 1: Discovered Vulnerabilities -->
-            <div class="soc-kpi-card" onclick="navToView('vulnerabilities')" style="cursor: pointer;" title="Click to view all discovered vulnerabilities" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="navToView('vulnerabilities')" style="cursor: pointer;" title="Click to view all discovered vulnerabilities">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Discovered Vulnerabilities</span>
                     <div class="soc-kpi-icon-disc disc-alert">
@@ -490,10 +490,10 @@
                         <div class="soc-kpi-bar-fill fill-low" style="width: 87%;" title="428 Low/Info Headers"></div>
                     </div>
                 </div>
-            </div>
+            </button>
 
             <!-- Card 2: 85 Autonomous AI Agents Workforce -->
-            <div class="soc-kpi-card" onclick="navToView('agents')" style="cursor: pointer;" title="Click to inspect all 85 Specialist Agents" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="navToView('agents')" style="cursor: pointer;" title="Click to inspect all 85 Specialist Agents">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Autonomous AI Fleet</span>
                     <div class="soc-kpi-icon-disc disc-agents">
@@ -514,10 +514,10 @@
                         <span class="soc-status-text">100% Operational &bull; Multi-Agent Pipeline Ready</span>
                     </div>
                 </div>
-            </div>
+            </button>
 
             <!-- Card 3: Security Posture & Exploit Defense -->
-            <div class="soc-kpi-card" onclick="recalculatePostureGrade()" style="cursor: pointer;" title="Click to recalculate real-time security posture grade" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="recalculatePostureGrade()" style="cursor: pointer;" title="Click to recalculate real-time security posture grade">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Security Posture Grade</span>
                     <div class="soc-kpi-icon-disc disc-posture">
@@ -535,10 +535,10 @@
                         <div class="soc-posture-fill" style="width: 85%;"></div>
                     </div>
                 </div>
-            </div>
+            </button>
 
             <!-- Card 4: Target Scope & Perimeter Status -->
-            <div class="soc-kpi-card" onclick="verifyCurrentTargetScope()" style="cursor: pointer;" title="Click to verify RFC-1918 loopback authorization & SSRF guard" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="verifyCurrentTargetScope()" style="cursor: pointer;" title="Click to verify RFC-1918 loopback authorization & SSRF guard">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Audit Target Scope</span>
                     <div class="soc-kpi-icon-disc disc-target">
@@ -556,7 +556,7 @@
                         <span class="soc-status-text">186 Scans Executed &bull; Target Ingress: 4ms</span>
                     </div>
                 </div>
-            </div>
+            </button>
         </div>
 
         <!-- Interactive Target Assessment & Multi-Agent Collaboration Bar -->
@@ -602,24 +602,24 @@
             <div class="soc-profile-selector">
                 <span class="soc-profile-lbl">AUDIT PROFILE:</span>
                 <div class="profile-pills">
-                    <div class="pill-item active" data-profile="standard" onclick="selectProfile('standard', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="pill-item active swa-plain swa-plain-block" data-profile="standard" onclick="selectProfile('standard', this)">
                         <span>⚡ Standard Assessment</span>
-                    </div>
-                    <div class="pill-item" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)">
                         <span>🧪 Authorized Lab (127.0.0.1)</span>
-                    </div>
-                    <div class="pill-item" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)">
                         <span>🛡️ Passive OSINT Recon</span>
-                    </div>
-                    <div class="pill-item" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)">
                         <span>💉 OWASP Top 10 Deep Scan</span>
-                    </div>
-                    <div class="pill-item" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    </button>
+                    <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)">
                         <span>🎯 Full Red Team Suite</span>
-                    </div>
-                        <div class="pill-item" data-profile="all_tools" onclick="selectProfile('all_tools', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    </button>
+                        <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="all_tools" onclick="selectProfile('all_tools', this)">
                             <span>🛠️ All Tools Integrated Audit</span>
-                        </div>
+                        </button>
                 </div>
             </div>
         </div>
@@ -638,7 +638,7 @@
 
                 <div class="owasp-matrix-list">
                     <!-- A01 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A01')" style="cursor: pointer;" title="Filter findings by OWASP A01" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A01')" style="cursor: pointer;" title="Filter findings by OWASP A01">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A01</span>
                             <div>
@@ -649,10 +649,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Passed (0 findings)</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A02 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A02')" style="cursor: pointer;" title="Filter findings by OWASP A02" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A02')" style="cursor: pointer;" title="Filter findings by OWASP A02">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A02</span>
                             <div>
@@ -663,10 +663,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Secure</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A03 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A03')" style="cursor: pointer;" title="Filter findings by OWASP A03" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A03')" style="cursor: pointer;" title="Filter findings by OWASP A03">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A03</span>
                             <div>
@@ -677,10 +677,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Clean (0 Injections)</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A05 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A05')" style="border-color: rgba(249, 115, 22, 0.4); background: rgba(249, 115, 22, 0.05); cursor: pointer;" title="Filter findings by OWASP A05 (4 HIGH Findings)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A05')" style="border-color: rgba(249, 115, 22, 0.4); background: rgba(249, 115, 22, 0.05); cursor: pointer;" title="Filter findings by OWASP A05 (4 HIGH Findings)">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge" style="background: rgba(249, 115, 22, 0.2); color: #FB923C;">A05</span>
                             <div>
@@ -691,10 +691,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-high">4 HIGH Findings</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A07 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A07')" style="cursor: pointer;" title="Filter findings by OWASP A07" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A07')" style="cursor: pointer;" title="Filter findings by OWASP A07">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A07</span>
                             <div>
@@ -705,10 +705,10 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Verified</span>
                         </div>
-                    </div>
+                    </button>
 
                     <!-- A10 -->
-                    <div class="owasp-matrix-row" onclick="filterFindingsByOwasp('A10')" style="cursor: pointer;" title="Filter findings by OWASP A10" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                    <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('A10')" style="cursor: pointer;" title="Filter findings by OWASP A10">
                         <div class="owasp-row-left">
                             <span class="owasp-code-badge">A10</span>
                             <div>
@@ -719,7 +719,7 @@
                         <div class="owasp-row-right">
                             <span class="sev-tag sev-low">Guarded</span>
                         </div>
-                    </div>
+                    </button>
                 </div>
             </div>
 
@@ -872,39 +872,39 @@
 
             <!-- Profile Selector Pills with Crisp SVGs -->
             <div class="profile-pills">
-                <div class="pill-item" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)" title="Zero Active Traffic - OSINT, Certificates, DNS & Headers" style="font-weight: 700;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="passive_recon" onclick="selectProfile('passive_recon', this)" title="Zero Active Traffic - OSINT, Certificates, DNS & Headers" style="font-weight: 700;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"></path><path d="M2 12h20"></path></svg>
                     <span>🛡️ Passive Recon</span>
-                </div>
-                <div class="pill-item active" data-profile="standard" onclick="selectProfile('standard', this)" title="Comprehensive standard assessment: Recon, Subdomains, Ports, OWASP Top 10" style="font-weight: 700;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                </button>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" data-profile="standard" onclick="selectProfile('standard', this)" title="Comprehensive standard assessment: Recon, Subdomains, Ports, OWASP Top 10" style="font-weight: 700;">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="12 2 2 7 12 12 22 7 12 2"></polygon><polyline points="2 17 12 22 22 17"></polyline><polyline points="2 12 12 17 22 12"></polyline></svg>
                     <span>⚡ Standard Assessment</span>
-                </div>
-                <div class="pill-item" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)" title="Authorized local/test lab assessment for 127.0.0.1, PortSwigger, DVWA" style="font-weight: 700; border-color: rgba(16, 185, 129, 0.45);" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="lab_assessment" onclick="selectProfile('lab_assessment', this)" title="Authorized local/test lab assessment for 127.0.0.1, PortSwigger, DVWA" style="font-weight: 700; border-color: rgba(16, 185, 129, 0.45);">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10 2v7.31L4.69 18.2A2 2 0 0 0 6.4 21h11.2a2 2 0 0 0 1.71-2.8L14 9.31V2"></path></svg>
                     <span>🧪 Authorized Lab Assessment</span>
-                </div>
-                <div class="pill-item" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)" title="Full deep red team assessment with crawler and exploit validation" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="full_red_team" onclick="selectProfile('full_red_team', this)" title="Full deep red team assessment with crawler and exploit validation">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
                     <span>Full Red Team</span>
-                </div>
-                <div class="pill-item" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)" title="Systematic OWASP Top 10 web vulnerabilities" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="owasp_top10" onclick="selectProfile('owasp_top10', this)" title="Systematic OWASP Top 10 web vulnerabilities">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"></rect><rect x="9" y="9" width="6" height="6"></rect></svg>
                     <span>OWASP Top 10</span>
-                </div>
-                <div class="pill-item" data-profile="all_tools" onclick="selectProfile('all_tools', this)" title="Unified multi-engine execution" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                </button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" data-profile="all_tools" onclick="selectProfile('all_tools', this)" title="Unified multi-engine execution">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                     <span>All Tools Suite</span>
-                </div>
+                </button>
             </div>
 
             <!-- Advanced Options Dropdown -->
             <div>
-                <span onclick="toggleAdvancedOptions()" style="color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-plain swa-plain-inline" onclick="toggleAdvancedOptions()" style="color: var(--brand); font-size: 13px; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
                     <span>Advanced Scope & Concurrency Controls</span>
                     <span id="advArrow" style="font-size: 11px;">▼</span>
-                </span>
+                </button>
 
                 <div id="advancedOptions" style="display: none; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--border);">
                     <div style="display: flex; flex-direction: column; gap: 4px;">
@@ -1492,11 +1492,11 @@
                     <div class="map-input-row" style="justify-content: space-between;">
                         <div class="map-quick-chips">
                             <span>Quick Targets:</span>
-                            <span class="map-chip" onclick="setQuickTarget('192.168.0.0/24')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">192.168.0.0/24</span>
-                            <span class="map-chip" onclick="setQuickTarget('1.1.1.1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">1.1.1.1 (Cloudflare)</span>
-                            <span class="map-chip" onclick="setQuickTarget('8.8.8.8')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">8.8.8.8 (Google)</span>
-                            <span class="map-chip" onclick="setQuickTarget('google.com')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">google.com</span>
-                            <span class="map-chip" onclick="setQuickTarget('127.0.0.1')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">127.0.0.1 (Localhost)</span>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('192.168.0.0/24')">192.168.0.0/24</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('1.1.1.1')">1.1.1.1 (Cloudflare)</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('8.8.8.8')">8.8.8.8 (Google)</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('google.com')">google.com</button>
+                            <button type="button" class="map-chip swa-plain swa-plain-inline" onclick="setQuickTarget('127.0.0.1')">127.0.0.1 (Localhost)</button>
                         </div>
                         <div style="display:flex; align-items:center; gap:16px;">
                             <label style="font-size:12px; color:#cbd5e1; display:flex; align-items:center; gap:6px; cursor:pointer;">
@@ -1978,11 +1978,11 @@
                     <div class="map-ai-box">
                         <h3 style="font-size:14px; margin:0; color:#38bdf8;">MAP AI Network Investigation Assistant</h3>
                         <div class="map-ai-chips">
-                            <span class="map-ai-chip" onclick="askMapAi('Identify the origin of this connection.')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Identify connection origin</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Explain this packet capture.')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Explain packet capture</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Find suspicious communication in this capture.')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Find suspicious flows</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Check for DNS tunneling anomalies.')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Check DNS anomalies</span>
-                            <span class="map-ai-chip" onclick="askMapAi('Summarize this network capture.')" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">Executive summary</span>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Identify the origin of this connection.')">Identify connection origin</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Explain this packet capture.')">Explain packet capture</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Find suspicious communication in this capture.')">Find suspicious flows</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Check for DNS tunneling anomalies.')">Check DNS anomalies</button>
+                            <button type="button" class="map-ai-chip swa-plain swa-plain-inline" onclick="askMapAi('Summarize this network capture.')">Executive summary</button>
                         </div>
                         <div style="display:flex; gap:10px;">
                             <input type="text" class="map-primary-input" id="mapAiQueryInput" placeholder="Ask MAP AI specialist (e.g. 'Investigate origin of 49.204.237.171', 'Why is packet loss 0%?')" onkeydown="if(event.key==='Enter') askMapAi()">
@@ -2131,65 +2131,65 @@
     <!-- 10 Summary KPI Cards (§8.1) -->
     <div class="vuln-summary-grid">
         <!-- 1. Total Findings -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('ALL')" title="All discovered security detections" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('ALL')" title="All discovered security detections">
             <div class="vuln-stat-header"><span>Total Detections</span><span style="color:#38bdf8;">&#128065;</span></div>
             <div class="vuln-stat-value" id="vfStatTotal">472</div>
             <div class="vuln-stat-sub">Across all endpoints</div>
-        </div>
+        </button>
         <!-- 2. Open Vulnerabilities -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('OPEN_VULNS')" title="Unresolved active vulnerabilities" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('OPEN_VULNS')" title="Unresolved active vulnerabilities">
             <div class="vuln-stat-header"><span>Open Vulnerabilities</span><span style="color:#ef4444;">&#9888;</span></div>
             <div class="vuln-stat-value" id="vfStatOpen" style="color: #f87171;">472</div>
             <div class="vuln-stat-sub">Action required</div>
-        </div>
+        </button>
         <!-- 3. PoC Verified -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('POC_VERIFIED')" title="Vulnerabilities with authorized reproduction commands" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('POC_VERIFIED')" title="Vulnerabilities with authorized reproduction commands">
             <div class="vuln-stat-header"><span>PoC Verified</span><span style="color:#22c55e;">&#10004;</span></div>
             <div class="vuln-stat-value" id="vfStatPoc" style="color: #4ade80;">470</div>
             <div class="vuln-stat-sub">Exploitability proven</div>
-        </div>
+        </button>
         <!-- 4. Critical Findings -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('SEV_CRITICAL')" title="CVSS 9.0 - 10.0 Critical findings" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('SEV_CRITICAL')" title="CVSS 9.0 - 10.0 Critical findings">
             <div class="vuln-stat-header"><span>Critical Findings</span><span style="color:#ef4444;">&#9873;</span></div>
             <div class="vuln-stat-value" id="vfStatCrit" style="color: #f87171;">0</div>
             <div class="vuln-stat-sub">CVSS 9.0 - 10.0</div>
-        </div>
+        </button>
         <!-- 5. High Findings -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('SEV_HIGH')" title="CVSS 7.0 - 8.9 High findings" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('SEV_HIGH')" title="CVSS 7.0 - 8.9 High findings">
             <div class="vuln-stat-header"><span>High Findings</span><span style="color:#f97316;">&#9873;</span></div>
             <div class="vuln-stat-value" id="vfStatHigh" style="color: #fb923c;">45</div>
             <div class="vuln-stat-sub">CVSS 7.0 - 8.9</div>
-        </div>
+        </button>
         <!-- 6. False Positives -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('FALSE_POSITIVES')" title="Suppressed and reviewed false alarms" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('FALSE_POSITIVES')" title="Suppressed and reviewed false alarms">
             <div class="vuln-stat-header"><span>False Positives</span><span style="color:#94a3b8;">&#10006;</span></div>
             <div class="vuln-stat-value" id="vfStatFp" style="color: #94a3b8;">0</div>
             <div class="vuln-stat-sub">Analyst suppressed</div>
-        </div>
+        </button>
         <!-- 7. Needs Validation -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('NEEDS_VALIDATION')" title="Findings requiring analyst review" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('NEEDS_VALIDATION')" title="Findings requiring analyst review">
             <div class="vuln-stat-header"><span>Needs Validation</span><span style="color:#f59e0b;">&#9684;</span></div>
             <div class="vuln-stat-value" id="vfStatNeedsVal" style="color: #fbbf24;">0</div>
             <div class="vuln-stat-sub">Triage queue</div>
-        </div>
+        </button>
         <!-- 8. Fix In Progress -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('FIX_IN_PROGRESS')" title="Remediation active in engineering" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('FIX_IN_PROGRESS')" title="Remediation active in engineering">
             <div class="vuln-stat-header"><span>Fix In Progress</span><span style="color:#0ea5e9;">&#9881;</span></div>
             <div class="vuln-stat-value" id="vfStatFixProg" style="color: #38bdf8;">0</div>
             <div class="vuln-stat-sub">Assigned to engineers</div>
-        </div>
+        </button>
         <!-- 9. Pending Retest -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('PENDING_RETEST')" title="Fix submitted awaiting autonomous verification" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('PENDING_RETEST')" title="Fix submitted awaiting autonomous verification">
             <div class="vuln-stat-header"><span>Pending Retest</span><span style="color:#8b5cf6;">&#8635;</span></div>
             <div class="vuln-stat-value" id="vfStatRetest" style="color: #a78bfa;">0</div>
             <div class="vuln-stat-sub">Verification queue</div>
-        </div>
+        </button>
         <!-- 10. Resolved & Verified -->
-        <div class="vuln-stat-card" onclick="quickFilterVulns('RESOLVED_VERIFIED')" title="Vulnerabilities fixed and confirmed resolved" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+        <button type="button" class="vuln-stat-card swa-plain swa-plain-block" onclick="quickFilterVulns('RESOLVED_VERIFIED')" title="Vulnerabilities fixed and confirmed resolved">
             <div class="vuln-stat-header"><span>Resolved & Verified</span><span style="color:#22c55e;">&#9989;</span></div>
             <div class="vuln-stat-value" id="vfStatResolved" style="color: #4ade80;">0</div>
             <div class="vuln-stat-sub">Closure confirmed</div>
-        </div>
+        </button>
     </div>
 
     <!-- Visual Distribution Bars (§8.2) -->
@@ -2333,7 +2333,7 @@
 <!-- =========================================================================
      Finding Detail Drawer & Backdrop (§8.5)
      ========================================================================= -->
-<div id="vulnDrawerBackdrop" class="vuln-drawer-backdrop" onclick="closeVulnDrawer()" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"></div>
+<button type="button" id="vulnDrawerBackdrop" class="vuln-drawer-backdrop swa-plain swa-plain-block" onclick="closeVulnDrawer()"></button>
 <div id="vulnDetailDrawer" class="vuln-drawer">
     <div class="vuln-drawer-header">
         <div>
@@ -3453,7 +3453,7 @@ Content-Type: application/json
             <!-- 6 Visual Template Cards -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;" id="templateCardsGrid">
                 <!-- Template A -->
-                <div class="swa-rep-template-card" data-template="template_a" onclick="selectReportTemplate('template_a')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_a" onclick="selectReportTemplate('template_a')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template A: Executive Summary</span>
                         <span class="badge" style="background: rgba(59, 130, 246, 0.15); color: #3b82f6; font-size: 10px; padding: 2px 6px;">CISO / Board</span>
@@ -3461,10 +3461,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Executive briefing on overall security posture, severity distribution, asset coverage, and strategic remediation.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template B -->
-                <div class="swa-rep-template-card active" data-template="template_b" onclick="selectReportTemplate('template_b')" style="background: var(--bg-card); border: 2px solid #6366f1; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-rep-template-card active swa-plain swa-plain-block" data-template="template_b" onclick="selectReportTemplate('template_b')" style="background: var(--bg-card); border: 2px solid #6366f1; border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template B: Detailed Technical</span>
                         <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; font-size: 10px; padding: 2px 6px;">Security SOC</span>
@@ -3472,10 +3472,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Complete technical dossier with host details, CVSS v3.1/v4.0 vectors, EPSS scores, evidence, and exact code patches.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template C -->
-                <div class="swa-rep-template-card" data-template="template_c" onclick="selectReportTemplate('template_c')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_c" onclick="selectReportTemplate('template_c')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template C: Vulnerabilities by Host</span>
                         <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-size: 10px; padding: 2px 6px;">SysAdmins</span>
@@ -3483,10 +3483,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Host-centric vulnerability inventory grouping all findings, open ports, and risk profiles by discovered IP and FQDN.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template D -->
-                <div class="swa-rep-template-card" data-template="template_d" onclick="selectReportTemplate('template_d')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_d" onclick="selectReportTemplate('template_d')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template D: By Plugin / Rule</span>
                         <span class="badge" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; font-size: 10px; padding: 2px 6px;">Vuln Mgmt</span>
@@ -3494,10 +3494,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Analysis grouped by SNMK detection rules and vulnerability categories with affected host rosters.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template E -->
-                <div class="swa-rep-template-card" data-template="template_e" onclick="selectReportTemplate('template_e')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_e" onclick="selectReportTemplate('template_e')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template E: Remediation Plan</span>
                         <span class="badge" style="background: rgba(14, 165, 233, 0.15); color: #0ea5e9; font-size: 10px; padding: 2px 6px;">DevOps</span>
@@ -3505,10 +3505,10 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Action-oriented tracking report detailing official solutions, workaround steps, ticket owners, and retest states.
                     </div>
-                </div>
+                </button>
 
                 <!-- Template F -->
-                <div class="swa-rep-template-card" data-template="template_f" onclick="selectReportTemplate('template_f')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                <button type="button" class="swa-rep-template-card swa-plain swa-plain-block" data-template="template_f" onclick="selectReportTemplate('template_f')" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 14px; cursor: pointer; transition: all 0.2s;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
                         <span style="font-weight: 700; font-size: 13.5px; color: var(--text-title);">Template F: False-Positive Review</span>
                         <span class="badge" style="background: rgba(249, 115, 22, 0.15); color: #f97316; font-size: 10px; padding: 2px 6px;">Audit</span>
@@ -3516,7 +3516,7 @@ Content-Type: application/json
                     <div style="font-size: 12px; color: var(--text-muted); line-height: 1.4;">
                         Auditable review of suppressed findings, potential false positives, analyst determinations, and evidence dossiers.
                     </div>
-                </div>
+                </button>
             </div>
         </div>
 
@@ -3605,24 +3605,24 @@ Content-Type: application/json
                         Step 6: Deliverable Format
                     </div>
                     <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-                        <label class="btn btn-secondary swa-fmt-btn active" data-format="pdf" onclick="selectExportFormat('pdf')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer; border-color: #6366f1; background: rgba(99, 102, 241, 0.15); color: #818cf8;" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                        <button type="button" class="btn btn-secondary swa-fmt-btn active swa-plain swa-plain-inline" data-format="pdf" onclick="selectExportFormat('pdf')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer; border-color: #6366f1; background: rgba(99, 102, 241, 0.15); color: #818cf8;">
                             <input type="radio" name="reportFormat" value="pdf" checked style="display: none;"> PDF (Print-Ready)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="html" onclick="selectExportFormat('html')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="html" onclick="selectExportFormat('html')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="html" style="display: none;"> HTML (Interactive)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="csv" onclick="selectExportFormat('csv')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="csv" onclick="selectExportFormat('csv')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="csv" style="display: none;"> CSV (23-Col)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="json" onclick="selectExportFormat('json')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="json" onclick="selectExportFormat('json')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="json" style="display: none;"> JSON
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="nessus" onclick="selectExportFormat('nessus')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="nessus" onclick="selectExportFormat('nessus')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="nessus" style="display: none;"> Nessus XML (.nessus)
-                        </label>
-                        <label class="btn btn-secondary swa-fmt-btn" data-format="sarif" onclick="selectExportFormat('sarif')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;" tabindex="0" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+                        </button>
+                        <button type="button" class="btn btn-secondary swa-fmt-btn swa-plain swa-plain-inline" data-format="sarif" onclick="selectExportFormat('sarif')" style="font-size: 12.5px; padding: 6px 14px; cursor: pointer;">
                             <input type="radio" name="reportFormat" value="sarif" style="display: none;"> SARIF 2.1.0
-                        </label>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -6141,27 +6141,27 @@ Content-Type: application/json
 
             <div class="profile-pills" id="dcPlatformTabs" style="margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px; gap: 6px;">
 
-                <div class="pill-item active" onclick="switchDcPlatform('modsec', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🛡️ ModSecurity (OWASP CRS)</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="switchDcPlatform('modsec', this)"><span>🛡️ ModSecurity (OWASP CRS)</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('cloudflare', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>☁️ Cloudflare WAF</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('cloudflare', this)"><span>☁️ Cloudflare WAF</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('awswaf', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🟧 AWS WAF v2</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('awswaf', this)"><span>🟧 AWS WAF v2</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('nginxwaf', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>⚡ Nginx WAF</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('nginxwaf', this)"><span>⚡ Nginx WAF</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('suricata', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>📡 Suricata IDS</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('suricata', this)"><span>📡 Suricata IDS</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('snort', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🎯 Snort 3</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('snort', this)"><span>🎯 Snort 3</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('sigma', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>📊 Sigma YAML</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('sigma', this)"><span>📊 Sigma YAML</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('splunk', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🔎 Splunk SPL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('splunk', this)"><span>🔎 Splunk SPL</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('elastic', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>⚡ Elastic KQL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('elastic', this)"><span>⚡ Elastic KQL</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('sentinel', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🛡️ Sentinel KQL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('sentinel', this)"><span>🛡️ Sentinel KQL</span></button>
 
-                <div class="pill-item" onclick="switchDcPlatform('hardening', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🔒 Server Hardening</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchDcPlatform('hardening', this)"><span>🔒 Server Hardening</span></button>
 
             </div>
 
@@ -6265,21 +6265,21 @@ Content-Type: application/json
 
             <div class="profile-pills" id="ctCategoryTabs" style="margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 12px; gap: 6px; flex-wrap: wrap;">
 
-                <div class="pill-item active" onclick="switchCtTab('subdomains', this)" style="border-color: rgba(99, 102, 241, 0.5); font-weight: 700;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>⚡ Autonomous Subdomains</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="switchCtTab('subdomains', this)" style="border-color: rgba(99, 102, 241, 0.5); font-weight: 700;"><span>⚡ Autonomous Subdomains</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('dns', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🌐 DNS & Email Security</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('dns', this)"><span>🌐 DNS & Email Security</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('headers', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🛡️ Headers & SSL</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('headers', this)"><span>🛡️ Headers & SSL</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('probe', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>⚡ Vuln Prober (SQLi/XSS/LFI)</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('probe', this)"><span>⚡ Vuln Prober (SQLi/XSS/LFI)</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('crypto', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🔐 Hashes, Encoding & JWT</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('crypto', this)"><span>🔐 Hashes, Encoding & JWT</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('subnet', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🧮 CIDR / Subnet Calc</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('subnet', this)"><span>🧮 CIDR / Subnet Calc</span></button>
 
-                <div class="pill-item" onclick="switchCtTab('revshell', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>💻 Shell & Payloads</span></div>
-                <div class="pill-item" onclick="switchCtTab('ghostjs', this)" style="border-color: rgba(168, 85, 247, 0.4);" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>👻 JS & GhostJS Secrets</span></div>
-                <div class="pill-item" onclick="switchCtTab('scannertools', this)" style="border-color: rgba(16, 185, 129, 0.5); font-weight: 600;" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🛠️ Scanner Tools & Environment</span></div>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('revshell', this)"><span>💻 Shell & Payloads</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('ghostjs', this)" style="border-color: rgba(168, 85, 247, 0.4);"><span>👻 JS & GhostJS Secrets</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="switchCtTab('scannertools', this)" style="border-color: rgba(16, 185, 129, 0.5); font-weight: 600;"><span>🛠️ Scanner Tools & Environment</span></button>
 
             </div>
 
@@ -6693,12 +6693,12 @@ Content-Type: application/json
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px; line-height: 1.5;">
                 Drop any client-side JavaScript bundle, source-map, or config file for offline audit with 150+ GhostJS credential patterns, Shannon entropy thresholding, and dependency confusion detection.
             </p>
-            <div id="dropZone" style="border: 2px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 14px; background: var(--bg-subtle);" onclick="document.getElementById('fileInputDirect').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--brand)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="handleFileDrop(event)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="swa-plain swa-plain-block" id="dropZone" style="border: 2px dashed var(--border); border-radius: 12px; padding: 26px; text-align: center; cursor: pointer; transition: all 0.2s; margin-bottom: 14px; background: var(--bg-subtle);" onclick="document.getElementById('fileInputDirect').click()" ondragover="event.preventDefault(); this.style.borderColor='var(--brand)';" ondragleave="this.style.borderColor='var(--border)';" ondrop="handleFileDrop(event)">
                 <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--brand)" stroke-width="2" style="margin-bottom: 8px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
                 <div style="font-weight: 700; color: var(--text-title); font-size: 14px;">Drag & Drop .js, .json, .map, or .txt file here</div>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;">or click to browse from your computer</div>
                 <input type="file" id="fileInputDirect" style="display: none;" onchange="handleFileSelect(this.files)" accept=".js,.json,.map,.txt,.ts,.env">
-            </div>
+            </button>
             <div style="margin-bottom: 14px;">
                 <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;" for="rawSourceInput">Or Paste Source Code Directly:</label>
                 <textarea id="rawSourceInput" class="input-target" style="width: 100%; height: 110px; font-family: var(--mono); font-size: 12px; padding: 10px; border-radius: 8px; resize: vertical;" placeholder="// Paste bundle code, webpack manifests, or source maps here..."></textarea>
@@ -6736,12 +6736,12 @@ Content-Type: application/json
 
             <!-- Tool Category Filter Pills -->
             <div class="profile-pills" id="toolsCenterCategoryPills" style="margin-bottom: 14px; gap: 6px; flex-wrap: wrap;">
-                <div class="pill-item active" onclick="filterToolsCenter('ALL', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>All Tools (12)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Network Discovery & Analysis', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🌐 Network Discovery (2)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Web Application Security', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🕷️ Web App Security (3)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Application & Dependency Security', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>📦 SAST & Dependencies (4)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Specialist Pentesting (Authorized Labs Only)', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>💉 Specialist Lab (1)</span></div>
-                <div class="pill-item" onclick="filterToolsCenter('Built-in Core Suite', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>⚡ Built-in Engine (1)</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="filterToolsCenter('ALL', this)"><span>All Tools (12)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Network Discovery & Analysis', this)"><span>🌐 Network Discovery (2)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Web Application Security', this)"><span>🕷️ Web App Security (3)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Application & Dependency Security', this)"><span>📦 SAST & Dependencies (4)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Specialist Pentesting (Authorized Labs Only)', this)"><span>💉 Specialist Lab (1)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterToolsCenter('Built-in Core Suite', this)"><span>⚡ Built-in Engine (1)</span></button>
             </div>
 
             <!-- Tools List Grid -->
@@ -6784,12 +6784,12 @@ Content-Type: application/json
 
             <!-- Command Category Pills -->
             <div class="profile-pills" id="cmdRefCategoryPills" style="margin-bottom: 14px; gap: 6px; flex-wrap: wrap;">
-                <div class="pill-item active" onclick="filterCommandRef('ALL', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>All Commands</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Network Discovery', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🌐 Network (Nmap)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Web Application Security', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>🕷️ Web (Nuclei, ZAP)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Application & Dependency Security', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>📦 SAST & Deps (Bandit, Trivy, Gitleaks)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Specialist Pentesting', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>💉 Specialist (SQLmap)</span></div>
-                <div class="pill-item" onclick="filterCommandRef('Built-in Core Engine', this)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}"><span>⚡ SNMK Native Engine</span></div>
+                <button type="button" class="pill-item active swa-plain swa-plain-block" onclick="filterCommandRef('ALL', this)"><span>All Commands</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Network Discovery', this)"><span>🌐 Network (Nmap)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Web Application Security', this)"><span>🕷️ Web (Nuclei, ZAP)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Application & Dependency Security', this)"><span>📦 SAST & Deps (Bandit, Trivy, Gitleaks)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Specialist Pentesting', this)"><span>💉 Specialist (SQLmap)</span></button>
+                <button type="button" class="pill-item swa-plain swa-plain-block" onclick="filterCommandRef('Built-in Core Engine', this)"><span>⚡ SNMK Native Engine</span></button>
             </div>
 
             <!-- Command Reference List -->
@@ -7012,12 +7012,12 @@ Content-Type: application/json
             </div>
 
             <!-- File Upload Drop Zone (Alternative) -->
-            <div id="reaDropZone" style="border: 2px dashed rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; margin-bottom: 12px; background: rgba(168, 85, 247, 0.03);" onclick="document.getElementById('reaFileInput').click()" ondragover="event.preventDefault(); this.style.borderColor='#c084fc';" ondragleave="this.style.borderColor='rgba(168, 85, 247, 0.35)';" ondrop="handleReaFileDrop(event)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+            <button type="button" class="swa-plain swa-plain-block" id="reaDropZone" style="border: 2px dashed rgba(168, 85, 247, 0.35); border-radius: 8px; padding: 14px; text-align: center; cursor: pointer; margin-bottom: 12px; background: rgba(168, 85, 247, 0.03);" onclick="document.getElementById('reaFileInput').click()" ondragover="event.preventDefault(); this.style.borderColor='#c084fc';" ondragleave="this.style.borderColor='rgba(168, 85, 247, 0.35)';" ondrop="handleReaFileDrop(event)">
                 <input type="file" id="reaFileInput" style="display: none;" onchange="handleReaFileSelect(event)">
                 <div id="reaUploadLabel" style="font-size: 12.5px; color: var(--text-muted);">
                     📁 <strong style="color: var(--text-title);">Or click to upload an artifact file</strong> (Max 50MB, .exe, .dll, .js, .db, .pcap)
                 </div>
-            </div>
+            </button>
 
             <!-- Authorization Checkbox & Action Button -->
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; background: var(--bg-card); padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; flex-wrap: wrap; gap: 10px;">
@@ -7395,7 +7395,7 @@ Content-Type: application/json
 
 
 <!-- INTERACTIVE TOOL DIAGNOSTIC POPOVER (§12 - §15) -->
-<div id="toolHealthPopoverOverlay" class="tool-health-popover-overlay" onclick="closeToolHealthPopoverOnBackdrop(event)" tabindex="0" role="button" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click();}">
+<button type="button" id="toolHealthPopoverOverlay" class="tool-health-popover-overlay swa-plain swa-plain-block" onclick="closeToolHealthPopoverOnBackdrop(event)">
     <div class="tool-health-popover" id="toolHealthPopover" role="dialog" aria-modal="true" aria-labelledby="popoverTitle">
         <!-- Header -->
         <div class="tool-popover-header">
@@ -7445,7 +7445,7 @@ Content-Type: application/json
             </div>
         </div>
     </div>
-</div>
+</button>
 
 <!-- SECURE TOOL INSTALLATION CONFIRMATION MODAL (§6 & §8) -->
 <div id="toolInstallConfirmModal" class="modal-custom-overlay" style="display: none;">

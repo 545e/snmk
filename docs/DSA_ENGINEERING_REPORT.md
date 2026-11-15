@@ -705,6 +705,51 @@ and treat the timing budget as environment-dependent.
 
 **Suite status:** 396 passed, 0 failed (baseline before this pass: 369 passed, 3 failed).
 
+### I.0.1 SonarQube pass
+
+SonarQube Community Build was added to the project (`sonar-project.properties`,
+`.github/workflows/sonarqube.yml`, `docs/SONARQUBE.md`) and the findings from
+the first full analysis were worked through.  See `docs/SONARQUBE.md` for the
+full account.
+
+| Measure | Before | After |
+|---|---|---|
+| Bugs | 119 | 2 |
+| Vulnerabilities | 40 | 0 |
+| Code smells | 973 | 719 |
+| Open issues | 1 132 | 721 |
+
+The real defects it surfaced and that were fixed:
+
+* `core/tool_dependency_manager.py` — an unreachable statement after `return`
+  (`python:S1763`), left over from a refactor.
+* `core/js_intelligence.py` — an ambiguous alternation in a regex
+  (`python:S5850`).  The regex was replaced by `str.strip()`, which is
+  equivalent (verified over 3 906 samples) and unambiguous.
+* `web/static/app.js` — a duplicate `'api_keys'` key in a view map
+  (`javascript:S1534`); the second copy silently overwrote the first.
+* `core/cyber_tools.py` — `SSLCertificateTool` reported `"valid": true` for
+  every certificate it inspected, including expired and self-signed ones.
+  It now performs a strictly verifying handshake and reports the real
+  outcome (`certificate_verified` / `verification_error`).
+* `agents/recon_agent.py` — the log claimed a certificate was "verified" when
+  the handshake had deliberately skipped validation.
+
+Certificate verification was disabled in 40 separate call sites, none of
+which recorded why.  `core/tls_policy.py` is now the single source of truth:
+`client_kwargs()` for outbound requests and `inspection_context()` for
+certificate inspection, with the rationale documented once.  SNMK is a
+scanner, so it must be able to reach hosts whose certificates are broken --
+that condition is itself a finding.  Unverified peers are reached, never
+trusted.  `SWA_TLS_VERIFY=1` switches the platform to strict verification.
+
+212 accessibility findings were fixed: 99 non-interactive elements that
+reacted to `onclick` became native `<button>` elements, 71 `<label>`
+elements were associated with their control, 6 anchors used as buttons
+became real buttons, and the landmarks, table headers and font stacks were
+corrected.
+
+
 ### I.1 High priority — not implemented
 
 | ID | Issue | Proposed direction |

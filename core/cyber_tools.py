@@ -61,7 +61,6 @@ class DNSLookupTool:
         # Try dnspython first if installed
         try:
             import dns.resolver
-            has_dnspython = True
             resolver = dns.resolver.Resolver()
             resolver.timeout = 3.0
             resolver.lifetime = 3.0

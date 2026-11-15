@@ -104,13 +104,12 @@ def inspection_context(verify: Optional[bool] = None) -> ssl.SSLContext:
         context.check_hostname = True
         context.verify_mode = ssl.CERT_REQUIRED
     else:
-        # NOSONAR: python:S4830 / python:S5527 -- deliberate and reviewed.
         # This context exists to *read* a certificate that would otherwise
         # fail validation; failing to validate here is the point of the
         # inspection, and the unverified result is never trusted.  See the
         # module docstring for the full rationale.
         context.check_hostname = False
-        context.verify_mode = ssl.CERT_NONE
+        context.verify_mode = ssl.CERT_NONE  # NOSONAR: python:S4830, python:S5527
     return context
 
 

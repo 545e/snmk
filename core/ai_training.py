@@ -144,7 +144,6 @@ class AITrainingEngine:
                     {"text": "http://169.254.169.254/latest/meta-data/", "label": "SSRF"},
                     {"text": "GET /api/v1/user/profile?id=99281 HTTP/1.1", "label": "BENIGN"}
                 ] * 20
-                total = len(records)
 
             job.logs.append(f"Loaded {len(records)} verified records for training.")
 
