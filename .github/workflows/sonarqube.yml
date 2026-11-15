@@ -62,16 +62,17 @@ jobs:
         continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
         run: |
-          if [ -z "${SONAR_TOKEN}" ]; then
-            echo "::notice::SONAR_TOKEN is not configured; skipping the SonarQube scan."
+          if [ -z "${SONAR_TOKEN}" ] || [ -z "${SONAR_HOST_URL}" ]; then
+            echo "::notice::SONAR_TOKEN / SONAR_HOST_URL not configured; skipping the SonarQube scan."
             exit 0
           fi
           curl -fsSL https://raw.githubusercontent.com/sonarsource/sonar-scanner-cli/master/bin/sonar-scanner -o sonar-scanner
           chmod +x sonar-scanner
           ./sonar-scanner \
             -Dsonar.projectKey=snmk \
-            -Dsonar.host.url="${{ secrets.SONAR_HOST_URL }}" \
+            -Dsonar.host.url="${SONAR_HOST_URL}" \
             -Dsonar.token="${SONAR_TOKEN}" \
             -Dsonar.sources=. \
             -Dsonar.tests=tests \

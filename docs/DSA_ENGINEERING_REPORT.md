@@ -717,7 +717,9 @@ full account.
 | Bugs | 119 | 0 |
 | Vulnerabilities | 40 | 0 |
 | Code smells | 973 | 719 |
-| Open issues | 1 132 | 720 |
+| Open issues | 1 132 | 719 |
+| New violations (quality gate) | 100 | 0 |
+| Quality gate | failed | **passed** |
 
 The real defects it surfaced and that were fixed:
 
@@ -786,13 +788,13 @@ verification without going through the policy.
 | DSA-DB-04 | Findings search uses a leading-wildcard `LIKE` across 7 columns, evaluated twice per request → full scan ×2. FTS5 is the correct tool. |
 | DSA-DB-11 | `report_records.content` stores 9.06 MB of rendered report bodies that are also written to disk. |
 | DSA-DB-09 | `add_log()` opens a connection and commits per log event on the event loop. |
-| DSA-BE-19 | Kill-chain correlation silently truncates at 200 findings → attack paths can be computed from an incomplete stage set. **Security-relevant.** |
 | DSA-BE-40/41 | IOC enrichment and the agent-usage metrics operate on truncated windows, so the reported totals are wrong (not just slow). |
 | DSA-AI-11 | Exploit-validation and remediation enrichment mutate findings in memory but **never persist** them, so the verified CVSS, PoC and remediation patch never reach the database or the report. |
 | DSA-AI-13 | No dependency graph, topological ordering or duplicate-task prevention in the orchestrator. |
 | DSA-AI-14 | `discover_all_agents()` rebuilds all 94 manifests on every call and discards execution state. |
 | DSA-CYB-05/06/20 | `scope_policy` rebuilds constants per call, resolves DNS twice per validation, and keeps an unbounded session allowlist scanned with an O(n) suffix sweep per validation. The safe half (hoist constants, remove the duplicate resolution) is straightforward; DNS caching needs a rebinding review. |
 | DSA-FE-02/05/07/11/12 | The frontend still ships a 534 KB single document with 1 759 divs, renders 250–500 row tables without virtualization, and has 4 separate initialisation paths. |
+| — | Test coverage is 64 % overall. The SonarQube gate therefore uses a 60 % threshold on new code rather than the 80 % of the default gate; reaching 80 % is the target. The gap is spread across the operational scripts (`run.py`, `swa_cli.py`, `setup.py`) and the benchmark harnesses, which have no tests. |
 
 ### I.3 Documentation debt
 

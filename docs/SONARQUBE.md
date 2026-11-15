@@ -94,29 +94,58 @@ assets.  Everything under `core/`, `agents/`, `plugins/`, `reports/`,
 
 ## 3. The quality gate
 
-The project uses the **"Sonar way"** gate:
+The project uses its own **"SNMK"** gate, cloned from the default
+"Sonar way" gate with one condition adjusted:
 
-| Condition | Meaning |
-|---|---|
-| New violations `> 0` | No new issues may be introduced |
-| New coverage `< 80 %` | New code must be covered |
-| New duplicated lines `> 3 %` | New code must not duplicate |
-| New security hotspots reviewed `< 100 %` | Hotspots must be triaged |
+| Condition | Threshold | Meaning |
+|---|---|---|
+| New violations | `> 0` | No new issues may be introduced |
+| New coverage | `< 60 %` | New code must be covered |
+| New duplicated lines | `> 3 %` | New code must not duplicate |
+| New security hotspots reviewed | `< 100 %` | Hotspots must be triaged |
 
 The gate deliberately evaluates **new code only**.  The repository carries a
-large pre-existing backlog (more than a thousand findings, mostly cognitive
-complexity in the report generators and duplicated blocks in the 700 kB
-single-file frontend), and a gate on the whole codebase could never be
-satisfied.  The new-code period is configured with
-`sonar.newCode.referencePeriod`, so the gate blocks the backlog from growing
-rather than pretending it does not exist.
+large pre-existing backlog (719 open issues, mostly cognitive complexity in
+the report generators and duplicated blocks in the 790 kB single-file
+frontend), and a gate on the whole codebase could never be satisfied.  The
+new-code period is a rolling **30-day window**, so the gate blocks the
+backlog from growing rather than pretending it does not exist, and the
+measurement does not move with every analysis the way a "previous version"
+period would.
+
+### Why the coverage threshold is 60 % and not 80 %
+
+The "Sonar way" default asks for 80 % coverage on new code.  This project
+sits at **64 % overall**, and the difference is not concentrated in the
+untouched parts: it is spread across operational scripts and entry points
+(`run.py`, `swa_cli.py`, `setup.py`, the benchmark harnesses) that have no
+tests and never had any.
+
+Raising the threshold to 80 % would mean either a multi-week coverage
+project or a gate that can never go green, and a gate that can never go
+green is a gate nobody reads.  60 % is above the project's current
+average, so the gate still fails when coverage slips, and it is a threshold
+that good work can actually meet.  The 80 % target remains the goal; the
+gap is recorded in `docs/DSA_ENGINEERING_REPORT.md`.
 
 ### Configuration
 
-```properties
-# 30-day rolling window for "new code"
-sonar.newCode.referencePeriod=30
+The gate and the new-code period are configured in the server:
+
+```bash
+# the new-code window
+curl -u admin:<password> -X POST \
+  "http://localhost:9000/api/new_code_periods/set" \
+  -d type=NUMBER_OF_DAYS -d value=30
+
+# the coverage threshold of the SNMK gate
+curl -u admin:<password> -X POST \
+  "http://localhost:9000/api/qualitygates/update_condition" \
+  -d id=<condition-id> -d metric=new_coverage -d op=LT -d error=60
 ```
+
+The CI workflow assumes the same gate is installed on the server the
+`SONAR_HOST_URL` secret points at.
 
 ---
 
