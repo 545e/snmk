@@ -1202,13 +1202,16 @@ class ToolHealthEngine:
         v_args = v_args_map.get(item.tool_id, ["--version"])
 
         try:
+            stdin_mode = asyncio.subprocess.PIPE if item.tool_id == "sqlmap" else None
             proc = await asyncio.create_subprocess_exec(
                 bin_path,
                 *v_args,
+                stdin=stdin_mode,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=3.5)
+            stdin_input = b"\n" if item.tool_id == "sqlmap" else None
+            stdout, stderr = await asyncio.wait_for(proc.communicate(input=stdin_input), timeout=8.0)
             raw_out = (stdout.decode("utf-8", errors="ignore") + " " + stderr.decode("utf-8", errors="ignore")).strip()
             first_line = raw_out.splitlines()[0] if raw_out else "Active"
             diag.installed_version = first_line[:60]
@@ -1270,7 +1273,7 @@ class ToolHealthEngine:
                     bin_path, "-r", tmp_dir, "-f", "json",
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-                await asyncio.wait_for(proc.communicate(), timeout=3.5)
+                await asyncio.wait_for(proc.communicate(), timeout=8.0)
                 return True
 
             elif tool_id == "gitleaks":
@@ -1281,7 +1284,7 @@ class ToolHealthEngine:
                     bin_path, "detect", "--no-git", "--source", tmp_dir,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-                await asyncio.wait_for(proc.communicate(), timeout=3.5)
+                await asyncio.wait_for(proc.communicate(), timeout=8.0)
                 return True
 
             elif tool_id == "semgrep":
@@ -1292,7 +1295,7 @@ class ToolHealthEngine:
                     bin_path, "--version",
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-                await asyncio.wait_for(proc.communicate(), timeout=3.5)
+                await asyncio.wait_for(proc.communicate(), timeout=8.0)
                 return True
 
             elif tool_id in ["nuclei", "trivy", "nmap", "sqlmap", "nikto", "tshark", "clamav", "wazuh"]:
