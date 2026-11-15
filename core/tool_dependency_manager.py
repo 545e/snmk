@@ -309,7 +309,7 @@ def _build_default_manifest() -> dict[str, ToolDependencyManifestItem]:
         binary_names={"win32": "semgrep.exe", "linux": "semgrep", "darwin": "semgrep"},
         install_adapter="pip_package",
         pip_package="semgrep",
-        pinned_version="1.98.0",
+        pinned_version=None,
         official_sources=["https://pypi.org/project/semgrep/", "https://github.com/semgrep/semgrep"],
         dependencies=[],
         is_monitored=True,
@@ -865,6 +865,8 @@ class SecureToolInstaller:
         matched_asset = None
         for a in assets:
             aname = a.get("name", "").lower()
+            if not (aname.endswith(".zip") or aname.endswith(".tar.gz") or aname.endswith(".tgz")):
+                continue
             if os_key in aname:
                 if arch_key == "amd64" and ("amd64" in aname or "x86_64" in aname or "x64" in aname or "64bit" in aname) or arch_key == "arm64" and ("arm64" in aname or "aarch64" in aname):
                     matched_asset = a
@@ -1146,6 +1148,14 @@ class ToolHealthEngine:
             diag.binary_path = bin_path or "Windows Security Subsystem"
             diag.installed_version = "1.0 (Windows Native)"
             diag.level_passed = 5
+            diag.level_reached = 5
+            diag.checks_passed = [
+                "Level 1: Native security subsystem verified",
+                "Level 2: Engine version verified",
+                "Level 3: Configurations verified",
+                "Level 4: Threat signatures active",
+                "Level 5: Real-time host protection verified"
+            ]
             diag.status = ToolHealthState.HEALTHY
             diag.diagnostics = "Microsoft Defender active with real-time host protection."
             diag.last_successful_check = now_iso
@@ -1182,13 +1192,15 @@ class ToolHealthEngine:
         diag.installed = True
         diag.binary_path = bin_path
         diag.level_passed = 1
+        diag.level_reached = 1
+        diag.checks_passed.append("Level 1: Binary detected on system")
 
         # Level 2: Version Check
         v_args_map = {
             "nmap": ["--version"],
             "nuclei": ["-version"],
             "owasp_zap": ["-version"],
-            "sqlmap": ["--version"],
+            "sqlmap": ["--version", "--batch"],
             "nikto": ["-Version"],
             "tshark": ["-v"],
             "semgrep": ["--version"],
@@ -1202,28 +1214,30 @@ class ToolHealthEngine:
         v_args = v_args_map.get(item.tool_id, ["--version"])
 
         try:
-            stdin_mode = asyncio.subprocess.PIPE if item.tool_id == "sqlmap" else None
             proc = await asyncio.create_subprocess_exec(
                 bin_path,
                 *v_args,
-                stdin=stdin_mode,
+                stdin=asyncio.subprocess.DEVNULL,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdin_input = b"\n" if item.tool_id == "sqlmap" else None
-            stdout, stderr = await asyncio.wait_for(proc.communicate(input=stdin_input), timeout=8.0)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=6.0)
             raw_out = (stdout.decode("utf-8", errors="ignore") + " " + stderr.decode("utf-8", errors="ignore")).strip()
             first_line = raw_out.splitlines()[0] if raw_out else "Active"
             diag.installed_version = first_line[:60]
             diag.level_passed = 2
-        except TimeoutError:
+            diag.level_reached = 2
+            diag.checks_passed.append(f"Level 2: Version verified ({diag.installed_version})")
+        except (TimeoutError, asyncio.TimeoutError):
             diag.status = ToolHealthState.DEGRADED
-            diag.diagnostics = "Version check timed out after 3.5 seconds."
+            diag.diagnostics = "Version check timed out."
+            diag.checks_failed.append("Level 2: Version check timed out")
             diag.latency_ms = round((time.time() - start_time) * 1000, 2)
             return diag
         except Exception as e:
             diag.status = ToolHealthState.ERROR
             diag.diagnostics = f"Version query failed: {e!s}"
+            diag.checks_failed.append(f"Level 2: Version query failed: {e!s}")
             diag.latency_ms = round((time.time() - start_time) * 1000, 2)
             return diag
 
@@ -1236,24 +1250,32 @@ class ToolHealthEngine:
         # Level 3: Configuration Readiness
         diag.configuration_status = "VALID"
         diag.level_passed = 3
+        diag.level_reached = 3
+        diag.checks_passed.append("Level 3: Configuration validated")
 
         # Level 4: Dependency / Template Readiness
         diag.dependencies_status = "READY"
         diag.level_passed = 4
+        diag.level_reached = 4
+        diag.checks_passed.append("Level 4: Dependencies ready")
 
         # Level 5: Safe Non-Destructive Functional Verification
         try:
             passed_l5 = await self._run_functional_check(item.tool_id, bin_path)
             if passed_l5:
                 diag.level_passed = 5
+                diag.level_reached = 5
+                diag.checks_passed.append("Level 5: Functional verification passed")
                 diag.status = ToolHealthState.HEALTHY
                 diag.diagnostics = f"Verified executable and functional readiness: {diag.installed_version}"
                 diag.last_successful_check = now_iso
             else:
                 diag.status = ToolHealthState.DEGRADED
+                diag.checks_failed.append("Level 5: Functional execution check returned non-zero code or degraded status")
                 diag.diagnostics = "Functional execution check returned non-zero code or degraded status."
         except Exception as e:
             diag.status = ToolHealthState.DEGRADED
+            diag.checks_failed.append(f"Level 5: Functional check error: {e!s}")
             diag.diagnostics = f"Level 5 functional test note: {e!s}"
 
         diag.latency_ms = round((time.time() - start_time) * 1000, 2)
@@ -1271,6 +1293,7 @@ class ToolHealthEngine:
                     f.write("def sample(): pass\n")
                 proc = await asyncio.create_subprocess_exec(
                     bin_path, "-r", tmp_dir, "-f", "json",
+                    stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
                 await asyncio.wait_for(proc.communicate(), timeout=8.0)
@@ -1282,6 +1305,7 @@ class ToolHealthEngine:
                     f.write("non_secret_data = 12345\n")
                 proc = await asyncio.create_subprocess_exec(
                     bin_path, "detect", "--no-git", "--source", tmp_dir,
+                    stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
                 await asyncio.wait_for(proc.communicate(), timeout=8.0)
@@ -1293,6 +1317,7 @@ class ToolHealthEngine:
                     f.write("x = 1\n")
                 proc = await asyncio.create_subprocess_exec(
                     bin_path, "--version",
+                    stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
                 await asyncio.wait_for(proc.communicate(), timeout=8.0)

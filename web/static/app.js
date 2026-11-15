@@ -16163,7 +16163,7 @@ function renderToolHealthPopover() {
                     <div class="tool-diag-name-wrap">
                         <span class="tool-diag-name">${escapeHtml(t.name)}</span>
                         <span class="tool-diag-category">${escapeHtml(t.category)}</span>
-                        ${t.installed_version ? `<span style="font-size: 10px; color: #38bdf8; font-family: var(--mono); background: rgba(56,189,248,0.1); padding: 1px 6px; border-radius: 4px;">v${escapeHtml(t.installed_version)}</span>` : ''}
+                        ${t.installed_version ? `<span style="font-size: 10px; color: #38bdf8; font-family: var(--mono); background: rgba(56,189,248,0.1); padding: 1px 6px; border-radius: 4px;">${/^\d/.test(t.installed_version) ? 'v' : ''}${escapeHtml(t.installed_version)}</span>` : ''}
                     </div>
                     <span class="tool-status-badge ${badgeClass}">${escapeHtml(t.status)}</span>
                 </div>
