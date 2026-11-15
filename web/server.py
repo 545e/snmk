@@ -1412,7 +1412,19 @@ async def launch_scan(config: ScanConfig):
     scope_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab, auto_authorize=True)
 
     if not scope_res.is_allowed:
-
+        if "Failed to resolve DNS" in (scope_res.reason or ""):
+            auth_targets = getattr(scope_policy, "allowed_domains", set())
+            suggestion = ""
+            clean_host = getattr(scope_res, "hostname", "")
+            for dom in auth_targets:
+                if isinstance(dom, str) and dom and dom != clean_host and dom not in ("127.0.0.1", "localhost", "example.com"):
+                    if dom.replace(".", "") == clean_host.replace(".", "") or dom in clean_host or clean_host in dom:
+                        suggestion = f" Did you mean '{dom}'?"
+                        break
+            raise HTTPException(
+                status_code=400,
+                detail=f"Unable to resolve domain '{clean_host}' via DNS.{suggestion} Please check the target spelling."
+            )
         raise HTTPException(status_code=403, detail=f"Target Scope Refusal: {scope_res.reason}")
 
 
