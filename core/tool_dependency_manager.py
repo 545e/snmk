@@ -1221,7 +1221,7 @@ class ToolHealthEngine:
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
             )
-            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=6.0)
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=15.0)
             raw_out = (stdout.decode("utf-8", errors="ignore") + " " + stderr.decode("utf-8", errors="ignore")).strip()
             first_line = raw_out.splitlines()[0] if raw_out else "Active"
             diag.installed_version = first_line[:60]
@@ -1296,7 +1296,7 @@ class ToolHealthEngine:
                     stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-                await asyncio.wait_for(proc.communicate(), timeout=8.0)
+                await asyncio.wait_for(proc.communicate(), timeout=15.0)
                 return True
 
             elif tool_id == "gitleaks":
@@ -1308,7 +1308,7 @@ class ToolHealthEngine:
                     stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-                await asyncio.wait_for(proc.communicate(), timeout=8.0)
+                await asyncio.wait_for(proc.communicate(), timeout=15.0)
                 return True
 
             elif tool_id == "semgrep":
@@ -1320,7 +1320,7 @@ class ToolHealthEngine:
                     stdin=asyncio.subprocess.DEVNULL,
                     stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
                 )
-                await asyncio.wait_for(proc.communicate(), timeout=8.0)
+                await asyncio.wait_for(proc.communicate(), timeout=15.0)
                 return True
 
             elif tool_id in ["nuclei", "trivy", "nmap", "sqlmap", "nikto", "tshark", "clamav", "wazuh"]:
