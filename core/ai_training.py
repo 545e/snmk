@@ -56,9 +56,10 @@ class TrainingJob(BaseModel):
 
 
 class AITrainingEngine:
-    def __init__(self, checkpoint_dir: str = CHECKPOINT_DIR):
+    def __init__(self, checkpoint_dir: str = CHECKPOINT_DIR, database: Any | None = None):
         self.checkpoint_dir = checkpoint_dir
         self.active_jobs: dict[str, asyncio.Task] = {}
+        self.db = database
         self.hardware_info = self._detect_hardware()
 
     def _detect_hardware(self) -> dict[str, Any]:
@@ -93,10 +94,11 @@ class AITrainingEngine:
 
     async def start_training(self, config: TrainingConfig) -> TrainingJob:
         """Enqueues and starts a reproducible background model training experiment."""
-        from core.database import db
+        if self.db is None:
+            raise RuntimeError("AITrainingEngine database dependency is not configured.")
 
         # Validate dataset exists
-        dataset_meta = db.get_dataset(config.dataset_id)
+        dataset_meta = self.db.get_dataset(config.dataset_id)
         if not dataset_meta:
             raise ValueError(f"Referenced dataset ID '{config.dataset_id}' does not exist.")
 
@@ -109,7 +111,7 @@ class AITrainingEngine:
         job.logs.append(f"[{datetime.datetime.now(datetime.UTC).strftime('%H:%M:%S')}] Job enqueued with target dataset '{dataset_meta.name}' ({dataset_meta.record_count} samples).")
         job.logs.append(f"[{datetime.datetime.now(datetime.UTC).strftime('%H:%M:%S')}] Compute Device: {self.hardware_info['device']} ({self.hardware_info['device_name']}, {self.hardware_info['cpu_cores']} cores).")
 
-        db.save_training_job(job)
+        self.db.save_training_job(job)
 
         # Launch async task
         task = asyncio.create_task(self._run_training_lifecycle(job.id))
@@ -118,16 +120,18 @@ class AITrainingEngine:
 
     async def _run_training_lifecycle(self, job_id: str):
         from core.data_management import dataset_manager
-        from core.database import db
 
-        job = db.get_training_job(job_id)
+        if self.db is None:
+            return
+
+        job = self.db.get_training_job(job_id)
         if not job:
             return
 
         start_time = time.time()
         job.status = "RUNNING"
         job.started_at = datetime.datetime.now(datetime.UTC).isoformat()
-        db.save_training_job(job)
+        self.db.save_training_job(job)
 
         try:
             job_checkpoint_dir = os.path.join(self.checkpoint_dir, job_id)
@@ -230,4 +234,5 @@ class AITrainingEngine:
         return False
 
 
-ai_trainer = AITrainingEngine()
+from core.database import db
+ai_trainer = AITrainingEngine(database=db)
