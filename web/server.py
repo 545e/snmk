@@ -4499,7 +4499,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
         elif (
             canonical_id in ScannerIntegrations.get_tool_inventory() or 
             tool_id_clean in ScannerIntegrations.get_tool_inventory() or 
-            tool_id_clean in ["nmap", "nuclei", "zap", "sqlmap", "nikto", "sslscan", "owasp_zap", "tshark", "semgrep", "bandit", "trivy", "gitleaks", "swa_native", "rea", "microsoft_defender", "clamav", "wazuh"]
+            tool_id_clean in ["nmap", "nuclei", "zap", "sqlmap", "nikto", "sslscan", "owasp_zap", "tshark", "semgrep", "bandit", "trivy", "gitleaks", "swa_native", "rea", "microsoft_defender", "clamav", "wazuh", "snmk_fast_scan"]
         ):
             from core.scanner_integrations import ScannerIntegrations
             lookup_key = canonical_id if canonical_id in ScannerIntegrations.get_tool_inventory() else tool_id_clean
@@ -4581,7 +4581,7 @@ class RunAllToolsRequest(BaseModel):
 @app.post("/api/tools/run-all")
 async def run_all_tools_endpoint(req: RunAllToolsRequest):
     """
-    Executes the unified cybersecurity assessment across all 15 integrated tool suites
+    Executes the unified cybersecurity assessment across all 16 integrated tool suites
     and all 85 registered agents, compiling findings and generating a detailed
     Nessus-style vulnerability assessment report.
     """
@@ -4751,7 +4751,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         logger.warning(f"Active prober phase error: {e}")
 
     # Run ScannerIntegrations tool suites
-    for tool_name in ["nmap", "nuclei", "owasp_zap", "sqlmap", "nikto", "semgrep", "bandit", "trivy", "gitleaks", "tshark", "microsoft_defender", "swa_native"]:
+    for tool_name in ["nmap", "nuclei", "owasp_zap", "sqlmap", "nikto", "semgrep", "bandit", "trivy", "gitleaks", "tshark", "microsoft_defender", "swa_native", "snmk_fast_scan"]:
         executed_tools.append(tool_name)
 
     # Run all enabled OWASP Top 10 plugins
