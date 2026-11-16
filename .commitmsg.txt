@@ -1,0 +1,41 @@
+docs(audit): add the 27 enterprise audit reports
+
+A complete, evidence-based audit of the platform, with the findings that
+were fixed and the ones that were not.
+
+Repository discovery: 565 git-tracked files, all inspected. 174 Python
+modules (75 253 lines), 4 JavaScript, 3 CSS, 2 HTML, 290 Markdown, 16
+shell. 197 FastAPI routes, 43 database tables, 66 indexes.
+
+Tools actually executed: SonarQube 24.12 Community Build (locally
+installed), Bandit 1.7.10, pip-audit 2.10.1, gitleaks 8.28.0 (155
+commits scanned), and a local SonarQube scan with the quality gate.
+
+Tools recorded as NOT EXECUTED rather than passed: Trivy, Semgrep,
+Checkov, KICS, Grype, Syft, OSV-Scanner, OWASP ZAP, Docker. Each report
+states why.
+
+The headline findings:
+
+- Two Critical authentication bypasses, both closed with regression
+  tests. The login endpoints minted a valid session for any caller and
+  derived the admin role from the client-supplied username; the token was
+  accepted for every route even with authentication enabled.
+- The authentication gate did not cover the OpenAI-compatible endpoints,
+  and the WebSocket telemetry stream was unauthenticated.
+- Seven endpoints fetched an operator-supplied URL with no host
+  validation, sending the provider's own credential to it.
+- The forensics browser and the REA analyser could read any file on disk.
+- The scope policy checked only the first address a name resolved to.
+- The container published on every interface with no authentication, and
+  .env was in the Docker build context.
+
+Final measures: 454 tests passing, 64.0 % coverage, 0 bugs, 0
+vulnerabilities, 0 known dependency vulnerabilities, 0 secrets in the git
+history, and the SonarQube quality gate passing.
+
+Production readiness: DEVELOPMENT READY. The summary states the five
+specific changes that would move it to STAGING READY and the seven that
+would move it to PRODUCTION CANDIDATE.
+
+The reports are in reports/audit/, indexed by reports/audit/README.md.

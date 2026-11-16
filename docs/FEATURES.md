@@ -13,7 +13,7 @@
 - **Web Application Probing:** Automated OWASP Top 10 security checks (SQLi, XSS, SSRF, IDOR, Broken Authentication).
 - **PoC Exploit Verification:** Deterministic, non-destructive cURL commands demonstrating confirmed vulnerabilities.
 
-### B. Autonomous Multi-Agent Workforce (85 Agents)
+### B. Autonomous Multi-Agent Workforce (94 Agents)
 - **17 Specialist Workforce Agents:** Role-based autonomous specialists (Lead Recon, Exploit Verifier, Blue Team Defender, etc.).
 - **9 Offensive & Reconnaissance Domain Agents:** High-speed fuzzers, port probers, sub-asset discoverers.
 - **10 OWASP Top 10 Security Plugins:** Dedicated rule engines for OWASP web vulnerability classes.

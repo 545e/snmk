@@ -9,7 +9,7 @@
 > - No LLM round trip is verified anywhere (all providers `NOT_CONFIGURED`; mode = `heuristic_fallback`).
 > - RAG is BM25 (sparse), NOT embeddings/vector search. Memory is regex-scrubbed, not guaranteed.
 > - Tool execution is deterministic adapters; LLM function/tool calling does not exist.
-> - `ai_training.py` is a simulation; tier-4 agents return static dicts; 85/85 dispatch != capability.
+> - `ai_training.py` is a simulation; tier-4 agents return static dicts; 94/94 dispatch != capability.
 > - `SWA_ENFORCE_ALLOWLIST=1` disables dynamic session authorization; `SWA_AUTH_ENABLED=true` (or a real `SWA_API_KEY`) gates `/api/*`.
 > - The 12-vector LLM harness is deterministic rules, not a live red-teamer.
 > - CISA KEV/EPSS endpoints hit live feeds (1h cache); 503 on failure.
@@ -41,7 +41,7 @@ C:\Users\krish\SWA (snmk)
 │   └── targets.json            # Scope allowlist (session-scoped dynamic authorization; strict mode via SWA_ENFORCE_ALLOWLIST=1)
 ├── core/                       # Core application domain & business logic
 │   ├── agent_memory.py         # Working, Episodic, and Semantic memory with secret scrubbing & token budgeting
-│   ├── agent_registry.py       # Central agent registry managing all 85 agents across 5 operational tiers
+│   ├── agent_registry.py       # Central agent registry managing all 94 agents across 6 operational tiers
 │   ├── ai_evaluation.py        # Model benchmarking: precision, recall, F1, confusion matrices, token costs
 │   ├── ai_models.py            # Model registry: OpenAI, Anthropic, Gemini, OpenRouter, Ollama (static catalogs)
 │   ├── ai_training.py          # TRAINING SIMULATION (synthetic loss curve; not real ML training)
@@ -86,7 +86,7 @@ C:\Users\krish\SWA (snmk)
    - `core/database.py` validates SQLite database file, enforces `PRAGMA foreign_keys = ON;`, and initializes WAL journal mode (`PRAGMA journal_mode = WAL;`).
    - `core/credentials.py` loads or generates master encryption key `.swa_master.key`.
    - `core/integrations/registry.py` registers cloud, AI, security platforms, and threat intel providers.
-   - `core/agent_registry.py` registers all 85 agents into operational memory tiers.
+   - `core/agent_registry.py` registers all 94 agents into 6 operational memory tiers.
    - `core/tool_registry.py` validates tool adapters, executable paths, and parameter schemas.
    - `core/rag_engine.py` and `core/agent_memory.py` initialize persistent schema tables.
 

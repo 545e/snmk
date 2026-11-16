@@ -10,7 +10,7 @@ All agents are centrally registered through `core/agent_registry.py` and exposed
 
 ### Dynamic Registry & Operational Tiers
 
-The 85 agents are organized into 5 functional tiers:
+The 94 agents are organized into 6 functional tiers:
 
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐

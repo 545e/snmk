@@ -39,7 +39,7 @@ Preserved all 25+ existing navigation routes while grouping them into 6 intuitiv
 2. **ASSET & EXPOSURE MANAGEMENT**: Asset Inventory, Attack Surface Management, EASM Drift
 3. **SECURITY TESTING**: Security Testing, API Testing, Web App Testing, Network Testing, Cloud Security, AI Security Lab, Vulnerability Management, Security Engines
 4. **OPERATIONS**: Approval Gates, Findings, Remediation, Test History, Reports & Exports
-5. **AI & INTELLIGENCE**: AI Agents (85 Workforce), AI Models & Reasoning, Threat Intelligence, AI Automation & Orchestration
+5. **AI & INTELLIGENCE**: AI Agents (94 Workforce), AI Models & Reasoning, Threat Intelligence, AI Automation & Orchestration
 6. **ADMINISTRATION**: Users & Roles (RBAC), Integrations, **API Keys & Secrets** (`navToView('api_keys')`), System Settings, Audit Logs
 
 ---
@@ -63,9 +63,9 @@ Preserved all 25+ existing navigation routes while grouping them into 6 intuitiv
   - Profiles: Passive Recon, Standard Assessment, Authorized Lab Assessment (127.0.0.1 / RFC1918), Full Red Team, OWASP Top 10, All Tools Suite.
   - Collapsible Advanced Scope & Concurrency Controls.
 * **Autonomous Multi-Agent Workforce Section**:
-  - Truthful breakdowns: Registered (85), Initialized (85), Active/Idle (85), Busy (0 during idle), Failed (0), Unavailable (0).
+  - Truthful breakdowns: Registered (94), Initialized (94), Active/Idle (94), Busy (0 during idle), Failed (0), Unavailable (0).
   - Tiers: 17 Specialist Agents, 9 Offensive/Recon, 10 OWASP Plugins, 32 Core Engines, 17 Tool Adapters.
-  - Working **View All 85 Agents** action navigating to `viewAgents`.
+  - Working **View All 94 Agents** action navigating to `viewAgents`.
 * **Recent Assessments Table**:
   - Live query against `/api/scans`.
   - Visual status pulses (`status-dot-pulse`).

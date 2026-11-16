@@ -34,10 +34,10 @@ The target resolves to AWS/GCP/Azure instance metadata addresses (`169.254.169.2
 ### Cause
 Active filter mismatch or search query active in the web UI.
 ### Resolution
-- Click **"All (85)"** in the agent tier filter pills.
+- Click **"All (94)"** in the agent tier filter pills.
 - Clear the search box.
-- In v2.3+, an embedded fail-safe auto-recovers the full 85-agent manifest if any network glitch occurs.
-- Verify via API: `GET /api/v1/ai/agents` (returns all 85 agents).
+- In v2.3+, an embedded fail-safe auto-recovers the full 94-agent manifest if any network glitch occurs.
+- Verify via API: `GET /api/v1/ai/agents` (returns all 94 agents).
 
 ---
 

@@ -1,4 +1,4 @@
-# AI AGENT ARCHITECTURE & 85-SPECIALIST WORKFORCE
+# AI AGENT ARCHITECTURE & 94-SPECIALIST WORKFORCE
 
 > **AGENT-COUNT CORRECTION (2026-11-11):** this document refers to "85 agents across 5 operational tiers". The registry actually contains **94 agents across 6 tiers** - the Network Intelligence (MAP) tier was added without updating the documented totals, the tier summary or the CI assertions. The authoritative count is `agent_registry.get_summary()["total_discovered"]`, and `get_summary()["tiers"]` is now derived from the registry so the tier breakdown always adds up to the total. See `docs/DSA_ENGINEERING_REPORT.md` (section E) for the full reconciliation and for the capability-verification audit that accompanies it.
 
@@ -6,7 +6,7 @@
 
 ## SNMK / SWA Autonomous Multi-Agent Hierarchy
 
-The platform registers, coordinates, and executes 85 specialist agents organized across five operational tiers.
+The platform registers, coordinates, and executes 94 specialist agents organized across six operational tiers.
 
 ### Operational Tiers
 

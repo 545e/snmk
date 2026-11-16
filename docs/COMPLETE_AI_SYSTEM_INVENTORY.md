@@ -24,7 +24,7 @@
 | **RAG Engine** | YES | Overlapping semantic chunking, BM25 scoring, and citation grounding (`core/rag_engine.py`) | `/api/ai/rag/*` & `llm_client` | PASS | IMPLEMENTED AND VERIFIED |
 | **Document Ingestion** | YES | Advisory, pentest report, policy, and threat intel ingestion (`core/rag_engine.py`) | REST endpoints + DB | PASS | IMPLEMENTED AND VERIFIED |
 | **Multimodal AI** | YES | Structured multimodal payload preparation for vision-enabled models (GPT-4o, Claude 3.5, Gemini Pro) | Selective capability routing | PASS | IMPLEMENTED AND VERIFIED |
-| **Agent Registry** | YES | Full registry of 85 specialist agents across 5 operational tiers (`core/agent_registry.py`) | Dashboard + `/api/agents` | PASS | IMPLEMENTED AND VERIFIED |
+| **Agent Registry** | YES | Full registry of 94 specialist agents across 6 operational tiers (`core/agent_registry.py`) | Dashboard + `/api/agents` | PASS | IMPLEMENTED AND VERIFIED |
 | **Agent Runtime** | YES | Async worker runtime with timeout enforcement and state transitions (`agents/agent_workforce.py`) | Background executor | PASS | IMPLEMENTED AND VERIFIED |
 | **Agent Memory** | YES | Working, Episodic, and Semantic memory with secret scrubbing & token budgeting (`core/agent_memory.py`) | Persistent SQLite tables | PASS | IMPLEMENTED AND VERIFIED |
 | **Multi-Agent Orchestration** | YES | Task delegation, context handoffs, and kill chain clustering (`agents/orchestrator.py`, `core/kill_chain/`) | Sequential/parallel pipeline | PASS | IMPLEMENTED AND VERIFIED |
@@ -43,7 +43,7 @@
 - **LLM Reasoning & Client**: [`core/llm_client.py`](file:///C:/Users/krish/SWA/core/llm_client.py)
 - **RAG Engine**: [`core/rag_engine.py`](file:///C:/Users/krish/SWA/core/rag_engine.py)
 - **Agent Memory Store**: [`core/agent_memory.py`](file:///C:/Users/krish/SWA/core/agent_memory.py)
-- **Agent Registry (85 Agents)**: [`core/agent_registry.py`](file:///C:/Users/krish/SWA/core/agent_registry.py)
+- **Agent Registry (94 Agents)**: [`core/agent_registry.py`](file:///C:/Users/krish/SWA/core/agent_registry.py)
 - **Adversarial Red-Team Harness**: [`core/llm_security_testing.py`](file:///C:/Users/krish/SWA/core/llm_security_testing.py)
 - **AI Model Catalog**: [`core/ai_models.py`](file:///C:/Users/krish/SWA/core/ai_models.py)
 - **AI Evaluation Engine**: [`core/ai_evaluation.py`](file:///C:/Users/krish/SWA/core/ai_evaluation.py)

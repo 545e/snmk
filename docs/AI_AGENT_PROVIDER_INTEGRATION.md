@@ -40,7 +40,7 @@ The API Key Management Center allows operators to designate a default AI provide
   - `agents/remediation_agent.py`
   - `agents/threat_intel_agent.py`
   - `agents/soc_analyst_agent.py`
-  - All 85 autonomous agents registered in `agents/registry.py`.
+  - All 94 autonomous agents registered in `agents/registry.py`.
 
 ---
 
