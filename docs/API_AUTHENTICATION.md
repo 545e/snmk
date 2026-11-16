@@ -11,8 +11,11 @@ Authentication can be configured via environment variables:
 # Enable strict authentication (default: False in local lab mode, True in production)
 SWA_AUTH_ENABLED=true
 
-# Set the master API key for headless service integrations
-SWA_MASTER_API_KEY=swa_sec_live_9f83b27e01d44c9b841a2e345f891b0c
+# Set the master API key for headless service integrations.
+# Generate your own -- never copy a value out of a document, and never
+# commit a real key.  See the secret-scanning section of the security
+# audit report.
+SWA_MASTER_API_KEY=replace-with-a-random-32-byte-secret
 ```
 
 ## 3. Session Lifecycle & Token Management

@@ -11,6 +11,7 @@ import sqlite3
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from core.rea_engine import REAEngine, SUPPORTED_TARGET_TYPES
 
@@ -19,6 +20,14 @@ class TestREAEngine(unittest.TestCase):
     def setUp(self):
         self.engine = REAEngine()
         self.temp_dir = tempfile.TemporaryDirectory()
+        # The analyser may only read from an allowed root; the artefacts
+        # under test live in the temporary directory, so it is declared as
+        # the allowed root for the duration of the test.
+        root_patch = patch.dict(
+            os.environ, {"SWA_REA_ALLOWED_ROOTS": self.temp_dir.name}
+        )
+        root_patch.start()
+        self.addCleanup(root_patch.stop)
 
     def tearDown(self):
         try:
@@ -40,11 +49,13 @@ class TestREAEngine(unittest.TestCase):
         self.assertTrue(status["native_fallback_available"])
 
     def test_path_validation_and_blocking(self):
-        # Valid path
-        valid, path, err = REAEngine.validate_target_path(__file__)
+        # Valid path: a file inside the allowed analysis root.
+        allowed = Path(self.temp_dir.name) / "sample.bin"
+        allowed.write_bytes(b"sample")
+        valid, path, err = REAEngine.validate_target_path(str(allowed))
         self.assertTrue(valid)
         self.assertIsNone(err)
-        self.assertEqual(os.path.normcase(path), os.path.normcase(os.path.abspath(__file__)))
+        self.assertEqual(os.path.normcase(path), os.path.normcase(str(allowed.resolve())))
 
         # Empty path
         valid, _, err = REAEngine.validate_target_path("")
@@ -60,7 +71,6 @@ class TestREAEngine(unittest.TestCase):
         valid, _, err = REAEngine.validate_target_path("C:\\nonexistent_dir_12345\\file.exe")
         self.assertFalse(valid)
         self.assertIn("does not exist", err.lower())
-
         # Blocked sensitive system paths
         blocked_samples = [
             r"C:\Windows\System32\config\SAM",
@@ -75,6 +85,26 @@ class TestREAEngine(unittest.TestCase):
             valid, _, err = REAEngine.validate_target_path(b_path)
             self.assertFalse(valid, f"Path should be blocked: {b_path}")
             self.assertIn("sensitive system paths", err.lower())
+
+    def test_path_outside_the_allowed_roots_is_refused(self):
+        """The analyser may only read from the declared analysis roots."""
+        outside = Path(self.temp_dir.name).parent / "outside_rea_target.bin"
+        outside.write_bytes(b"not evidence")
+        try:
+            valid, _, err = REAEngine.validate_target_path(str(outside))
+            self.assertFalse(valid, "A path outside the allowed roots must be refused")
+            self.assertIn("allowed analysis roots", err.lower())
+        finally:
+            outside.unlink(missing_ok=True)
+
+    def test_allowed_roots_can_be_configured(self):
+        """SWA_REA_ALLOWED_ROOTS replaces the defaults."""
+        with tempfile.TemporaryDirectory() as other:
+            marker = Path(other) / "target.bin"
+            marker.write_bytes(b"x")
+            with patch.dict(os.environ, {"SWA_REA_ALLOWED_ROOTS": other}):
+                valid, _, err = REAEngine.validate_target_path(str(marker))
+                self.assertTrue(valid, err)
 
     def test_infer_target_type(self):
         self.assertEqual(REAEngine.infer_target_type("sample.js"), "javascript")

@@ -1,0 +1,53 @@
+fix(security): close the authentication bypass and the unvalidated-endpoint paths
+
+The audit found two Critical authentication bypasses and nine High findings.
+This commit closes them.
+
+Authentication (SEC-01, SEC-02b, SEC-09, SEC-10)
+
+- The login endpoints issued a valid session to any caller. The password
+  field was never read, and the v1 login derived the role from the
+  client-supplied username, so asking for the name "admin" produced an
+  administrator session. `core/app_security.create_login_session()` is now
+  the only place a login session is created: the role comes from server
+  configuration or from a verified master API key, never from the request.
+- The authentication gate only protected paths starting with "/api", so the
+  OpenAI-compatible endpoints (/v1/chat/completions, /chat/completions,
+  /v1/models, /models) were reachable without a credential even with
+  authentication enabled. The protected surface is now the whole API.
+- The /ws telemetry stream carried the findings and logs of every running
+  scan with no credential. Starlette does not run HTTP middleware for a
+  WebSocket scope, so the handshake authenticates itself now.
+
+Unvalidated endpoints (SEC-03, SEC-04, SEC-05, SEC-06)
+
+- core/integrations/endpoint_policy.py is the single place that decides
+  whether an outbound request may be made. It rejects a non-HTTP scheme, an
+  embedded credential, a host that resolves to a private, loopback,
+  link-local or cloud-metadata address, and -- for the providers that are
+  only ever a SaaS offering -- a host that is not one of theirs.
+  Previously the provider's own API key, password or token was posted to
+  whatever host the caller named.
+- The notification webhook and the dependency-confusion tool now perform
+  the scope check their sibling endpoints already performed.
+
+Local file access (SEC-07, SEC-08)
+
+- The forensics directory browser, the file-hash endpoint and the carving
+  destination are confined to SWA_EVIDENCE_ROOT. Before, the browser listed
+  any directory the service account could read, the hash endpoint confirmed
+  the contents of any guessed file, and the carving job created directories
+  anywhere.
+- The REA analyser may only read from SWA_REA_ALLOWED_ROOTS. The five
+  pattern denylist is now a second line of defence rather than the only one.
+
+Deployment (SEC-11, SEC-30, SEC-31)
+
+- docker-compose.yml publishes on 127.0.0.1 and enables authentication by
+  default; the port is only exposed further with an explicit override.
+- .dockerignore excludes .env and key files, so a local .env is no longer
+  copied into the image by "COPY . .".
+- The key-shaped value in docs/API_AUTHENTICATION.md was replaced with an
+  unmistakable placeholder.
+
+Tests: 454 passed, 0 failed. New: tests/test_auth_hardening.py (12 tests).

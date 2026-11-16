@@ -129,17 +129,19 @@ class TestToolExecutionHonesty(unittest.TestCase):
             conn.commit()
             conn.close()
 
-            resp = self.client.post(
-                "/api/tools/websec_rea_engine/execute",
-                json={
-                    "target": str(artifact),
-                    "options": {
-                        "target_path": str(artifact),
-                        "target_type": "sqlite",
-                        "authorized": True,
+            # The analyser may only read from an allowed root.
+            with patch.dict(os.environ, {"SWA_REA_ALLOWED_ROOTS": tmp}):
+                resp = self.client.post(
+                    "/api/tools/websec_rea_engine/execute",
+                    json={
+                        "target": str(artifact),
+                        "options": {
+                            "target_path": str(artifact),
+                            "target_type": "sqlite",
+                            "authorized": True,
+                        },
                     },
-                },
-            )
+                )
 
         self.assertEqual(resp.status_code, 200)
         payload = resp.json()
@@ -217,6 +219,12 @@ class TestREAStableContract(unittest.TestCase):
         from core.rea_engine import REAEngine
         self.engine = REAEngine()
         self.temp_dir = tempfile.TemporaryDirectory()
+        # The analyser may only read from an allowed root.
+        root_patch = patch.dict(
+            os.environ, {"SWA_REA_ALLOWED_ROOTS": self.temp_dir.name}
+        )
+        root_patch.start()
+        self.addCleanup(root_patch.stop)
 
     def tearDown(self):
         try:
