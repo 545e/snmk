@@ -5,7 +5,7 @@
 | **Revision** | `39f441b` |
 | **Runner** | pytest 9.2.0 on Windows 11 / CPython 3.12.10 |
 | **Command** | `pytest tests/ --ignore=tests/e2e_map_browser_test.py -q` |
-| **Result** | **454 passed, 0 failed, 0 skipped** |
+| **Result** | **465 passed, 0 failed, 0 skipped** |
 | **Wall clock** | 7 min 22 s |
 | **Coverage** | **64.0 %** line coverage (21 795 statements, 14 486 covered) |
 
@@ -20,8 +20,8 @@
 | Metric | Value |
 |---|---|
 | Test modules | 47 |
-| Test functions / methods collected | 454 |
-| Passed | 454 |
+| Test functions / methods collected | 465 |
+| Passed | 465 |
 | Failed | 0 |
 | Skipped | 0 |
 | Errors | 0 |

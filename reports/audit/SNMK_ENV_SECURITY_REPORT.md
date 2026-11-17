@@ -187,7 +187,7 @@ affected.
 
 | ID | Finding | Severity | Status |
 |---|---|---|---|
-| ENV-01 | A mojibake character in the `.env.example` header | Low | **Open** |
+| ENV-01 | A mojibake character in the `.env.example` header | Low | **Withdrawn** — re-checking the bytes showed valid UTF-8 (an em dash). The apparent mojibake was a PowerShell console rendering artifact, not a file defect. No change was made. |
 | ENV-02 | Authentication is off by default | High | **Open** — the container default was changed and the bypass closed |
 | ENV-03 | The platform does not warn at start-up that authentication is disabled | Medium | **Open** |
 | ENV-04 | No start-up check for "authentication enabled but no key configured" | Medium | **Open** |
@@ -196,7 +196,7 @@ affected.
 | ENV-07 | The credential store silently downgrades to a hand-rolled XOR cipher | Medium | **Open** |
 | ENV-08 | The master keyfile lives inside the source tree | Medium | **Open** |
 | ENV-09 | Rotating the encryption key silently invalidates every stored secret | Low | **Open** |
-| ENV-10 | The keyfile is written without an explicit restrictive mode (bandit B103) | Medium | **Open** |
+| ENV-10 | The keyfile is written without an explicit restrictive mode (bandit B103) | Medium | **FIXED** — the keyfile is now created with `os.open(..., 0o600)`, so it is never briefly readable under the process umask. |
 | ENV-11 | The build context included `.env` | High | **FIXED** — `.dockerignore` |
 | ENV-12 | A key-shaped value was committed in the documentation | Medium | **FIXED** — `docs/API_AUTHENTICATION.md` |
 

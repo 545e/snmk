@@ -252,7 +252,14 @@ class _Parser:
 
     def _parse_group(self) -> list[GateGroup]:
         """Parse a parenthesised group, including all ``(?...)`` variants."""
-        assert self.s[self.i] == "("
+        # An explicit check survives ``python -O``, where ``assert`` is
+        # stripped.  The caller only invokes this at a "(" so a violation is
+        # an internal error, but it must still be reported rather than
+        # silently changing the parser's position.
+        if self.s[self.i] != "(":
+            raise ValueError(
+                f"Expected '(' at position {self.i}, got {self.s[self.i]!r}"
+            )
         self.i += 1
         if self._peek() != "?":
             # Plain capturing group.
@@ -325,7 +332,10 @@ class _Parser:
 
     def _skip_char_class(self) -> None:
         """Skip a ``[...]`` character class."""
-        assert self.s[self.i] == "["
+        if self.s[self.i] != "[":
+            raise ValueError(
+                f"Expected '[' at position {self.i}, got {self.s[self.i]!r}"
+            )
         self.i += 1
         if self._peek() == "^":
             self.i += 1

@@ -238,9 +238,10 @@ weight:
 | **B104** | The bind address is hard-coded | **Real in one place.** `SWA_HOST` is read by `run.py` but `web/server.py` hard-codes `0.0.0.0` on some paths. |
 | **B607** | External binaries resolved through `PATH` | **Real.** A poisoned `PATH` substitutes the binary. |
 
-The two `assert` statements in the plugin layer (B101) are also worth
-fixing: an `assert` is stripped under `python -O`, so a check could silently
-disappear in an optimised deployment.
+The three `assert` statements (B101) were in `core/pattern_gating.py`
+and `core/signature_matching.py` — not the plugin layer, as first recorded.
+They have been replaced with explicit checks: an `assert` is stripped under
+`python -O`, so a check could silently disappear in an optimised deployment.
 
 ---
 
@@ -295,7 +296,7 @@ A periodic sweep would bound it.
 | DSA-10 | 35 requests without a timeout | Medium | **Open** |
 | DSA-11 | The bind address is hard-coded on some paths | Low | **Open** |
 | DSA-12 | The external binaries are resolved through `PATH` | Medium | **Open** |
-| DSA-13 | `assert` in the plugin layer is stripped under `python -O` | Medium | **Open** |
+| DSA-13 | Three `assert` invariants are stripped under `python -O` (in `pattern_gating.py` and `signature_matching.py`, not the plugin layer) | Medium | **FIXED** — replaced with explicit checks |
 | DSA-14 | 47 unused local variables | Low | **FIXED** |
 | DSA-15 | 121 pointless `f` prefixes | Low | **FIXED** |
 | DSA-16 | 2 abstract classes are instantiated | Medium | **Open** |

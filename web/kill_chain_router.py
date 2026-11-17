@@ -9,10 +9,14 @@ from __future__ import annotations
 
 import datetime
 import os
-from typing import Any
+import datetime
+import os
+import re
+from pathlib import Path as FilesystemPath
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Path, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
 from core.kill_chain.db import (
@@ -398,11 +402,25 @@ def download_kill_chain_report(
     format: str = Query("html", pattern="^(html|pdf|json|csv|markdown|md)$"),
 ):
     """Downloads report deliverable in specified format."""
-    ext = "md" if format == "markdown" else format
-    output_dir = kill_chain_engine.reporter.output_dir
-    file_path = os.path.join(output_dir, f"{report_id}.{ext}")
+    # ``report_id`` reaches a filesystem path. Restrict it to an identifier
+    # so that path separators, drive letters and traversal sequences cannot
+    # escape the report directory (the format parameter is already
+    # restricted by the pattern above).
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", report_id):
+        raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
-    if not os.path.exists(file_path):
+    ext = "md" if format == "markdown" else format
+    output_dir = FilesystemPath(kill_chain_engine.reporter.output_dir).resolve()
+    file_path = (output_dir / f"{report_id}.{ext}").resolve()
+
+    # Defence in depth: even with the identifier validated, confirm that the
+    # resolved file is inside the report directory before serving it.
+    try:
+        file_path.relative_to(output_dir)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid report identifier.")
+
+    if not file_path.is_file():
         raise HTTPException(status_code=404, detail=f"Report file {report_id}.{ext} not found on server.")
 
     media_types = {

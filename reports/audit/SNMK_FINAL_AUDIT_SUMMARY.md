@@ -55,8 +55,8 @@
 
 | Metric | Value |
 |---|---|
-| Tests collected | 454 |
-| **Tests passed** | **454** |
+| Tests collected | 465 |
+| **Tests passed** | **465** |
 | Tests failed | 0 |
 | Tests skipped | 0 |
 | **Measured coverage** | **64.0 %** |
@@ -76,11 +76,28 @@
 | Severity | Open | Fixed in this pass |
 |---|---|---|
 | **Critical** | **0** | 2 |
-| **High** | 12 | 9 |
-| **Medium** | 41 | 6 |
-| **Low** | 16 | 2 |
+| **High** | 11 | 10 |
+| **Medium** | 38 | 9 |
+| **Low** | 15 | 3 |
 | **Informational** | 6 | — |
-| **Total** | **75** | **19** |
+| **Total** | **70** | **24** |
+
+The post-audit hardening closed four further findings without needing a
+policy decision:
+
+| Finding | Fix |
+|---|---|
+| SEC-20 — path traversal in the kill-chain report download | `report_id` is restricted to `[A-Za-z0-9_-]{1,128}`, and the resolved path is confirmed to be inside the report directory |
+| SEC-23 — the orchestrator sent the encrypted `enc:v1:...` envelope to the LLM provider as the bearer token | The vault read now decrypts the envelope and fails closed when it cannot |
+| SEC-18 — failed-authentication requests bypassed the rate limiter | The limiter is now the outermost middleware, so a rejected credential still consumes the budget |
+| B101 — three `assert` invariants disappear under `python -O` | Replaced with explicit checks in `pattern_gating.py` and `signature_matching.py` |
+
+Also: the keyfile is now created with restrictive permissions from the
+start, the obsolete `X-XSS-Protection` header was removed, and a
+`.gitleaks.toml` allowlist documents the nine known false positives so the
+scanner is actionable. One reported finding (mojibake in `.env.example`) was
+**withdrawn** after re-checking the bytes: the file is valid UTF-8 and the
+appearance was a console artifact.
 
 Across the twenty-seven reports, **218 distinct finding identifiers** were
 raised. The severity table above counts the security-relevant findings with

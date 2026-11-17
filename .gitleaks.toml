@@ -1,0 +1,28 @@
+title = "SNMK gitleaks configuration"
+description = "Allowlists for the scanner's own detection patterns and synthetic test fixtures."
+
+# gitleaks scans the git history as well as the working tree. Without these
+# allowlists ten findings are reported every run, nine of which are known to
+# be safe. A noisy scanner trains people to ignore it; these entries document
+# exactly why each path is safe so that a real secret still stands out.
+
+[[allowlists]]
+description = "This module contains the regular expressions that DETECT secrets, including private keys and JWTs. The matches are the patterns themselves, never live credentials."
+paths = ['''core/js_intelligence\.py''']
+
+[[allowlists]]
+description = "Synthetic fixtures for the detection-corpus test suites."
+paths = [
+  '''tests/test_dsa_signatures\.py''',
+  '''tests/test_api_key_management_suite\.py''',
+  '''tests/test_integrations_and_ai_models\.py''',
+  '''tests/test_report_engine\.py''',
+]
+
+[[allowlists]]
+description = "Documentation examples, including a deliberately truncated placeholder."
+paths = ['''docs/.*''']
+
+[[allowlists]]
+description = "The .env template contains placeholders only."
+paths = ['''\.env\.example''']

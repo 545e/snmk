@@ -222,7 +222,10 @@ class SignatureMatcher:
             # No safe localisation: fall back to the original whole-body scan.
             return sig.regex.search(text) is not None
 
-        assert sig.locator_regex is not None
+        if sig.locator_regex is None:
+            # A signature with a required literal but no locator cannot be
+            # line-partitioned. Fall back to the safe whole-body scan.
+            return sig.regex.search(text) is not None
         # Locate the distinct lines that contain the required literal.
         target_lines: set = set()
         for m in sig.locator_regex.finditer(text):

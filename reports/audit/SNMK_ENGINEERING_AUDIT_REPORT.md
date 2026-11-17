@@ -73,8 +73,8 @@ external-binary management. The detail is in `SNMK_ARCHITECTURE_REPORT.md`.
 
 | Metric | Value |
 |---|---|
-| Tests collected | 454 |
-| Tests passed | **454** |
+| Tests collected | 465 |
+| Tests passed | **465** |
 | Tests failed | 0 |
 | Tests skipped | 0 |
 | Wall clock | 7 min 22 s |
@@ -231,7 +231,7 @@ findings, the 85 duplicated blocks and the 3.6-second import time.
   observed, the kill-chain loader reports its own truncation, the tool
   executor distinguishes "ran" from "did not run", and the tier-4 caveat is
   documented. This is unusual and valuable.
-* **The test suite is substantive.** 454 tests that assert behaviour rather
+* **The test suite is substantive.** 465 tests that assert behaviour rather
   than the presence of a symbol, and it caught two defects introduced by
   this very pass.
 * **The dependency posture is clean.** 19 direct dependencies, 46 resolved,
