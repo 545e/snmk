@@ -483,6 +483,21 @@ CREWAI_UNIVERSAL_SCANNER_SPECS: list[dict[str, Any]] = [
     },
 ]
 
+CREWAI_SPECIALIST_SPECS: list[dict[str, Any]] = [
+    {
+        "role": "Cryptography Analysis Agent",
+        "goal": "Analyze cryptographic primitives, detect deprecated ciphers, evaluate key strengths, and execute authenticated encryption/decryption workflows.",
+        "backstory": "Principal cryptographer specializing in AES-GCM, ChaCha20-Poly1305, RSA-OAEP, post-quantum readiness, and recipe transformations.",
+        "tools": ["crypto_engine", "recipe_runner", "key_generator"],
+    },
+    {
+        "role": "PCAP Forensics Agent",
+        "goal": "Inspect packet captures, reconstruct network flows, detect SYN flood and port scan anomalies, and identify covert DNS exfiltration channels.",
+        "backstory": "Network security and deep packet inspection specialist with expertise in protocol dissection, flow analysis, and C2 detection.",
+        "tools": ["pcap_analyzer", "flow_reconstructor", "anomaly_detector"],
+    },
+]
+
 
 def get_universal_scanner_fleet() -> list[SNMKCrewAIAgent]:
     """Instantiates the fleet of 12 specialized CrewAI agents for Universal Vulnerability Scanning."""

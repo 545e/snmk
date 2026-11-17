@@ -335,6 +335,8 @@ class CryptoWorkbenchEngine:
                     step_output = self.decode(current_data, "url")["output"]
                 elif op_name in ("rot13",):
                     step_output = self.encode(current_data, "rot13")["output"]
+                elif op_name in ("reverse", "invert"):
+                    step_output = current_data[::-1]
                 elif op_name.startswith("hash_") or op_name in ("sha256", "sha512", "md5", "sha1"):
                     algo = op_name.replace("hash_", "")
                     step_output = self.compute_hash(current_data.encode("utf-8"), algorithm=algo)["hex_digest"]

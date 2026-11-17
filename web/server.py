@@ -4318,53 +4318,7 @@ async def observability_status():
 
 
 
-@app.get("/api/alerts")
-
-async def list_alerts(
-    severity: Optional[str] = Query(None, pattern="^(critical|high|medium|low|info)$"),
-    status: Optional[str] = Query(None, pattern="^(open|acknowledged|assigned|suppressed|resolved)$"),
-    source: Optional[str] = None,
-    limit: int = Query(100, ge=1, le=500),
-):
-    """Lists real alerts with optional filtering."""
-
-    from core.alert_manager import manager as alerts
-
-    return {"alerts": alerts.list(severity=severity, status=status, source=source, limit=limit),
-            "summary": alerts.summary()}
-
-
-
-@app.get("/api/alerts/summary")
-
-async def alert_summary():
-
-    from core.alert_manager import manager as alerts
-
-    return alerts.summary()
-
-
-
-@app.post("/api/alerts")
-
-async def create_alert(req: AlertCreateRequest):
-
-    """Creates an alert from an observed event."""
-
-    from core.alert_manager import Severity, manager as alerts
-
-    alert = alerts.create(
-        title=req.title,
-        severity=Severity(req.severity),
-        source=req.source,
-        component=req.component,
-        description=req.description,
-        evidence=req.evidence,
-        related_id=req.related_id,
-        remediation=req.remediation,
-    )
-
-    return alert.to_dict()
+# (Alerts list, summary, and creation endpoints are implemented below with full category/status support)
 
 
 
@@ -8626,7 +8580,8 @@ async def list_alerts_endpoint(
     from core.alert_manager import alert_manager
     return {
         "alerts": alert_manager.get_alerts(severity=severity, category=category, status=status, limit=limit),
-        "total": len(alert_manager._alerts)
+        "total": len(alert_manager._alerts),
+        "summary": alert_manager.summary()
     }
 
 @app.get("/api/alerts/summary")
@@ -8852,6 +8807,178 @@ async def download_universal_scan_report_endpoint(scan_id: str, format: str = Qu
         media_type=media_type,
         headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
+
+
+# =====================================================================
+# Security Flag Identification Engine Endpoints (Phase 7)
+# =====================================================================
+
+@app.get("/api/v1/flags/catalog")
+async def get_security_flags_catalog_endpoint(category: Optional[str] = None):
+    """Returns the standardized catalog of security flags across all 6 categories."""
+    from core.security_flags import FLAG_CATALOG
+    cat_items = {}
+    for name, meta in FLAG_CATALOG.items():
+        cat_val = meta.get("category").value if hasattr(meta.get("category"), "value") else str(meta.get("category"))
+        if not category or cat_val.lower() == category.lower():
+            cat_items[name] = {
+                "name": name,
+                "category": cat_val,
+                "severity": meta.get("severity").value if hasattr(meta.get("severity"), "value") else str(meta.get("severity")),
+                "impact": meta.get("impact", ""),
+                "rem": meta.get("rem", "")
+            }
+    return {
+        "catalog": cat_items,
+        "total": len(FLAG_CATALOG)
+    }
+
+@app.get("/api/v1/flags")
+async def list_security_flags_endpoint(
+    category: Optional[str] = None,
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Lists identified security flag instances with filtering."""
+    from core.security_flags import security_flags_engine
+    return {
+        "flags": security_flags_engine.list_flags(
+            category=category,
+            severity=severity,
+            status=status,
+            limit=limit
+        ),
+        "summary": security_flags_engine.get_summary()
+    }
+
+@app.post("/api/v1/flags")
+async def record_security_flag_endpoint(payload: Dict[str, Any]):
+    """Records an identified security flag occurrence."""
+    from core.security_flags import security_flags_engine
+    flag_name = payload.get("flag_name") or payload.get("flag_code")
+    if not flag_name:
+        raise HTTPException(status_code=400, detail="Missing required 'flag_name' or 'flag_code'")
+    flag = security_flags_engine.raise_flag(
+        flag_name=flag_name,
+        target_ref=payload.get("affected_asset") or payload.get("target_ref", "Target Infrastructure"),
+        evidence=payload.get("evidence", ""),
+        confidence_score=float(payload.get("confidence", 0.85)),
+        detection_source=payload.get("source_module", "api"),
+    )
+    return flag.to_dict()
+
+@app.patch("/api/v1/flags/{flag_id}/review")
+async def review_security_flag_endpoint(flag_id: str, payload: Dict[str, Any]):
+    """Updates security flag verification status (CONFIRMED, FALSE_POSITIVE, RESOLVED, etc.)."""
+    from core.security_flags import security_flags_engine
+    status = payload.get("status", "CONFIRMED")
+    reviewer = payload.get("reviewer", "sec_engineer")
+    notes = payload.get("notes")
+    ok = security_flags_engine.update_verification_status(flag_id=flag_id, status=status, reviewer=reviewer, notes=notes)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Flag not found")
+    return {"success": True, "flag_id": flag_id, "verification_status": status}
+
+@app.get("/api/v1/flags/summary")
+async def get_security_flags_summary_endpoint():
+    """Provides high-level posture metrics for security flags."""
+    from core.security_flags import security_flags_engine
+    return security_flags_engine.get_summary()
+
+
+# =====================================================================
+# Cross-Module Security Correlation Engine Endpoints (Phase 10)
+# =====================================================================
+
+@app.post("/api/v1/correlation/analyze")
+async def trigger_correlation_analysis_endpoint(payload: Optional[Dict[str, Any]] = None):
+    """Runs cross-module correlation rules across Universal Scanner, Flags, PCAP, and Crypto."""
+    from core.correlation_engine import correlation_engine
+    from core.security_flags import security_flags_engine
+    from core.universal_scanner import universal_scanner
+
+    payload = payload or {}
+    scanner_findings = payload.get("scanner_findings")
+    if scanner_findings is None:
+        scanner_findings = []
+        for job in universal_scanner.list_jobs(limit=5):
+            scanner_findings.extend(job.get("findings", []))
+
+    sec_flags = payload.get("security_flags")
+    if sec_flags is None:
+        sec_flags = security_flags_engine.list_flags(limit=100)
+
+    pcap_anomalies = payload.get("pcap_anomalies", [])
+    crypto_findings = payload.get("crypto_findings", [])
+
+    incidents = correlation_engine.correlate(
+        scanner_findings=scanner_findings,
+        security_flags=sec_flags,
+        pcap_anomalies=pcap_anomalies,
+        crypto_findings=crypto_findings
+    )
+    return {
+        "success": True,
+        "correlated_incidents_generated": len(incidents),
+        "incidents": [i.to_dict() for i in incidents]
+    }
+
+@app.get("/api/v1/correlation/incidents")
+async def list_correlated_incidents_endpoint(
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50
+):
+    """Lists correlated multi-stage security incidents with MITRE mapping."""
+    from core.correlation_engine import correlation_engine
+    return {
+        "incidents": correlation_engine.list_incidents(severity=severity, status=status, limit=limit),
+        "metrics": correlation_engine.get_metrics()
+    }
+
+@app.get("/api/v1/correlation/incidents/{incident_id}")
+async def get_correlated_incident_endpoint(incident_id: str):
+    """Retrieves full details, evidence timeline, and attack stages of an incident."""
+    from core.correlation_engine import correlation_engine
+    inc = correlation_engine.get_incident(incident_id)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return inc
+
+@app.patch("/api/v1/correlation/incidents/{incident_id}/status")
+async def update_incident_status_endpoint(incident_id: str, payload: Dict[str, Any]):
+    """Updates the triage / response state of a correlated incident."""
+    from core.correlation_engine import correlation_engine
+    new_status = payload.get("status", "INVESTIGATING")
+    notes = payload.get("notes")
+    ok = correlation_engine.update_incident_status(incident_id, new_status=new_status, notes=notes)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Incident not found or invalid status")
+    return {"success": True, "incident_id": incident_id, "status": new_status}
+
+@app.get("/api/v1/correlation/metrics")
+async def get_correlation_metrics_endpoint():
+    """Returns aggregated correlation and attack chain metrics."""
+    from core.correlation_engine import correlation_engine
+    return correlation_engine.get_metrics()
+
+
+# =====================================================================
+# Standalone Microservices Gateway Integration (Phases 8 & 9)
+# =====================================================================
+
+try:
+    from services.crypto_service.main import router as crypto_service_router
+    app.include_router(crypto_service_router)
+except Exception as e:
+    logger.warning(f"Failed to mount Crypto Service router: {e}")
+
+try:
+    from services.pcap_service.main import router as pcap_service_router
+    app.include_router(pcap_service_router)
+except Exception as e:
+    logger.warning(f"Failed to mount PCAP Service router: {e}")
 
 
 # Mount static web UI files

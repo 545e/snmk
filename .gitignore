@@ -32,6 +32,10 @@ Thumbs.db
 # Dynamic upload, dataset, checkpoint and cache directories
 data/rea_uploads/*
 !data/rea_uploads/.gitkeep
+data/universal_uploads/*
+!data/universal_uploads/.gitkeep
+data/pcap_uploads/*
+!data/pcap_uploads/.gitkeep
 data/datasets/*
 !data/datasets/.gitkeep
 data/model_checkpoints/*

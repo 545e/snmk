@@ -336,10 +336,46 @@ class SecurityFlagEngine:
             "high_count": high,
             "medium_count": med,
             "low_count": low,
+            "by_severity": {
+                "CRITICAL": crit,
+                "HIGH": high,
+                "MEDIUM": med,
+                "LOW": low,
+            },
             "by_category": by_cat,
             "by_status": by_status,
             "catalog_count": len(FLAG_CATALOG)
         }
+
+    def get_metrics(self) -> Dict[str, Any]:
+        return self.get_summary()
+
+    def get_catalog(self, category: Optional[str] = None) -> Dict[str, Any]:
+        if not category:
+            return FLAG_CATALOG
+        return {
+            k: v for k, v in FLAG_CATALOG.items()
+            if (v.get("category").value if hasattr(v.get("category"), "value") else str(v.get("category"))).lower() == category.lower()
+        }
+
+    def record_flag(
+        self,
+        flag_code: str,
+        affected_asset: str = "Target Infrastructure",
+        source_module: str = "api",
+        evidence: str = "",
+        confidence: float = 0.85,
+    ) -> SecurityFlag:
+        return self.raise_flag(
+            flag_name=flag_code,
+            target_ref=affected_asset,
+            evidence=evidence,
+            confidence_score=confidence,
+            detection_source=source_module,
+        )
+
+    def review_flag(self, flag_id: str, new_status: str, reviewer: str = "auditor", notes: Optional[str] = None) -> bool:
+        return self.update_verification_status(flag_id=flag_id, status=new_status, reviewer=reviewer, notes=notes)
 
     def _persist_flag(self, flag: SecurityFlag):
         try:
@@ -389,3 +425,4 @@ class SecurityFlagEngine:
 
 # Singleton instance
 security_flag_engine = SecurityFlagEngine()
+security_flags_engine = security_flag_engine

@@ -353,10 +353,12 @@ class PcapAnalyzerEngine:
 
         # Cleartext Basic Auth
         if "Authorization: Basic " in text:
-            creds_list.append({"pkt": pkt_no, "src": src_ip, "dst": dst_ip, "type": "HTTP Basic Auth"})
+            creds_list.append({"pkt": pkt_no, "src": src_ip, "dst": dst_ip, "type": "HTTP Basic Auth", "snippet": "Authorization: Basic ..."})
         # Cleartext POST Credentials
-        elif re.search(r"(?i)(?:password|passwd|pwd)=[^\s&]+", text):
-            creds_list.append({"pkt": pkt_no, "src": src_ip, "dst": dst_ip, "type": "HTTP POST Form Password"})
+        else:
+            match = re.search(r"(?i)(?:password|passwd|pwd)=[^\s&]+", text)
+            if match:
+                creds_list.append({"pkt": pkt_no, "src": src_ip, "dst": dst_ip, "type": "HTTP POST Form Password", "snippet": match.group(0)})
 
         return first_line
 
@@ -431,7 +433,7 @@ class PcapAnalyzerEngine:
                 confidence=0.98,
                 title=f"Clear-Text Credentials Transmitted over Network ({c['type']})",
                 description=f"Unencrypted authentication data was observed in packet #{c['pkt']} from {c['src']} to {c['dst']}.",
-                evidence=f"Observed in packet #{c['pkt']} via unencrypted HTTP transport.",
+                evidence=f"Observed in packet #{c['pkt']} via unencrypted HTTP transport. Snippet: {c.get('snippet', '')}",
                 src_endpoint=c["src"],
                 dst_endpoint=c["dst"],
                 protocol="HTTP",

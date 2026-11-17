@@ -285,6 +285,7 @@ class AlertManager:
             for existing in reversed(self._alerts):
                 if (
                     existing.title == alert.title
+                    and existing.affected_asset == alert.affected_asset
                     and existing.source == alert.source
                     and existing.status != AlertStatus.RESOLVED
                 ):
@@ -443,48 +444,45 @@ class AlertManager:
         return [a.to_dict() for a in items[:max(1, min(limit, 500))]]
 
     def summary(self) -> dict[str, Any]:
-        from collections import Counter
-
-        with self._lock:
-            items = list(self._alerts)
-        return {
-            "total": len(items),
-            "by_severity": dict(Counter((a.severity.value if hasattr(a.severity, "value") else str(a.severity)).lower() for a in items)),
-            "by_status": dict(Counter((a.status.value if hasattr(a.status, "value") else str(a.status)).lower() for a in items)),
-            "open": sum(1 for a in items if a.status != AlertStatus.RESOLVED),
-            "suppression_rules": len(self._suppressed),
-            "channels_configured": sorted(self._channels),
-        }
+        return self.get_summary()
 
     def get_summary(self) -> Dict[str, Any]:
-        """Provides high-level alert posture metrics for the SOC dashboard."""
+        """Provides high-level alert posture metrics for the SOC dashboard and Platform Engineering."""
+        from collections import Counter
+
         counts_by_severity = {s.value: 0 for s in AlertSeverity}
         counts_by_category = {c.value: 0 for c in AlertCategory}
         counts_by_status = {st.value: 0 for st in AlertStatus}
 
         with self._lock:
-            for a in self._alerts:
-                sev_u = (a.severity.value if hasattr(a.severity, "value") else str(a.severity)).upper()
-                if sev_u in counts_by_severity:
-                    counts_by_severity[sev_u] += 1
-                cat_u = a.category.upper()
-                if cat_u in counts_by_category:
-                    counts_by_category[cat_u] += 1
-                st_u = (a.status.value if hasattr(a.status, "value") else str(a.status)).upper()
-                if st_u in counts_by_status:
-                    counts_by_status[st_u] += 1
+            items = list(self._alerts)
 
-            total = len(self._alerts)
-            active = sum(1 for a in self._alerts if a.status not in (AlertStatus.RESOLVED, AlertStatus.SUPPRESSED))
+        for a in items:
+            sev_u = (a.severity.value if hasattr(a.severity, "value") else str(a.severity)).upper()
+            if sev_u in counts_by_severity:
+                counts_by_severity[sev_u] += 1
+            cat_u = a.category.upper()
+            if cat_u in counts_by_category:
+                counts_by_category[cat_u] += 1
+            st_u = (a.status.value if hasattr(a.status, "value") else str(a.status)).upper()
+            if st_u in counts_by_status:
+                counts_by_status[st_u] += 1
+
+        total = len(items)
+        active = sum(1 for a in items if a.status not in (AlertStatus.RESOLVED, AlertStatus.SUPPRESSED))
 
         return {
+            "total": total,
             "total_alerts": total,
+            "open": active,
             "active_alerts": active,
             "critical_count": counts_by_severity.get("CRITICAL", 0),
             "high_count": counts_by_severity.get("HIGH", 0),
             "by_severity": counts_by_severity,
             "by_category": counts_by_category,
             "by_status": counts_by_status,
+            "suppression_rules": len(self._suppressed),
+            "channels_configured": sorted(self._channels),
             "last_updated": datetime.now(UTC).isoformat(),
         }
 

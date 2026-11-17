@@ -1642,6 +1642,10 @@ function stopScanTimer() {
 // Master SOC Navigation Dispatcher & View Switcher (Generation 3 Unified Architecture)
 const VIEW_CONTAINER_MAP = {
     'universal_scanner': 'viewUniversalScanner',
+    'security_flags': 'viewSecurityFlags',
+    'crypto_workbench': 'viewCryptoWorkbench',
+    'pcap_analyzer': 'viewPcapAnalyzer',
+    'correlation': 'viewCorrelation',
     'dashboard': 'viewDashboard',
     'assessments': 'viewAssessments',
     'assessment_details': 'viewAssessments',
@@ -17250,3 +17254,245 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     observer.observe(target, { attributes: true, attributeFilter: ['class'] });
 });
+
+// =====================================================================
+// Security Flags & Multi-Module Controllers (Phases 7, 8, 9, 10)
+// =====================================================================
+
+async function loadSecurityFlags() {
+    try {
+        const cat = document.getElementById('flagCategoryFilter')?.value || '';
+        const url = cat ? `/api/v1/flags?category=${encodeURIComponent(cat)}` : '/api/v1/flags';
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        const flags = data.flags || [];
+        const summary = data.summary || {};
+
+        const updateEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined ? val : 0;
+        };
+
+        updateEl('flagTotalCount', summary.total_flags);
+        updateEl('flagConfirmedCount', (summary.by_status && summary.by_status['CONFIRMED']) || 0);
+        updateEl('flagSuspectedCount', (summary.by_status && summary.by_status['SUSPECTED']) || 0);
+        updateEl('flagCritCount', summary.critical_count);
+        updateEl('flagHighCount', summary.high_count);
+
+        const tbody = document.getElementById('flagsTableBody');
+        if (!tbody) return;
+        if (flags.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No security flags recorded yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = flags.map(f => {
+            const sevColor = f.severity === 'CRITICAL' ? '#ef4444' : (f.severity === 'HIGH' ? '#f97316' : '#f59e0b');
+            return `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 8px 12px; font-weight: 700;">${escapeHtml(f.flag_name)}</td>
+                    <td style="padding: 8px 12px; font-size: 11px; color: var(--text-muted);">${escapeHtml(f.category)}</td>
+                    <td style="padding: 8px 12px;"><span style="color: ${sevColor}; font-weight: 700;">${escapeHtml(f.severity)}</span></td>
+                    <td style="padding: 8px 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.target_ref || f.affected_component || '—')}</td>
+                    <td style="padding: 8px 12px;"><span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); font-weight: 600;">${escapeHtml(f.verification_status)}</span></td>
+                    <td style="padding: 8px 12px;">
+                        <button class="btn btn-secondary" onclick="updateFlagStatusUI('${f.id}', 'CONFIRMED')" style="padding: 3px 6px; font-size: 10.5px; margin-right: 4px;">Confirm</button>
+                        <button class="btn btn-secondary" onclick="updateFlagStatusUI('${f.id}', 'FALSE_POSITIVE')" style="padding: 3px 6px; font-size: 10.5px;">FP</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.warn('loadSecurityFlags error:', e);
+    }
+}
+
+async function updateFlagStatusUI(flagId, newStatus) {
+    try {
+        const res = await fetch(`/api/v1/flags/${flagId}/review`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus, reviewer: 'soc_analyst' })
+        });
+        if (res.ok) loadSecurityFlags();
+    } catch (e) {
+        console.warn('updateFlagStatusUI error:', e);
+    }
+}
+
+async function executeCryptoOperation() {
+    const input = document.getElementById('cryptoInputText')?.value || '';
+    const scheme = document.getElementById('cryptoSchemeSelect')?.value || 'hash_sha256';
+    const outputEl = document.getElementById('cryptoOutputText');
+    const badgeEl = document.getElementById('cryptoStatusBadge');
+    const warningEl = document.getElementById('cryptoWarningBox');
+
+    if (!input) {
+        alert('Please enter payload or text to process.');
+        return;
+    }
+
+    if (badgeEl) { badgeEl.innerText = 'PROCESSING...'; badgeEl.style.color = '#38bdf8'; }
+    if (warningEl) warningEl.style.display = 'none';
+
+    try {
+        let endpoint = '';
+        let payload = {};
+
+        if (scheme.startsWith('enc_')) {
+            endpoint = '/api/v1/crypto/encode';
+            payload = { text: input, scheme: scheme.replace('enc_', '') };
+        } else if (scheme.startsWith('dec_')) {
+            endpoint = '/api/v1/crypto/decode';
+            payload = { text: input, scheme: scheme.replace('dec_', '') };
+        } else if (scheme.startsWith('hash_')) {
+            endpoint = '/api/v1/crypto/hash';
+            payload = { data: input, algorithm: scheme.replace('hash_', '') };
+        } else if (scheme.startsWith('encrypt_')) {
+            endpoint = '/api/v1/crypto/encrypt';
+            payload = { plaintext: input, algorithm: scheme.replace('encrypt_', '').replace('_', '-') };
+        } else if (scheme === 'rot13') {
+            endpoint = '/api/v1/crypto/encode';
+            payload = { text: input, scheme: 'rot13' };
+        }
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (outputEl) {
+            outputEl.value = JSON.stringify(data, null, 2);
+        }
+        if (badgeEl) {
+            badgeEl.innerText = res.ok ? 'SUCCESS' : 'FAILED';
+            badgeEl.style.color = res.ok ? '#10b981' : '#ef4444';
+        }
+        if (data.warning && warningEl) {
+            warningEl.innerText = data.warning;
+            warningEl.style.display = 'block';
+        }
+    } catch (e) {
+        if (outputEl) outputEl.value = 'Operation failed: ' + e.message;
+        if (badgeEl) { badgeEl.innerText = 'ERROR'; badgeEl.style.color = '#ef4444'; }
+    }
+}
+
+let selectedPcapFile = null;
+
+function handlePcapFileSelect(input) {
+    if (input.files && input.files.length > 0) {
+        selectedPcapFile = input.files[0];
+        const label = document.getElementById('pcapSelectedFile');
+        if (label) label.innerText = `Selected capture: ${selectedPcapFile.name} (${(selectedPcapFile.size / 1024 / 1024).toFixed(2)} MB)`;
+        const btn = document.getElementById('pcapAnalyzeBtn');
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function uploadAndAnalyzePcap() {
+    if (!selectedPcapFile) return;
+    const btn = document.getElementById('pcapAnalyzeBtn');
+    if (btn) { btn.disabled = true; btn.innerText = 'ANALYZING CAPTURE...'; }
+
+    const formData = new FormData();
+    formData.append('file', selectedPcapFile);
+
+    try {
+        const res = await fetch('/api/v1/pcap/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (res.ok && data.analysis_id) {
+            pollPcapAnalysis(data.analysis_id);
+        } else {
+            alert('Analysis failed: ' + (data.detail || 'Upload error'));
+            if (btn) { btn.disabled = false; btn.innerText = 'ANALYZE PACKET CAPTURE'; }
+        }
+    } catch (e) {
+        alert('PCAP analysis network error: ' + e.message);
+        if (btn) { btn.disabled = false; btn.innerText = 'ANALYZE PACKET CAPTURE'; }
+    }
+}
+
+async function pollPcapAnalysis(analysisId) {
+    const deck = document.getElementById('pcapResultsDeck');
+    const threatsList = document.getElementById('pcapThreatsList');
+    const btn = document.getElementById('pcapAnalyzeBtn');
+
+    try {
+        const res = await fetch(`/api/v1/pcap/analysis/${analysisId}`);
+        if (!res.ok) return;
+        const result = await res.json();
+
+        if (deck) deck.style.display = 'block';
+        if (btn) { btn.disabled = false; btn.innerText = 'ANALYZE PACKET CAPTURE'; }
+
+        const findings = result.findings || [];
+        if (threatsList) {
+            if (findings.length === 0) {
+                threatsList.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">No anomalies or threat indicators detected in this packet stream.</div>';
+            } else {
+                threatsList.innerHTML = findings.map(f => `
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-weight: 700; color: #ef4444; font-size: 13.5px;">${escapeHtml(f.title)}</span>
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;">${escapeHtml(f.severity)}</span>
+                        </div>
+                        <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px;">${escapeHtml(f.description)}</div>
+                        <div style="font-family: monospace; font-size: 11.5px; color: #f59e0b; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 4px;">${escapeHtml(f.evidence)}</div>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (e) {
+        console.warn('pollPcapAnalysis error:', e);
+    }
+}
+
+async function triggerCorrelationAnalysis() {
+    const container = document.getElementById('correlationIncidentsContainer');
+    if (container) container.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">Synthesizing multi-stage attack chains across all modules...</div>';
+
+    try {
+        const res = await fetch('/api/v1/correlation/analyze', { method: 'POST' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const incidents = data.incidents || [];
+
+        if (container) {
+            if (incidents.length === 0) {
+                container.innerHTML = '<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; color: var(--text-muted);">No compound security incidents detected across current active findings.</div>';
+                return;
+            }
+
+            container.innerHTML = incidents.map(inc => `
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-card);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="font-size: 16px; font-weight: 800; color: #ef4444; margin: 0;">${escapeHtml(inc.title)}</h4>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;">${escapeHtml(inc.severity)}</span>
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">CONFIDENCE: ${(inc.confidence_score * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 10px 0;">${escapeHtml(inc.description)}</p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                        ${(inc.attack_stages || []).map(s => `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 4px; background: rgba(168, 85, 247, 0.15); color: #c084fc; font-weight: 600;">STAGE: ${escapeHtml(s)}</span>`).join('')}
+                    </div>
+                    <div style="background: var(--bg-dark); padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid var(--border);">
+                        <strong>Recommended Actions:</strong>
+                        <ul style="margin: 4px 0 0 0; padding-left: 20px;">
+                            ${(inc.recommended_actions || []).map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (e) {
+        if (container) container.innerHTML = '<div style="padding: 24px; text-align: center; color: #ef4444;">Correlation analysis failed: ' + e.message + '</div>';
+    }
+}

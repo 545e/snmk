@@ -348,6 +348,99 @@ class MySQLDatabaseManager:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_sal_scan (scan_id)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS security_flags (
+                id VARCHAR(64) PRIMARY KEY,
+                flag_name VARCHAR(256) NOT NULL,
+                category VARCHAR(64) NOT NULL,
+                severity VARCHAR(32) NOT NULL,
+                confidence_score FLOAT DEFAULT 0.8,
+                verification_status VARCHAR(32) DEFAULT 'NOT_VERIFIED',
+                detection_source VARCHAR(128),
+                target_ref VARCHAR(1024),
+                evidence TEXT,
+                timestamp VARCHAR(64),
+                affected_component VARCHAR(256),
+                technical_explanation TEXT,
+                business_impact TEXT,
+                recommended_remediation TEXT,
+                related_flags JSON,
+                detector_agent_or_tool VARCHAR(128),
+                reviewer_notes TEXT,
+                reviewed_by VARCHAR(128),
+                reviewed_at VARCHAR(64),
+                INDEX idx_sf_cat (category),
+                INDEX idx_sf_sev (severity),
+                INDEX idx_sf_status (verification_status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS crypto_operations (
+                id VARCHAR(64) PRIMARY KEY,
+                operation_type VARCHAR(64) NOT NULL,
+                algorithm VARCHAR(64) NOT NULL,
+                input_length INT DEFAULT 0,
+                output_length INT DEFAULT 0,
+                status VARCHAR(32) NOT NULL DEFAULT 'SUCCESS',
+                details JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_crypto_op (operation_type),
+                INDEX idx_crypto_algo (algorithm)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS pcap_analyses (
+                id VARCHAR(64) PRIMARY KEY,
+                filename VARCHAR(512) NOT NULL,
+                file_size_bytes BIGINT DEFAULT 0,
+                total_packets INT DEFAULT 0,
+                duration_seconds FLOAT DEFAULT 0.0,
+                status VARCHAR(32) NOT NULL DEFAULT 'COMPLETED',
+                protocol_distribution JSON,
+                top_talkers JSON,
+                started_at VARCHAR(64),
+                completed_at VARCHAR(64),
+                INDEX idx_pcap_status (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS pcap_findings (
+                id VARCHAR(64) PRIMARY KEY,
+                analysis_id VARCHAR(64) NOT NULL,
+                flag_name VARCHAR(128) NOT NULL,
+                severity VARCHAR(32) NOT NULL,
+                confidence FLOAT DEFAULT 0.85,
+                title VARCHAR(512) NOT NULL,
+                description TEXT,
+                evidence TEXT,
+                src_endpoint VARCHAR(128),
+                dst_endpoint VARCHAR(128),
+                protocol VARCHAR(32),
+                remediation TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_pcapf_analysis (analysis_id),
+                INDEX idx_pcapf_sev (severity)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS correlated_incidents (
+                incident_id VARCHAR(64) PRIMARY KEY,
+                title VARCHAR(512) NOT NULL,
+                severity VARCHAR(32) NOT NULL,
+                confidence_score FLOAT DEFAULT 0.9,
+                attack_stages JSON,
+                description TEXT,
+                affected_assets JSON,
+                events_json JSON,
+                mitre_tactics JSON,
+                recommended_actions JSON,
+                status VARCHAR(32) NOT NULL DEFAULT 'NEW',
+                created_at VARCHAR(64),
+                updated_at VARCHAR(64),
+                INDEX idx_corr_sev (severity),
+                INDEX idx_corr_st (status)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
         ]
 
