@@ -1,6 +1,6 @@
 # SWA AI — Missing Cybersecurity Capabilities & Remediation Roadmap
 **Document ID:** SEC-GAP-2026-003  
-**Generated:** 2026-11-01T06:13:28.585946+00:00  
+**Generated:** 2026-11-17T06:16:20.775787+00:00  
 
 ---
 

@@ -1,6 +1,6 @@
 # SWA AI — Security Agent Workforce Audit
 **Document ID:** SEC-AGENT-2026-008  
-**Generated:** 2026-11-01T06:13:28.585946+00:00  
+**Generated:** 2026-11-17T06:16:20.775787+00:00  
 
 ---
 
