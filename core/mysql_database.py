@@ -271,6 +271,83 @@ class MySQLDatabaseManager:
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 INDEX idx_audit_event (event_type)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS universal_scans (
+                id VARCHAR(64) PRIMARY KEY,
+                user_id VARCHAR(64) DEFAULT 'operator',
+                scan_type VARCHAR(32) NOT NULL,
+                target VARCHAR(1024) NOT NULL,
+                status VARCHAR(32) NOT NULL DEFAULT 'QUEUED',
+                started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                completed_at TIMESTAMP NULL,
+                total_files INT DEFAULT 0,
+                total_findings INT DEFAULT 0,
+                critical_count INT DEFAULT 0,
+                high_count INT DEFAULT 0,
+                medium_count INT DEFAULT 0,
+                low_count INT DEFAULT 0,
+                info_count INT DEFAULT 0,
+                scan_configuration JSON,
+                INDEX idx_univ_status (status),
+                INDEX idx_univ_type (scan_type)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS uploaded_files (
+                id VARCHAR(64) PRIMARY KEY,
+                scan_id VARCHAR(64) NOT NULL,
+                original_filename VARCHAR(512) NOT NULL,
+                detected_file_type VARCHAR(64) NOT NULL,
+                file_size BIGINT NOT NULL DEFAULT 0,
+                sha256_hash VARCHAR(64) NOT NULL,
+                processing_status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+                storage_reference VARCHAR(1024),
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_upfiles_scan (scan_id),
+                INDEX idx_upfiles_hash (sha256_hash)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS vulnerability_findings (
+                id VARCHAR(64) PRIMARY KEY,
+                scan_id VARCHAR(64) NOT NULL,
+                file_id VARCHAR(64),
+                finding_title VARCHAR(512) NOT NULL,
+                severity VARCHAR(32) NOT NULL,
+                confidence VARCHAR(32) DEFAULT 'CONFIRMED',
+                description TEXT,
+                evidence TEXT,
+                remediation TEXT,
+                scanner_name VARCHAR(128) NOT NULL,
+                location VARCHAR(512),
+                cwe_id VARCHAR(64),
+                cvss_score FLOAT DEFAULT 0.0,
+                status VARCHAR(32) DEFAULT 'OPEN',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_vf_scan (scan_id),
+                INDEX idx_vf_sev (severity)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS scan_reports (
+                id VARCHAR(64) PRIMARY KEY,
+                scan_id VARCHAR(64) NOT NULL,
+                report_type VARCHAR(32) NOT NULL,
+                report_reference TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_sr_scan (scan_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS scan_audit_logs (
+                id BIGINT AUTO_INCREMENT PRIMARY KEY,
+                scan_id VARCHAR(64) NOT NULL,
+                event_type VARCHAR(128) NOT NULL,
+                event_details JSON,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_sal_scan (scan_id)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
             """
         ]
 

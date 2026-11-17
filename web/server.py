@@ -8364,6 +8364,189 @@ async def update_alert_status_endpoint(alert_id: str, payload: Dict[str, Any]):
     return {"success": True, "alert_id": alert_id, "status": status}
 
 
+# =====================================================================
+# Universal Vulnerability Scanner Endpoints (Master Module)
+# =====================================================================
+
+@app.post("/api/universal-scanner/scan/url")
+async def universal_scan_url_endpoint(
+    payload: Dict[str, Any],
+    background_tasks: BackgroundTasks,
+    request: Request
+):
+    """Initiates an asynchronous vulnerability scan for a website or web application URL."""
+    from core.universal_scanner import universal_scanner
+
+    url = (payload.get("url") or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing required target URL")
+
+    scan_mode = payload.get("scan_mode", "passive")
+    config = {
+        "scan_mode": scan_mode,
+        "submitted_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "client_ip": request.client.host if request.client else "127.0.0.1"
+    }
+
+    job = universal_scanner.create_job(
+        scan_type="url",
+        target=url,
+        config=config,
+        user_id="operator"
+    )
+
+    background_tasks.add_task(universal_scanner.scan_url, job)
+
+    return {
+        "success": True,
+        "scan_id": job.id,
+        "target": url,
+        "scan_type": "url",
+        "status": job.status,
+        "message": f"Universal vulnerability scan started for '{url}' [{scan_mode} mode]"
+    }
+
+
+@app.post("/api/universal-scanner/scan/upload")
+async def universal_scan_upload_endpoint(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    scan_type: str = Form("file"),
+    scan_mode: str = Form("safe_active"),
+):
+    """Handles multi-file and folder uploads for universal vulnerability analysis."""
+    from core.universal_scanner import UPLOAD_BASE_DIR, universal_scanner
+
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded for scanning")
+
+    target_name = f"{scan_type.upper()}_{len(files)}_files"
+    if len(files) == 1:
+        target_name = files[0].filename or "uploaded_file"
+
+    config = {
+        "scan_mode": scan_mode,
+        "submitted_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "total_files": len(files)
+    }
+
+    job = universal_scanner.create_job(
+        scan_type=scan_type,
+        target=target_name,
+        config=config,
+        user_id="operator"
+    )
+
+    scan_dir = os.path.join(UPLOAD_BASE_DIR, job.id)
+    os.makedirs(scan_dir, exist_ok=True)
+
+    saved_paths = []
+    total_size = 0
+
+    for upload in files:
+        # Sanitize filename preventing directory traversal (Zip Slip / Path Traversal)
+        raw_name = os.path.basename(upload.filename or f"file_{uuid.uuid4().hex[:8]}")
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", raw_name)
+        save_path = os.path.join(scan_dir, safe_name)
+
+        content = await upload.read()
+        total_size += len(content)
+        if len(content) > 25 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"File '{safe_name}' exceeds 25 MB size limit")
+
+        with open(save_path, "wb") as f:
+            f.write(content)
+        saved_paths.append(save_path)
+
+    if total_size > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Total upload payload exceeds 100 MB limit")
+
+    background_tasks.add_task(universal_scanner.scan_files, job, saved_paths)
+
+    return {
+        "success": True,
+        "scan_id": job.id,
+        "scan_type": scan_type,
+        "target": target_name,
+        "total_files": len(saved_paths),
+        "status": job.status,
+        "message": f"Submitted {len(saved_paths)} file(s) for universal vulnerability analysis."
+    }
+
+
+@app.get("/api/universal-scanner/scans")
+async def list_universal_scans_endpoint(limit: int = 50):
+    """Returns recent universal vulnerability scan jobs and platform-wide metrics."""
+    from core.universal_scanner import universal_scanner
+    return {
+        "scans": universal_scanner.list_jobs(limit=limit),
+        "metrics": universal_scanner.get_metrics()
+    }
+
+
+@app.get("/api/universal-scanner/scans/{scan_id}")
+async def get_universal_scan_endpoint(scan_id: str):
+    """Retrieves real-time status, progress percentage, and summary counts for a scan."""
+    from core.universal_scanner import universal_scanner
+    job = universal_scanner.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+    return job.to_dict(include_details=True)
+
+
+@app.get("/api/universal-scanner/scans/{scan_id}/findings")
+async def get_universal_scan_findings_endpoint(scan_id: str):
+    """Retrieves the list of correlated vulnerability findings discovered in a scan."""
+    from core.universal_scanner import universal_scanner
+    job = universal_scanner.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+    return {
+        "scan_id": job.id,
+        "target": job.target,
+        "status": job.status,
+        "total_findings": job.total_findings,
+        "findings": [f.to_dict() for f in job.findings]
+    }
+
+
+@app.post("/api/universal-scanner/scans/{scan_id}/cancel")
+async def cancel_universal_scan_endpoint(scan_id: str):
+    """Cancels an in-progress universal vulnerability scan."""
+    from core.universal_scanner import universal_scanner
+    ok = universal_scanner.cancel_job(scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+    return {"success": True, "scan_id": scan_id, "status": "CANCELLED"}
+
+
+@app.get("/api/universal-scanner/scans/{scan_id}/report")
+async def download_universal_scan_report_endpoint(scan_id: str, format: str = Query("json")):
+    """Generates and downloads a standardized vulnerability audit report in PDF/HTML/JSON/CSV/SARIF."""
+    from core.universal_scanner import universal_scanner
+    try:
+        content, media_type = universal_scanner.generate_report(scan_id, format_type=format)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    ext_map = {
+        "json": "json",
+        "html": "html",
+        "csv": "csv",
+        "md": "md",
+        "markdown": "md",
+        "sarif": "sarif"
+    }
+    ext = ext_map.get(format.lower(), "json")
+    filename = f"snmk_vuln_report_{scan_id[:8]}.{ext}"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
 # Mount static web UI files
 
 if os.path.exists(STATIC_DIR):

@@ -402,3 +402,140 @@ def create_enterprise_engineering_crew() -> SNMKCrew:
     ]
 
     return SNMKCrew(agents=assigned_agents, tasks=tasks, process="sequential")
+
+
+# =====================================================================
+# 12 Specialized Universal Vulnerability Scanner CrewAI Agents (Phase 7)
+# =====================================================================
+
+CREWAI_UNIVERSAL_SCANNER_SPECS: list[dict[str, Any]] = [
+    {
+        "role": "URL Security Agent",
+        "goal": "Analyze HTTP/HTTPS configuration, TLS certificate validity, security headers, cookie security, and redirect behavior.",
+        "backstory": "Specialist in perimeter web transport security, SSL/TLS handshake inspection, and HTTP protocol defenses.",
+        "tools": ["tls_inspector", "header_auditor", "cookie_checker"],
+    },
+    {
+        "role": "Web Application Security Agent",
+        "goal": "Detect exposed endpoints, directory listings, basic API security flaws, and OWASP Top 10 indicators.",
+        "backstory": "Web security specialist probing application layer misconfigurations and public surface exposures.",
+        "tools": ["endpoint_prober", "owasp_checker", "api_auditor"],
+    },
+    {
+        "role": "Document Security Agent",
+        "goal": "Inspect PDF, DOC, DOCX, TXT, and Markdown files for embedded URLs, phishing links, suspicious scripts, and macro indicators.",
+        "backstory": "Document forensic auditor skilled at identifying malicious active content, suspicious PDF actions, and hidden macros.",
+        "tools": ["pdf_parser", "docx_parser", "macro_detector"],
+    },
+    {
+        "role": "Image Analysis Agent",
+        "goal": "Audit EXIF metadata, GPS leaks, embedded payload indicators, and polyglot files.",
+        "backstory": "Digital media forensics expert inspecting image chunks, metadata privacy exposures, and appended binaries.",
+        "tools": ["exif_extractor", "gps_locator", "payload_detector"],
+    },
+    {
+        "role": "OCR Analysis Agent",
+        "goal": "Extract text from screenshots and graphical assets to detect exposed API keys, credentials, and confidential data.",
+        "backstory": "Optical character recognition analyst parsing screenshots for accidental visual secret leakage.",
+        "tools": ["ocr_engine", "text_extractor", "credential_matcher"],
+    },
+    {
+        "role": "Source Code Analysis Agent",
+        "goal": "Perform static analysis across multiple languages to detect SQLi, XSS, command injection, path traversal, and insecure deserialization.",
+        "backstory": "Application security engineer versed in AST parsing, taint analysis, and semantic code flaw detection.",
+        "tools": ["sast_engine", "ast_parser", "flaw_detector"],
+    },
+    {
+        "role": "Secret Detection Agent",
+        "goal": "Scan source code, config files, and documents for hardcoded credentials, API keys, tokens, and private keys.",
+        "backstory": "Secrets detection expert utilizing high-entropy heuristics, regex patterns, and known token signatures.",
+        "tools": ["entropy_analyzer", "regex_scanner", "secret_catalog"],
+    },
+    {
+        "role": "Dependency Analysis Agent",
+        "goal": "Audit package manifests and third-party dependencies for known vulnerabilities and insecure version pinning.",
+        "backstory": "Software supply chain security analyst evaluating dependencies and package vulnerabilities.",
+        "tools": ["sca_scanner", "cve_matcher", "dependency_auditor"],
+    },
+    {
+        "role": "Malware Indicator Analysis Agent",
+        "goal": "Inspect archives and files for zip slip, decompression bombs, unexpected binary headers, and malicious payloads.",
+        "backstory": "Static malware analyst identifying archive traps, file signature anomalies, and dangerous executable fragments.",
+        "tools": ["archive_inspector", "magic_identifier", "bomb_guard"],
+    },
+    {
+        "role": "Vulnerability Correlation Agent",
+        "goal": "Correlate findings across scanners, remove duplicate detections, and map evidence to CWE/CVSS standards.",
+        "backstory": "Cybersecurity correlation specialist consolidating multifaceted telemetry into normalized vulnerability findings.",
+        "tools": ["deduplicator", "cwe_mapper", "cvss_calculator"],
+    },
+    {
+        "role": "Risk Assessment Agent",
+        "goal": "Calculate overall target risk posture, assign severity classifications, and prioritize remediation actions.",
+        "backstory": "Risk management engineer synthesizing exposure metrics into actionable enterprise risk scoring.",
+        "tools": ["risk_engine", "severity_classifier", "remediation_planner"],
+    },
+    {
+        "role": "Report Generation Agent",
+        "goal": "Aggregate scan findings and telemetry into comprehensive downloadable PDF, HTML, JSON, CSV, Markdown, and SARIF reports.",
+        "backstory": "Technical compliance reporting specialist delivering audit-grade cybersecurity assessment deliverables.",
+        "tools": ["report_generator", "sarif_builder", "export_manager"],
+    },
+]
+
+
+def get_universal_scanner_fleet() -> list[SNMKCrewAIAgent]:
+    """Instantiates the fleet of 12 specialized CrewAI agents for Universal Vulnerability Scanning."""
+    agents = []
+    for spec in CREWAI_UNIVERSAL_SCANNER_SPECS:
+        config = CrewAIAgentConfig(
+            role=spec["role"],
+            goal=spec["goal"],
+            backstory=spec["backstory"],
+            tools=spec["tools"],
+            allow_delegation=(spec["role"] == "Vulnerability Correlation Agent"),
+            agent_id=f"crew_agent_{spec['role'].lower().replace(' ', '_').replace('/', '_')}"
+        )
+        agents.append(SNMKCrewAIAgent(config))
+    return agents
+
+
+def create_universal_scanner_crew(scan_type: str = "all", target: str = "") -> SNMKCrew:
+    """Builds a customized CrewAI crew for universal scanning workflows."""
+    fleet = {agent.role: agent for agent in get_universal_scanner_fleet()}
+
+    tasks = [
+        CrewAITaskConfig(
+            description=f"Analyze submitted {scan_type} target ({target}) for active and passive security flaws",
+            expected_output="Verified technical vulnerability findings mapped to CWEs and confidence scores",
+            agent_role="URL Security Agent" if scan_type == "url" else "Source Code Analysis Agent",
+            tools=["tls_inspector", "header_auditor"] if scan_type == "url" else ["sast_engine", "secret_catalog"]
+        ),
+        CrewAITaskConfig(
+            description=f"Correlate raw scan evidence, eliminate duplicate findings, and calculate CVSS scores for {target}",
+            expected_output="Deduplicated, prioritized vulnerability list with severity classifications",
+            agent_role="Vulnerability Correlation Agent",
+            tools=["deduplicator", "cwe_mapper", "cvss_calculator"]
+        ),
+        CrewAITaskConfig(
+            description=f"Assess business risk and draft remediation recommendations for {target}",
+            expected_output="Risk posture score with contextual fix instructions",
+            agent_role="Risk Assessment Agent",
+            tools=["risk_engine", "severity_classifier", "remediation_planner"]
+        ),
+        CrewAITaskConfig(
+            description=f"Format assessment output into standard enterprise report formats",
+            expected_output="Multi-format report bundle (JSON, HTML, SARIF, Markdown, CSV)",
+            agent_role="Report Generation Agent",
+            tools=["report_generator", "sarif_builder"]
+        ),
+    ]
+
+    selected_agents = [
+        fleet["URL Security Agent" if scan_type == "url" else "Source Code Analysis Agent"],
+        fleet["Vulnerability Correlation Agent"],
+        fleet["Risk Assessment Agent"],
+        fleet["Report Generation Agent"],
+    ]
+
+    return SNMKCrew(agents=selected_agents, tasks=tasks, process="sequential")

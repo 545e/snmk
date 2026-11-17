@@ -1641,6 +1641,7 @@ function stopScanTimer() {
 
 // Master SOC Navigation Dispatcher & View Switcher (Generation 3 Unified Architecture)
 const VIEW_CONTAINER_MAP = {
+    'universal_scanner': 'viewUniversalScanner',
     'dashboard': 'viewDashboard',
     'assessments': 'viewAssessments',
     'assessment_details': 'viewAssessments',
@@ -1794,7 +1795,10 @@ function navToView(view, updateHash = true) {
     }
 
     // 6. Trigger live data loaders for the active view
-    if (targetContainerId === 'viewMap') {
+    if (targetContainerId === 'viewUniversalScanner') {
+        if (typeof loadUniversalMetrics === 'function') loadUniversalMetrics();
+        if (typeof loadUniversalHistory === 'function') loadUniversalHistory();
+    } else if (targetContainerId === 'viewMap') {
         if (typeof initMapView === 'function') if (typeof window.initMapView === 'function') window.initMapView();
     } else if (targetContainerId === 'viewDashboard') {
         loadScans();
@@ -16685,3 +16689,473 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 } else {
     document.addEventListener('DOMContentLoaded', initToolHealthMonitoring);
 }
+
+
+// =====================================================================
+// Universal Vulnerability Scanner Controller (Phase 1 & 11)
+// =====================================================================
+
+let stagedUniversalFiles = [];
+let currentUniversalScanId = null;
+let universalScanPollTimer = null;
+let universalScanStartTime = 0;
+let currentUniversalFindings = [];
+let activeUniversalTab = 'url';
+
+function switchUniversalTab(mode) {
+    activeUniversalTab = mode;
+    const btnUrl = document.getElementById('tabModeUrl');
+    const btnFiles = document.getElementById('tabModeFiles');
+    const btnFolder = document.getElementById('tabModeFolder');
+    const secUrl = document.getElementById('univSectionUrl');
+    const secFiles = document.getElementById('univSectionFiles');
+
+    if (!btnUrl || !btnFiles || !btnFolder || !secUrl || !secFiles) return;
+
+    btnUrl.className = mode === 'url' ? 'btn btn-primary' : 'btn btn-secondary';
+    btnFiles.className = mode === 'files' ? 'btn btn-primary' : 'btn btn-secondary';
+    btnFolder.className = mode === 'folder' ? 'btn btn-primary' : 'btn btn-secondary';
+
+    if (mode === 'url') {
+        secUrl.style.display = 'block';
+        secFiles.style.display = 'none';
+    } else {
+        secUrl.style.display = 'none';
+        secFiles.style.display = 'block';
+        if (mode === 'folder') {
+            triggerFolderInput();
+        }
+    }
+}
+
+function triggerFileInput() {
+    const el = document.getElementById('univFileInput');
+    if (el) el.click();
+}
+
+function triggerFolderInput() {
+    const el = document.getElementById('univFolderInput');
+    if (el) el.click();
+}
+
+function handleUnivFileSelect(e) {
+    const files = Array.from(e.target.files || []);
+    addStagedFiles(files);
+}
+
+function handleUnivFolderSelect(e) {
+    const files = Array.from(e.target.files || []);
+    addStagedFiles(files);
+}
+
+function handleUnivDragOver(e) {
+    e.preventDefault();
+    const zone = document.getElementById('univDropZone');
+    if (zone) zone.style.borderColor = '#10b981';
+}
+
+function handleUnivDragLeave(e) {
+    e.preventDefault();
+    const zone = document.getElementById('univDropZone');
+    if (zone) zone.style.borderColor = '#334155';
+}
+
+function handleUnivDrop(e) {
+    e.preventDefault();
+    const zone = document.getElementById('univDropZone');
+    if (zone) zone.style.borderColor = '#334155';
+    const files = Array.from(e.dataTransfer.files || []);
+    addStagedFiles(files);
+}
+
+function addStagedFiles(files) {
+    for (const f of files) {
+        if (!stagedUniversalFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+            stagedUniversalFiles.push(f);
+        }
+    }
+    renderStagedFiles();
+}
+
+function removeStagedFile(idx) {
+    stagedUniversalFiles.splice(idx, 1);
+    renderStagedFiles();
+}
+
+function renderStagedFiles() {
+    const listEl = document.getElementById('univStagedFileList');
+    const badge = document.getElementById('univSelectedCountBadge');
+    if (!listEl || !badge) return;
+
+    badge.innerText = `${stagedUniversalFiles.length} file(s) staged`;
+
+    if (stagedUniversalFiles.length === 0) {
+        listEl.style.display = 'none';
+        listEl.innerHTML = '';
+        return;
+    }
+
+    listEl.style.display = 'block';
+    listEl.innerHTML = stagedUniversalFiles.map((f, idx) => {
+        const sizeMb = (f.size / (1024 * 1024)).toFixed(2);
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <span style="color: #38bdf8; font-family: monospace;">[FILE]</span>
+                    <span style="color: #f8fafc;">${escapeHtml(f.name)}</span>
+                    <span style="color: var(--text-muted); font-size: 11px;">(${sizeMb} MB)</span>
+                </div>
+                <button onclick="removeStagedFile(${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 2px 6px;">&times;</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function resetUniversalScannerForm() {
+    stagedUniversalFiles = [];
+    renderStagedFiles();
+    const urlInput = document.getElementById('univTargetUrl');
+    if (urlInput) urlInput.value = '';
+    const progressCard = document.getElementById('univProgressCard');
+    if (progressCard) progressCard.style.display = 'none';
+    const btnCancel = document.getElementById('btnUnivCancel');
+    if (btnCancel) btnCancel.disabled = true;
+    if (universalScanPollTimer) {
+        clearInterval(universalScanPollTimer);
+        universalScanPollTimer = null;
+    }
+}
+
+async function startUniversalScan() {
+    if (activeUniversalTab === 'url') {
+        const urlInput = document.getElementById('univTargetUrl');
+        const modeSelect = document.getElementById('univScanMode');
+        const url = (urlInput ? urlInput.value : '').trim();
+        if (!url) {
+            alert('Please enter a target website or application URL.');
+            return;
+        }
+
+        const mode = modeSelect ? modeSelect.value : 'safe_active';
+        showUniversalScanProgress(`Dispatching red team reconnaissance on ${url}...`);
+
+        try {
+            const res = await fetch('/api/universal-scanner/scan/url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url, scan_mode: mode })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Failed to initialize scan');
+            }
+            currentUniversalScanId = data.scan_id;
+            universalScanStartTime = Date.now();
+            pollUniversalScanProgress(currentUniversalScanId);
+        } catch (e) {
+            alert('Scan Initiation Error: ' + e.message);
+            hideUniversalScanProgress();
+        }
+    } else {
+        if (stagedUniversalFiles.length === 0) {
+            alert('Please select or drag-and-drop at least one file or folder to analyze.');
+            return;
+        }
+
+        const formData = new FormData();
+        for (const file of stagedUniversalFiles) {
+            formData.append('files', file);
+        }
+        formData.append('scan_type', activeUniversalTab === 'folder' ? 'folder' : 'file');
+        formData.append('scan_mode', 'safe_active');
+
+        showUniversalScanProgress(`Uploading and analyzing ${stagedUniversalFiles.length} file(s)...`);
+
+        try {
+            const res = await fetch('/api/universal-scanner/scan/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Upload failed');
+            }
+            currentUniversalScanId = data.scan_id;
+            universalScanStartTime = Date.now();
+            pollUniversalScanProgress(currentUniversalScanId);
+        } catch (e) {
+            alert('Upload Scan Error: ' + e.message);
+            hideUniversalScanProgress();
+        }
+    }
+}
+
+function showUniversalScanProgress(msg) {
+    const card = document.getElementById('univProgressCard');
+    const stage = document.getElementById('univCurrentStage');
+    const bar = document.getElementById('univProgressBar');
+    const pct = document.getElementById('univProgressPercent');
+    const btnCancel = document.getElementById('btnUnivCancel');
+    const btnIdentify = document.getElementById('btnUnivIdentify');
+
+    if (card) card.style.display = 'block';
+    if (stage) stage.innerText = msg;
+    if (bar) bar.style.width = '10%';
+    if (pct) pct.innerText = '10%';
+    if (btnCancel) btnCancel.disabled = false;
+    if (btnIdentify) btnIdentify.disabled = true;
+}
+
+function hideUniversalScanProgress() {
+    const card = document.getElementById('univProgressCard');
+    const btnCancel = document.getElementById('btnUnivCancel');
+    const btnIdentify = document.getElementById('btnUnivIdentify');
+    if (card) card.style.display = 'none';
+    if (btnCancel) btnCancel.disabled = true;
+    if (btnIdentify) btnIdentify.disabled = false;
+    if (universalScanPollTimer) {
+        clearInterval(universalScanPollTimer);
+        universalScanPollTimer = null;
+    }
+}
+
+function pollUniversalScanProgress(scanId) {
+    if (universalScanPollTimer) clearInterval(universalScanPollTimer);
+
+    universalScanPollTimer = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/universal-scanner/scans/${scanId}`);
+            if (!res.ok) return;
+            const job = await res.json();
+
+            const bar = document.getElementById('univProgressBar');
+            const pct = document.getElementById('univProgressPercent');
+            const stage = document.getElementById('univCurrentStage');
+            const filesStat = document.getElementById('univProgressFilesStatus');
+            const duration = document.getElementById('univProgressDuration');
+
+            if (bar) bar.style.width = `${job.progress_percent}%`;
+            if (pct) pct.innerText = `${job.progress_percent}%`;
+            if (stage) stage.innerText = job.current_stage || 'Processing...';
+            if (filesStat) {
+                filesStat.innerText = job.scan_type === 'url' ?
+                    `Target: ${job.target}` :
+                    `Files: ${job.completed_files} completed, ${job.failed_files} failed (of ${job.total_files})`;
+            }
+            if (duration) {
+                const elapsedSec = Math.floor((Date.now() - universalScanStartTime) / 1000);
+                duration.innerText = `Elapsed: ${elapsedSec}s`;
+            }
+
+            if (job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED') {
+                clearInterval(universalScanPollTimer);
+                universalScanPollTimer = null;
+                const btnCancel = document.getElementById('btnUnivCancel');
+                const btnIdentify = document.getElementById('btnUnivIdentify');
+                if (btnCancel) btnCancel.disabled = true;
+                if (btnIdentify) btnIdentify.disabled = false;
+
+                // Load and render findings
+                currentUniversalFindings = job.findings || [];
+                renderUniversalFindings(currentUniversalFindings);
+                loadUniversalMetrics();
+                loadUniversalHistory();
+            }
+        } catch (e) {
+            console.warn('Poll error:', e);
+        }
+    }, 1000);
+}
+
+async function cancelUniversalScan() {
+    if (!currentUniversalScanId) return;
+    try {
+        await fetch(`/api/universal-scanner/scans/${currentUniversalScanId}/cancel`, { method: 'POST' });
+        const stage = document.getElementById('univCurrentStage');
+        if (stage) stage.innerText = 'Scan cancelled by user.';
+        hideUniversalScanProgress();
+    } catch (e) {
+        console.warn('Cancel error:', e);
+    }
+}
+
+function rescanUniversalTarget() {
+    startUniversalScan();
+}
+
+function renderUniversalFindings(findings) {
+    const container = document.getElementById('univFindingsContainer');
+    const summary = document.getElementById('univFindingsSummaryLabel');
+    if (!container) return;
+
+    if (summary) {
+        summary.innerText = `Showing ${findings.length} correlated vulnerability findings across evaluated assets`;
+    }
+
+    if (!findings || findings.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-bottom: 8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <div style="font-weight: 700; color: #f8fafc; margin-bottom: 4px;">Zero Critical Vulnerabilities Detected</div>
+                <div>The scanned target passed baseline security posture tests without critical finding indicators.</div>
+            </div>
+        `;
+        return;
+    }
+
+    const sevColors = {
+        'CRITICAL': '#ef4444',
+        'HIGH': '#f97316',
+        'MEDIUM': '#eab308',
+        'LOW': '#3b82f6',
+        'INFORMATIONAL': '#64748b'
+    };
+
+    container.innerHTML = findings.map((f, idx) => {
+        const color = sevColors[f.severity] || '#64748b';
+        return `
+            <div style="background: #0f172a; border-left: 4px solid ${color}; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <span style="background: ${color}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; margin-right: 8px;">${escapeHtml(f.severity)}</span>
+                        <strong style="font-size: 14.5px; color: #f8fafc;">${escapeHtml(f.finding_title)}</strong>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); font-family: monospace;">
+                        ${f.cwe_id ? `<span style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; margin-right: 6px;">${escapeHtml(f.cwe_id)}</span>` : ''}
+                        ${f.cvss_score ? `<span style="color: #f59e0b; font-weight: 700;">CVSS ${f.cvss_score}</span>` : ''}
+                    </div>
+                </div>
+
+                <div style="font-size: 12.5px; color: #94a3b8; margin-bottom: 10px;">
+                    ${escapeHtml(f.description)}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-bottom: 10px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-weight: 600;">Location / Asset:</span>
+                        <code style="color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 2px;">${escapeHtml(f.location || 'N/A')}</code>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-weight: 600;">Detection Engine:</span>
+                        <span style="color: #cbd5e1; display: inline-block; margin-top: 2px;">${escapeHtml(f.scanner_name)}</span>
+                    </div>
+                </div>
+
+                ${f.evidence ? `
+                    <div style="margin-bottom: 10px;">
+                        <span style="font-size: 11.5px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Technical Evidence:</span>
+                        <pre style="background: #020617; border: 1px solid #1e293b; color: #38bdf8; padding: 8px 12px; border-radius: 6px; font-size: 11.5px; margin: 0; overflow-x: auto; font-family: monospace;">${escapeHtml(f.evidence)}</pre>
+                    </div>
+                ` : ''}
+
+                <div style="background: rgba(16, 185, 129, 0.06); border-left: 2px solid #10b981; padding: 8px 12px; border-radius: 4px; font-size: 12px; color: #e2e8f0;">
+                    <strong style="color: #10b981;">Remediation:</strong> ${escapeHtml(f.remediation || 'Follow enterprise secure coding and configuration guidelines.')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterUniversalFindings() {
+    const search = (document.getElementById('univFindingsFilterInput')?.value || '').toLowerCase();
+    const sev = document.getElementById('univSeverityFilter')?.value || 'ALL';
+
+    const filtered = currentUniversalFindings.filter(f => {
+        const matchesSev = sev === 'ALL' || f.severity === sev;
+        const matchesSearch = !search ||
+            f.finding_title.toLowerCase().includes(search) ||
+            f.description.toLowerCase().includes(search) ||
+            (f.location && f.location.toLowerCase().includes(search));
+        return matchesSev && matchesSearch;
+    });
+
+    renderUniversalFindings(filtered);
+}
+
+function downloadUniversalReport(format) {
+    if (!currentUniversalScanId) {
+        alert('Please run a vulnerability scan before exporting a report.');
+        return;
+    }
+    window.open(`/api/universal-scanner/scans/${currentUniversalScanId}/report?format=${format}`, '_blank');
+}
+
+async function loadUniversalMetrics() {
+    try {
+        const res = await fetch('/api/universal-scanner/scans?limit=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        const m = data.metrics || {};
+
+        const updateEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined ? val : 0;
+        };
+
+        updateEl('univTotalScans', m.total_scans);
+        updateEl('univUrlsScanned', m.urls_scanned);
+        updateEl('univFilesAnalyzed', m.files_analyzed);
+        updateEl('univFoldersAnalyzed', m.folders_analyzed);
+        updateEl('univTotalVulns', m.total_vulnerabilities);
+        updateEl('univCritCount', m.critical_findings);
+        updateEl('univHighCount', m.high_findings);
+        updateEl('univMedCount', m.medium_findings);
+        updateEl('univLowCount', m.low_findings);
+    } catch (e) {
+        console.warn('loadUniversalMetrics error:', e);
+    }
+}
+
+async function loadUniversalHistory() {
+    const tbody = document.getElementById('univHistoryTbody');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch('/api/universal-scanner/scans?limit=25');
+        if (!res.ok) return;
+        const data = await res.json();
+        const scans = data.scans || [];
+
+        if (scans.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No scan history recorded yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = scans.map(s => {
+            const dateStr = s.started_at ? s.started_at.replace('T', ' ').substring(0, 19) : '—';
+            const statusColor = s.status === 'COMPLETED' ? '#10b981' : (s.status === 'FAILED' ? '#ef4444' : '#38bdf8');
+            return `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 8px 12px; color: var(--text-muted); font-size: 11.5px;">${dateStr}</td>
+                    <td style="padding: 8px 12px; font-weight: 700; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.target)}</td>
+                    <td style="padding: 8px 12px;"><span style="text-transform: uppercase; font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${escapeHtml(s.scan_type)}</span></td>
+                    <td style="padding: 8px 12px;"><span style="color: ${statusColor}; font-weight: 700; font-size: 12px;">${escapeHtml(s.status)}</span></td>
+                    <td style="padding: 8px 12px; font-weight: 700; color: #f59e0b;">${s.total_findings}</td>
+                    <td style="padding: 8px 12px;">
+                        <button class="btn btn-secondary" onclick="viewHistoricalScan('${s.id}')" style="padding: 3px 8px; font-size: 11px; margin-right: 4px;">View</button>
+                        <button class="btn btn-secondary" onclick="window.open('/api/universal-scanner/scans/${s.id}/report?format=html', '_blank')" style="padding: 3px 8px; font-size: 11px;">Report</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.warn('loadUniversalHistory error:', e);
+    }
+}
+
+async function viewHistoricalScan(scanId) {
+    currentUniversalScanId = scanId;
+    try {
+        const res = await fetch(`/api/universal-scanner/scans/${scanId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+        currentUniversalFindings = job.findings || [];
+        renderUniversalFindings(currentUniversalFindings);
+        // Scroll to findings deck
+        const deck = document.getElementById('univResultsDeck');
+        if (deck) deck.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+        console.warn('viewHistoricalScan error:', e);
+    }
+}
+
