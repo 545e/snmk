@@ -21,8 +21,10 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-config = context.config
-if config.config_file_name is not None:
+# Alembic provides ``context.config`` only while it is running a migration.
+# ``getattr`` keeps this file importable by tooling that walks every module.
+config = getattr(context, "config", None)
+if config is not None and config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 
@@ -46,7 +48,8 @@ def _mysql_url() -> str:
     return f"mysql+pymysql://{user}:{password}@{host}:{port}/{database}?charset=utf8mb4"
 
 
-config.set_main_option("sqlalchemy.url", _mysql_url())
+if config is not None:
+    config.set_main_option("sqlalchemy.url", _mysql_url())
 
 
 def run_migrations_offline() -> None:
@@ -74,7 +77,9 @@ def run_migrations_online() -> None:
             context.run_migrations()
 
 
-if context.is_offline_mode():
-    run_migrations_offline()
-else:
-    run_migrations_online()
+# Only run when Alembic is actually driving this environment.
+if config is not None:
+    if context.is_offline_mode():
+        run_migrations_offline()
+    else:
+        run_migrations_online()

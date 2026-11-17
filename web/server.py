@@ -8189,9 +8189,9 @@ async def enterprise_approval_gates_alias():
 
     """Compatibility alias forwarding to /api/approvals."""
 
-    from web.enterprise_api import list_approval_requests
+    from web.enterprise_api import list_approvals
 
-    return await list_approval_requests()
+    return await list_approvals()
 
 
 
@@ -8201,9 +8201,9 @@ async def enterprise_drift_alias():
 
     """Compatibility alias forwarding to /api/easm/drift."""
 
-    from web.enterprise_api import get_attack_surface_drift
+    from web.enterprise_api import get_easm_drift
 
-    return await get_attack_surface_drift()
+    return await get_easm_drift()
 
 
 

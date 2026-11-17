@@ -8,7 +8,8 @@ from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph,
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
-OUT = r"D:\snmk\snmk\SNMK_CEO_Report.pdf"
+from pathlib import Path as _Path
+OUT = str(_Path(__file__).resolve().parent / "SNMK_CEO_Report.pdf")
 
 # ---- palette ----
 INK   = colors.HexColor("#0f172a")
@@ -142,72 +143,75 @@ def header_footer(canv, doc):
     canv.setStrokeColor(LINE); canv.line(18*mm,13*mm,A4[0]-18*mm,13*mm)
     canv.restoreState()
 
-doc = BaseDocTemplate(OUT, pagesize=A4,
-                      leftMargin=18*mm, rightMargin=18*mm, topMargin=16*mm, bottomMargin=16*mm)
-frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="main")
-doc.addPageTemplates([PageTemplate(id="all", frames=[frame], onPage=header_footer)])
-W = doc.width
 
-story=[]
-# Cover block
-story.append(Paragraph("SNMK", S("brand", fontName="Helvetica-Bold", fontSize=30, textColor=INDIGO, leading=32)))
-story.append(Paragraph("Autonomous Website Security Scanner", H1))
-story.append(Paragraph("A simple executive overview — what it is, how it works, and what it is built with.", SUB))
-story.append(Spacer(1,5))
-story.append(HR(W))
-story.append(Spacer(1,6))
 
-story.append(Paragraph("In one line", H2))
-story.append(Paragraph("SNMK is a tool that checks a website for security weaknesses — automatically — "
-    "and explains each problem in plain words along with how to fix it. You point it at a website you own, "
-    "it scans, and it gives you a clear report.", BODY))
+if __name__ == "__main__":
+    doc = BaseDocTemplate(OUT, pagesize=A4,
+                          leftMargin=18*mm, rightMargin=18*mm, topMargin=16*mm, bottomMargin=16*mm)
+    frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="main")
+    doc.addPageTemplates([PageTemplate(id="all", frames=[frame], onPage=header_footer)])
+    W = doc.width
 
-story.append(Paragraph("What it does for the business", H2))
-story.append(chip_table([
-    ("Finds real problems", "Tests websites for the most common and dangerous flaws (hacking entry points) and shows what it found."),
-    ("Speaks plainly", "Every problem gets a severity (High / Medium / Low), the industry category it belongs to, and a recommended fix."),
-    ("Remembers everything", "Every scan is saved. Close the tool, reopen it later — your history and past results are still there."),
-    ("Delivers reports", "One click turns results into a PDF, Word, HTML or spreadsheet report for clients, auditors or the team."),
-    ("Stays safe & legal", "It only scans targets you authorize, refuses risky internal addresses, and never damages the site it checks."),
-]))
+    story=[]
+    # Cover block
+    story.append(Paragraph("SNMK", S("brand", fontName="Helvetica-Bold", fontSize=30, textColor=INDIGO, leading=32)))
+    story.append(Paragraph("Autonomous Website Security Scanner", H1))
+    story.append(Paragraph("A simple executive overview — what it is, how it works, and what it is built with.", SUB))
+    story.append(Spacer(1,5))
+    story.append(HR(W))
+    story.append(Spacer(1,6))
 
-story.append(Spacer(1,4))
-story.append(Pill("HOW IT WORKS  —  SIMPLE ARCHITECTURE", INK, W))
-story.append(Spacer(1,4))
-story.append(Arch(W))
-story.append(Paragraph("Read left to right: a person opens the dashboard, types a website, the engine runs many checks "
-    "in the background, grades each result against the OWASP Top 10 industry standard, saves it, and produces a report.", SMALL))
+    story.append(Paragraph("In one line", H2))
+    story.append(Paragraph("SNMK is a tool that checks a website for security weaknesses — automatically — "
+        "and explains each problem in plain words along with how to fix it. You point it at a website you own, "
+        "it scans, and it gives you a clear report.", BODY))
 
-story.append(Paragraph("The technology (plain terms)", H2))
-story.append(chip_table([
-    ("The screen you see", "A web dashboard built with standard web technology (HTML, CSS, JavaScript). Nothing to install — it opens in any browser."),
-    ("The brain", "A fast Python server (FastAPI) that runs the scans and answers the dashboard instantly."),
-    ("The scanners", "In-house Python engines for SQL-injection, cross-site scripting, hidden-page discovery and reconnaissance. Can also use industry tools (Nmap, Nuclei) when installed."),
-    ("The memory", "A built-in database file (SQLite) that stores every scan safely on the computer."),
-    ("Optional AI", "Can connect to AI providers (OpenAI, Claude, Gemini) to help explain results — works fine without it too."),
-    ("Runs anywhere", "Windows, Linux, Mac, or in a container (Docker)."),
-]))
+    story.append(Paragraph("What it does for the business", H2))
+    story.append(chip_table([
+        ("Finds real problems", "Tests websites for the most common and dangerous flaws (hacking entry points) and shows what it found."),
+        ("Speaks plainly", "Every problem gets a severity (High / Medium / Low), the industry category it belongs to, and a recommended fix."),
+        ("Remembers everything", "Every scan is saved. Close the tool, reopen it later — your history and past results are still there."),
+        ("Delivers reports", "One click turns results into a PDF, Word, HTML or spreadsheet report for clients, auditors or the team."),
+        ("Stays safe & legal", "It only scans targets you authorize, refuses risky internal addresses, and never damages the site it checks."),
+    ]))
 
-story.append(Paragraph("Honest status — what is real today", H2))
-story.append(Paragraph("We verified this by running the tool live against a test target. The results below are measured, not marketing.", BODY))
-story.append(status_table([
-    ("Core security scanning (SQLi, XSS, fuzzing, recon)", "Working"),
-    ("Every finding graded with OWASP Top 10 + a fix", "Working (verified 7/7)"),
-    ("Scan history saved and survives restart", "Working"),
-    ("Reports export (PDF, HTML, Word, CSV, JSON)", "Working"),
-    ("Admin name fills in from the computer user", "Added"),
-    ("Dashboard buttons and sections", "Audited & repaired"),
-    ("“85 AI agents” marketing claim", "Overstated — ~20 run"),
-]))
-story.append(Spacer(1,4))
-story.append(Paragraph("Bottom line: the scanner is genuine and functional. The only honesty gap is the "
-    "“85 autonomous agents” branding — about twenty actually do work; the rest are placeholders. "
-    "That is a wording/marketing fix, not a broken product.", BODY))
+    story.append(Spacer(1,4))
+    story.append(Pill("HOW IT WORKS  —  SIMPLE ARCHITECTURE", INK, W))
+    story.append(Spacer(1,4))
+    story.append(Arch(W))
+    story.append(Paragraph("Read left to right: a person opens the dashboard, types a website, the engine runs many checks "
+        "in the background, grades each result against the OWASP Top 10 industry standard, saves it, and produces a report.", SMALL))
 
-story.append(Spacer(1,6))
-story.append(HR(W))
-story.append(Paragraph("Prepared as a non-technical summary of the SNMK platform. Colours in this document match the "
-    "colour-coded sections now used inside the dashboard.", SMALL))
+    story.append(Paragraph("The technology (plain terms)", H2))
+    story.append(chip_table([
+        ("The screen you see", "A web dashboard built with standard web technology (HTML, CSS, JavaScript). Nothing to install — it opens in any browser."),
+        ("The brain", "A fast Python server (FastAPI) that runs the scans and answers the dashboard instantly."),
+        ("The scanners", "In-house Python engines for SQL-injection, cross-site scripting, hidden-page discovery and reconnaissance. Can also use industry tools (Nmap, Nuclei) when installed."),
+        ("The memory", "A built-in database file (SQLite) that stores every scan safely on the computer."),
+        ("Optional AI", "Can connect to AI providers (OpenAI, Claude, Gemini) to help explain results — works fine without it too."),
+        ("Runs anywhere", "Windows, Linux, Mac, or in a container (Docker)."),
+    ]))
 
-doc.build(story)
-print("WROTE", OUT)
+    story.append(Paragraph("Honest status — what is real today", H2))
+    story.append(Paragraph("We verified this by running the tool live against a test target. The results below are measured, not marketing.", BODY))
+    story.append(status_table([
+        ("Core security scanning (SQLi, XSS, fuzzing, recon)", "Working"),
+        ("Every finding graded with OWASP Top 10 + a fix", "Working (verified 7/7)"),
+        ("Scan history saved and survives restart", "Working"),
+        ("Reports export (PDF, HTML, Word, CSV, JSON)", "Working"),
+        ("Admin name fills in from the computer user", "Added"),
+        ("Dashboard buttons and sections", "Audited & repaired"),
+        ("“85 AI agents” marketing claim", "Overstated — ~20 run"),
+    ]))
+    story.append(Spacer(1,4))
+    story.append(Paragraph("Bottom line: the scanner is genuine and functional. The only honesty gap is the "
+        "“85 autonomous agents” branding — about twenty actually do work; the rest are placeholders. "
+        "That is a wording/marketing fix, not a broken product.", BODY))
+
+    story.append(Spacer(1,6))
+    story.append(HR(W))
+    story.append(Paragraph("Prepared as a non-technical summary of the SNMK platform. Colours in this document match the "
+        "colour-coded sections now used inside the dashboard.", SMALL))
+
+    doc.build(story)
+    print("WROTE", OUT)
