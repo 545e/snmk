@@ -357,15 +357,45 @@ async def rate_limit_middleware(request: Request, call_next):
 
 
 
+# The OpenAI-compatible surface lives outside the "/api" prefix, so the
+# authentication gate cannot rely on the prefix alone.
+_PROTECTED_PATH_PREFIXES = (
+    "/api",
+    "/v1",
+    "/chat",
+    "/models",
+)
+
+
+def _is_protected_api_path(path: str) -> bool:
+    """
+    True when *path* is part of the API surface that requires a credential.
+
+    The static UI, the health probes and the documentation are not
+    protected; everything that can read data, change state or spend the
+    platform's own API keys is.
+    """
+    for prefix in _PROTECTED_PATH_PREFIXES:
+        if path == prefix or path.startswith(prefix + "/"):
+            return True
+    return False
+
+
 @app.middleware("http")
 async def auth_enforcement_middleware(request: Request, call_next):
+
     """
-    Opt-in authentication gate for /api/* routes.
+    Opt-in authentication gate for the API routes.
 
     Active only when SWA_AUTH_ENABLED=true, or when SWA_API_KEY/SWA_MASTER_API_KEY
     holds a real (non-placeholder) value. Public paths (health, auth login/status,
-    docs) and non-API routes (static UI) pass through.
+    docs) and the static UI pass through.
     Accepts: Bearer or X-API-Key matching the master key, or a session token from /api/auth/login.
+
+    The protected surface is the whole API, not only the ``/api`` prefix: the
+    OpenAI-compatible endpoints (``/v1/chat/completions``,
+    ``/chat/completions``, ``/v1/models``, ``/models``) live outside the
+    prefix and would otherwise be reachable without a credential.
     """
     from core.app_security import PUBLIC_PATHS as _PUBLIC
     from core.app_security import SWA_AUTH_ENABLED as _auth_on
@@ -377,7 +407,7 @@ async def auth_enforcement_middleware(request: Request, call_next):
     if not _auth_on and not _mk_is_real:
         return await call_next(request)
     path = request.url.path
-    if path in _PUBLIC or not path.startswith("/api"):
+    if path in _PUBLIC or not _is_protected_api_path(path):
         return await call_next(request)
     try:
         authenticate_request(request)
@@ -570,25 +600,21 @@ async def auth_login(req: LoginPayload):
 
     """Authenticate user or API key to obtain a secure session token."""
 
-    import hmac
+    from core.app_security import create_login_session
 
-    from core.app_security import SWA_MASTER_API_KEY, create_session
+    ok, token, role, identity = create_login_session(
+        identity=req.username or "operator",
+        api_key=req.api_key,
+        password=req.password,
+    )
 
-    if SWA_MASTER_API_KEY and req.api_key:
+    if not ok:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials. Provide the master API key or the operator password.",
+        )
 
-        if hmac.compare_digest(req.api_key, SWA_MASTER_API_KEY):
-
-            token = create_session(identity=req.username or "api_user", role="admin")
-
-            return {"token": token, "role": "admin", "identity": req.username or "api_user", "status": "authenticated"}
-
-        raise HTTPException(status_code=401, detail="Invalid API Key.")
-
-    
-
-    token = create_session(identity=req.username or "operator", role="auditor")
-
-    return {"token": token, "role": "auditor", "identity": req.username or "operator", "status": "authenticated"}
+    return {"token": token, "role": role, "identity": identity, "status": "authenticated"}
 
 
 
@@ -3629,6 +3655,23 @@ async def websocket_endpoint(websocket: WebSocket):
 
     """Live WebSocket dispatching real-time scan progress, logs, and discoveries with heartbeat."""
 
+    # Starlette does not run the HTTP middleware for a WebSocket scope, so
+    # the handshake has to be authenticated here.  The stream carries the
+    # findings and the logs of every running scan, which must not be
+    # readable by an anonymous client.
+    from core.app_security import (
+        SWA_AUTH_ENABLED,
+        SWA_MASTER_API_KEY,
+        authenticate_request,
+    )
+
+    if SWA_AUTH_ENABLED or SWA_MASTER_API_KEY:
+        try:
+            authenticate_request(websocket)
+        except HTTPException as exc:
+            await websocket.close(code=4401, reason=str(exc.detail)[:120])
+            return
+
     await websocket.accept()
 
     q = queue_manager.register_client()
@@ -3793,6 +3836,9 @@ class DepCheckPayload(BaseModel):
 async def check_dependency_confusion(payload: DepCheckPayload):
     """Audit client bundles for unclaimed internal npm packages vulnerable to Dependency Confusion RCE."""
     raw_url = (payload.target_url or payload.url or payload.target or "http://127.0.0.1:8000").strip()
+    # The agent fetches this URL and parses the bundle, so it needs the same
+    # scope check its sibling tool endpoints perform.
+    await enforce_scope(raw_url, "dependency-check")
     from agents.dependency_confusion_agent import DependencyConfusionAgent
     agent = DependencyConfusionAgent(scan_id="dep_manual", js_urls=[raw_url], base_url=raw_url)
     findings = await agent.run()
@@ -3852,6 +3898,17 @@ class WebhookPayload(BaseModel):
 async def test_notification(payload: WebhookPayload):
 
     """Test real-time Slack / Discord / Enterprise Webhook alerts."""
+
+    # The webhook URL is operator supplied and the dispatcher POSTs to it
+    # verbatim, so it has to clear the SSRF guard before it is used.
+    from core.scope_policy import validate_tool_target
+
+    scope = validate_tool_target(payload.webhook_url, tool_id="notifications")
+    if not scope.is_allowed:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Scope Policy Refusal: {scope.reason}",
+        )
 
     if payload.channel_type == "slack":
 

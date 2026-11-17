@@ -4,7 +4,7 @@ This matrix tracks the integration status of all modules, source repositories, a
 
 | Component / Subsystem | Primary Origin | Integration Target | Capabilities Verified | Status |
 |---|---|---|---|---|
-| **Multi-Agent Workforce (85 Agents)** | `origin/generation-2-complete-modernization` | `agents/agent_workforce.py`, `core/agent_registry.py` | 5 Operational Tiers, dynamic discovery, schemas, task dispatch | `INTEGRATED` |
+| **Multi-Agent Workforce (94 Agents)** | `origin/generation-2-complete-modernization` | `agents/agent_workforce.py`, `core/agent_registry.py` | 5 Operational Tiers, dynamic discovery, schemas, task dispatch | `INTEGRATED` |
 | **Audit Log Trail** | `swa-ai/core/audit.py` | `core/audit.py` | Thread-safe append-only SQLite log, `/api/cyber/audit-logs` | `INTEGRATED` |
 | **Canonical Security Scoring** | `swa-ai/core/scoring.py` | `core/scoring.py` | Unified penalty weights (-30 CRIT, -18 HIGH, -8 MED, -3 LOW, -1 INFO) | `INTEGRATED` |
 | **Version & Codename** | `swa-ai/core/version.py` | `core/version.py` | Version 2.3.0 "Sentinel", synchronizing API, CLI, and docs | `INTEGRATED` |

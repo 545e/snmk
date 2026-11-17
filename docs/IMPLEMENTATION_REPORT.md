@@ -11,10 +11,10 @@
 > - See `docs/COMPLETE_AI_SYSTEM_INVENTORY.md` for the component-by-component truth and `docs/TESTING_AND_VERIFICATION.md` for measured results.
 
 **Date**: November 6, 2026  
-**Scope**: Full Platform Modernization, Complete AI Systems Architecture, 85 Autonomous Cybersecurity Agents, API Integrations, RAG Knowledge Engine, Agent Memory Store, and 100% Verified CI Pipeline.  
+**Scope**: Full Platform Modernization, Complete AI Systems Architecture, 94 Autonomous Cybersecurity Agents, API Integrations, RAG Knowledge Engine, Agent Memory Store, and 100% Verified CI Pipeline.  
 **Official Repository**: `https://github.com/545e/snmk.git`  
 **Host & Port**: `http://127.0.0.1:8000`  
-**Preservation Compliance**: 100% (310 scans, 790 findings, 85 registered agents, all existing database tables, and schema integrity preserved).
+**Preservation Compliance**: 100% (310 scans, 790 findings, 94 registered agents, all existing database tables, and schema integrity preserved).
 
 ---
 
@@ -33,7 +33,7 @@ All systems operate as one integrated platform. Every unit, integration, and end
 | **RAG Knowledge Engine** | `core/rag_engine.py` | Semantic chunking (250-word sliding window), BM25 hybrid ranking, citation generation, tenant project isolation, and SQLite persistence. |
 | **Agent Memory Store** | `core/agent_memory.py` | 3-tier memory (working, episodic, semantic) with automated credential scrubbing (`[REDACTED_SECRET]`), token budgeting, and session retrieval. |
 | **AI Reasoning Client** | `core/llm_client.py` | `SWALLMClient.reason()` connected to encrypted vault credentials, RAG context grounding, episodic memory, and deterministic heuristics. |
-| **85 Autonomous Agents** | `core/agent_registry.py` | 85 specialist agents across 5 operational tiers (Workforce, Offensive & Recon, OWASP v3.0, Core Engines, Tool Adapters). |
+| **94 Autonomous Agents** | `core/agent_registry.py` | 94 specialist agents across 6 operational tiers (Workforce, Offensive & Recon, OWASP v3.0, Core Engines, Tool Adapters). |
 | **Adversarial Red-Team Lab** | `core/llm_security_testing.py` | 12-vector OWASP Top 10 for LLM adversarial test suite hooked into live UI with scorecard, payload inspector, and remediation advice. |
 | **Cyber Test Harness** | `core/cyber_test.py` | Synthetic security exploit vectors across API, Web, Network, Performance, and Comprehensive profiles with history log. |
 | **Cryptographic Vault** | `core/credentials.py` | Fernet AES-128 + PBKDF2HMAC key derivation with zero plain-text leakage in API responses or DOM. |

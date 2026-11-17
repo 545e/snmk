@@ -27,6 +27,23 @@ from web.server import app
 client = TestClient(app)
 
 
+@pytest.fixture(autouse=True)
+def evidence_root(tmp_path, monkeypatch):
+    """
+    Confines the forensics browser and hasher to a temporary evidence root.
+
+    The browser, the file-hash endpoint and the carving destination are
+    confined to ``SWA_EVIDENCE_ROOT`` so that they cannot be used to
+    enumerate or write outside the evidence tree.  The tests declare their
+    own root so that they exercise the confined behaviour rather than
+    bypassing it.
+    """
+    root = tmp_path / "evidence"
+    root.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("SWA_EVIDENCE_ROOT", str(root))
+    return root
+
+
 def test_storage_media_inspector_devices():
     """Verify physical devices and disk images enumeration."""
     devices = storage_inspector.list_devices()
@@ -39,9 +56,9 @@ def test_storage_media_inspector_devices():
     assert d0.partition_scheme in ("GPT", "MBR", "RAW")
 
 
-def test_storage_media_hasher(tmp_path):
+def test_storage_media_hasher(evidence_root):
     """Verify SHA-256 and SHA-512 cryptographic hashing of forensic evidence."""
-    test_file = tmp_path / "disk_dump.dd"
+    test_file = evidence_root / "disk_dump.dd"
     test_file.write_bytes(b"FORENSIC_RAW_EVIDENCE_STREAM_BLOCK_DATA_9901")
 
     hashes = storage_inspector.hash_evidence_file(str(test_file))
@@ -62,9 +79,21 @@ def test_photorec_directory_navigation():
         assert res["parent_path"] is not None
 
 
-def test_photorec_carving_lifecycle(tmp_path):
+def test_photorec_browser_is_confined_to_the_evidence_root(evidence_root):
+    """The browser must not be able to walk out of the evidence root."""
+    outside = evidence_root.parent / "outside.txt"
+    outside.write_text("not evidence", encoding="utf-8")
+    try:
+        res = photorec_carver.browse_directory(str(evidence_root.parent))
+        assert res.get("error"), "browsing outside the evidence root must be refused"
+        assert res["item_count"] == 0
+    finally:
+        outside.unlink(missing_ok=True)
+
+
+def test_photorec_carving_lifecycle(evidence_root):
     """Verify carving job creation, status tracking, and cancellation."""
-    out_dir = tmp_path / "carve_out"
+    out_dir = evidence_root / "carve_out"
     job = photorec_carver.start_carving_job(
         source_target="DEV-DISK-001",
         partition_mode="UNALLOCATED",

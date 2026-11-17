@@ -3,13 +3,27 @@ services:
     build: .
     container_name: swa-ai-cyber-hub
     ports:
-      - "8000:8000"
+      # Published on the loopback interface only.  The API is a full
+      # security-control surface -- it can launch scans, read findings and
+      # reach the platform's own integrations -- so it must not be exposed
+      # to the network by default.
+      #
+      # To reach it from another host, publish it deliberately and put a
+      # TLS-terminating reverse proxy in front of it:
+      #   ports: ["0.0.0.0:8000:8000"]
+      # and set SWA_AUTH_ENABLED=true together with a real SWA_API_KEY.
+      - "127.0.0.1:8000:8000"
     environment:
       - PYTHONUNBUFFERED=1
       - SWA_HOST=0.0.0.0
       - SWA_PORT=8000
       - DOCKER_CONTAINER=1
       - SWA_DB_PATH=/data/swa_data.db
+      # Authentication is on by default in the container.  Set a real
+      # SWA_API_KEY before exposing the port beyond the loopback interface.
+      - SWA_AUTH_ENABLED=true
+      - SWA_API_KEY=${SWA_API_KEY:-}
+      - SWA_OPERATOR_PASSWORD=${SWA_OPERATOR_PASSWORD:-}
     volumes:
       - swa_data:/data
     restart: unless-stopped

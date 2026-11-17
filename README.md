@@ -413,6 +413,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - [Multi-Agent Workforce Guide](docs/AGENT_GUIDE.md)
 - [Security & Governance Policy](docs/SECURITY.md)
 - [SonarQube Static Analysis](docs/SONARQUBE.md)
+- [Enterprise Audit Reports (2026-11-15)](reports/audit/README.md)
 - [Troubleshooting Manual](docs/TROUBLESHOOTING.md)
 
 ---

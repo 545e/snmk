@@ -15,7 +15,7 @@ import re
 import secrets
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict, Optional, Tuple
 
 from fastapi import HTTPException, Request, status
 
@@ -23,7 +23,13 @@ from fastapi import HTTPException, Request, status
 SWA_AUTH_ENABLED = os.getenv("SWA_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
 SWA_MASTER_API_KEY = os.getenv("SWA_API_KEY", "")
 SWA_RATE_LIMIT_ENABLED = os.getenv("SWA_RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
-
+# The role a session receives when no more specific credential was presented.
+# It is server-side configuration; it is never derived from anything the
+# client sends.  See ``create_login_session``.
+SWA_DEFAULT_ROLE = os.getenv("SWA_DEFAULT_ROLE", "auditor").strip().lower() or "auditor"
+# Optional password for the interactive login form.  When it is set, a
+# matching password grants SWA_DEFAULT_ROLE.
+SWA_OPERATOR_PASSWORD = os.getenv("SWA_OPERATOR_PASSWORD", "")
 # Known public paths that bypass authentication
 PUBLIC_PATHS = {
     "/",
@@ -215,7 +221,54 @@ def create_session(identity: str, role: str = "auditor", ttl_seconds: int = 8640
     }
     return token
 
-def verify_session_token(token: str) -> dict[str, Any] | None:
+def create_login_session(
+    identity: str,
+    api_key: Optional[str] = None,
+    password: Optional[str] = None,
+) -> Tuple[bool, str, str, str]:
+    """
+    Authenticates a login attempt and creates a session for it.
+
+    Returns ``(ok, token, role, identity)``.
+
+    The credential rules are deliberately strict:
+
+    * the master API key grants the ``admin`` role;
+    * the operator password grants ``SWA_DEFAULT_ROLE``;
+    * a client-supplied *username* never influences the role.  A previous
+      version derived ``role="admin"`` from the username, which meant that
+      anybody could ask for an administrator session simply by calling the
+      name "admin".
+
+    When authentication is switched off (the default for local, single-user
+    use) a session is still issued so that the web UI works, but it only
+    carries ``SWA_DEFAULT_ROLE``.
+    """
+    identity = (identity or "").strip() or "operator"
+
+    if SWA_MASTER_API_KEY and api_key:
+        if hmac.compare_digest(api_key, SWA_MASTER_API_KEY):
+            token = create_session(identity=identity, role="admin")
+            return True, token, "admin", identity
+        return False, "", "", identity
+
+    if SWA_OPERATOR_PASSWORD and password:
+        if hmac.compare_digest(password, SWA_OPERATOR_PASSWORD):
+            token = create_session(identity=identity, role=SWA_DEFAULT_ROLE)
+            return True, token, SWA_DEFAULT_ROLE, identity
+        return False, "", "", identity
+
+    if SWA_AUTH_ENABLED or SWA_MASTER_API_KEY:
+        # Authentication is on and no usable credential was supplied.
+        return False, "", "", identity
+
+    # Local development mode: authentication is explicitly switched off, so
+    # every request is already treated as trusted.  The session only carries
+    # the default role.
+    token = create_session(identity=identity, role=SWA_DEFAULT_ROLE)
+    return True, token, SWA_DEFAULT_ROLE, identity
+
+def verify_session_token(token: str) -> Optional[Dict[str, Any]]:
     session = ACTIVE_SESSIONS.get(token)
     if not session:
         return None

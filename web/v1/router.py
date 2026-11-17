@@ -20,10 +20,13 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from core.app_security import (
+    SecurityContext,
+    authenticate_request,
+    create_login_session,
+    create_session,
+    require_role,
     SWA_AUTH_ENABLED,
     SWA_MASTER_API_KEY,
-    authenticate_request,
-    create_session,
 )
 from core.database import db
 from core.scope_policy import scope_policy
@@ -182,19 +185,16 @@ class V1ReportGeneratePayload(BaseModel):
 @v1_router.post("/auth/login")
 async def v1_auth_login(payload: V1LoginPayload):
     """Authenticate via API key or credentials to obtain a secure session token."""
-    if SWA_MASTER_API_KEY and payload.api_key:
-        if hmac.compare_digest(payload.api_key, SWA_MASTER_API_KEY):
-            token = create_session(identity=payload.username or "api_master", role="admin")
-            return v1_envelope(
-                data={"token": token, "identity": payload.username or "api_master", "role": "admin"},
-                message="Authentication successful via master API key",
-            )
-        raise HTTPException(status_code=401, detail="Invalid API key")
-
-    # Local single-tenant / dev authentication
-    identity = (payload.username or "security_operator").strip()
-    role = "admin" if identity.lower() in ["admin", "root", "operator"] else "analyst"
-    token = create_session(identity=identity, role=role)
+    ok, token, role, identity = create_login_session(
+        identity=payload.username or "security_operator",
+        api_key=payload.api_key,
+        password=payload.password,
+    )
+    if not ok:
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid credentials. Provide the master API key or the operator password.",
+        )
     return v1_envelope(
         data={"token": token, "identity": identity, "role": role},
         message="Authentication successful",

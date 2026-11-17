@@ -12,6 +12,10 @@ from urllib.parse import urlparse
 import httpx
 
 from core.integrations.base import BaseIntegrationAdapter
+from core.integrations.endpoint_policy import (
+    EndpointPolicyError,
+    validate_integration_endpoint,
+)
 
 
 class OpenAIAdapter(BaseIntegrationAdapter):
@@ -37,7 +41,15 @@ class OpenAIAdapter(BaseIntegrationAdapter):
         parsed = urlparse(custom_base)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             return {"success": False, "status": "ERROR", "message": "Invalid base URL scheme.", "latency_ms": 0}
-        safe_base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        try:
+            # The provider's own key is about to be sent to this host, so the
+            # endpoint has to be a public address and -- unless the operator
+            # deliberately configured a gateway -- an approved OpenAI host.
+            safe_base = validate_integration_endpoint(
+                custom_base, provider_id=self.provider_id
+            )
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(base_url=safe_base, timeout=8.0) as client:
@@ -172,7 +184,18 @@ class OllamaLocalAdapter(BaseIntegrationAdapter):
         parsed = urlparse(custom_base)
         if parsed.scheme not in ("http", "https") or not parsed.netloc:
             return {"success": False, "status": "ERROR", "message": "Invalid Ollama base URL.", "latency_ms": 0}
-        safe_base = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        try:
+            # Ollama is a local model server, so a loopback or private
+            # address is the expected case here -- and no credential is
+            # sent with the request.  The scheme and host checks still
+            # apply.
+            safe_base = validate_integration_endpoint(
+                custom_base,
+                provider_id=self.provider_id,
+                allow_private_addresses=True,
+            )
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(base_url=safe_base, timeout=5.0) as client:

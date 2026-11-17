@@ -6,7 +6,7 @@
 > - No LLM round trip is verified anywhere (all providers `NOT_CONFIGURED`; mode = `heuristic_fallback`).
 > - RAG is BM25 (sparse), NOT embeddings/vector search. Memory is regex-scrubbed, not guaranteed.
 > - Tool execution is deterministic adapters; LLM function/tool calling does not exist.
-> - `ai_training.py` is a simulation; tier-4 agents return static dicts; 85/85 dispatch != capability.
+> - `ai_training.py` is a simulation; tier-4 agents return static dicts; 94/94 dispatch != capability.
 > - `SWA_ENFORCE_ALLOWLIST=1` disables dynamic session authorization; `SWA_AUTH_ENABLED=true` (or a real `SWA_API_KEY`) gates `/api/*`.
 > - The 12-vector LLM harness is deterministic rules, not a live red-teamer.
 > - CISA KEV/EPSS endpoints hit live feeds (1h cache); 503 on failure.
@@ -137,7 +137,7 @@
 | `GET` | `/api/v1/ai/models` | Authenticated | LLM model catalog with pricing & context windows |
 | `GET` | `/api/v1/ai/models/status` | Authenticated | Active AI connection status & health |
 | `POST` | `/api/v1/ai/models/test` | Operator+ | Test AI model completion latency |
-| `GET` | `/api/v1/ai/agents` | Authenticated | Manifests for all 85 agents across 5 operational tiers |
+| `GET` | `/api/v1/ai/agents` | Authenticated | Manifests for all 94 agents across 6 operational tiers |
 | `GET` | `/api/v1/ai/agents/summary` | Authenticated | Tier counts and status breakdown |
 | `GET` | `/api/v1/ai/agents/{id}` | Authenticated | Agent permission boundary and allowed tools |
 | `POST` | `/api/v1/ai/agents/collaborate` | Operator+ | Run collaborative 6-stage multi-agent workflow |

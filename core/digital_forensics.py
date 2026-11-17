@@ -133,6 +133,45 @@ class CustodyRecord:
 # 2. PHYSICAL MEDIA & DISK IMAGE INSPECTOR
 # =====================================================================
 
+def forensics_evidence_root() -> Path:
+    """
+    The directory tree the forensics tools are allowed to work in.
+
+    Without a confinement the directory browser could list any directory
+    the service account can read, the hash endpoint could confirm the
+    contents of any guessed file, and the carving job could create
+    directories anywhere the account can write.  The root is configurable so
+    that an operator can point it at the volume that actually holds the
+    evidence.
+    """
+    configured = os.environ.get("SWA_EVIDENCE_ROOT", "").strip()
+    if configured:
+        return Path(configured).expanduser().resolve()
+    repo_root = Path(__file__).resolve().parent.parent
+    return (repo_root / "data").resolve()
+
+
+def confine_to_evidence_root(target_path: str) -> Path:
+    """
+    Resolves *target_path* and refuses to leave the evidence root.
+
+    Raises :class:`ValueError` when the resolved path is outside it.
+    """
+    root = forensics_evidence_root()
+    candidate = Path(target_path).expanduser()
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    resolved = candidate.resolve()
+    try:
+        resolved.relative_to(root)
+    except ValueError:
+        raise ValueError(
+            f"Path '{resolved}' is outside the evidence root '{root}'. "
+            f"Set SWA_EVIDENCE_ROOT to the directory that holds the evidence."
+        )
+    return resolved
+
+
 class StorageMediaInspector:
     """
     Forensic disk, drive, and disk image analyzer.
@@ -275,8 +314,13 @@ class StorageMediaInspector:
         return devices
 
     def hash_evidence_file(self, file_path: str) -> Dict[str, str]:
-        """Compute SHA-256 and SHA-512 hashes in blocks to maintain evidence chain."""
-        p = Path(file_path)
+        """Compute SHA-256 and SHA-512 hashes in blocks to maintain evidence chain.
+
+        The file has to be inside the evidence root: without that
+        confinement the endpoint is a hash oracle for any file the service
+        account can read.
+        """
+        p = confine_to_evidence_root(file_path)
         if not p.is_file():
             raise FileNotFoundError(f"Forensic file not found: {file_path}")
 
@@ -321,20 +365,66 @@ class PhotoRecCarver:
         self._jobs: Dict[str, CarvingJob] = {}
         self._lock = threading.Lock()
 
+    @staticmethod
+    def evidence_root() -> Path:
+        """
+        The directory tree the forensics browser is allowed to walk.
+
+        Without a confinement the browser could list any directory the
+        service account can read, which turns it into a file-system
+        disclosure endpoint.  The root is configurable so that an operator
+        can point it at the volume that actually holds the evidence.
+        """
+        return forensics_evidence_root()
+
+    def _confine_to_evidence_root(self, target_path: str) -> Path:
+        """
+        Resolves *target_path* and refuses to leave the evidence root.
+
+        Raises :class:`ValueError` when the resolved path is outside it.
+        """
+        return confine_to_evidence_root(target_path)
+
     def browse_directory(self, target_path: Optional[str] = None) -> Dict[str, Any]:
         """
         Directory browser for carving target or output folder selection.
         Includes parent directory path for mandatory 'Left ⬅ Back' UI navigation.
+
+        The browser is confined to the evidence root (see
+        :meth:`evidence_root`), so it cannot be used to enumerate the rest
+        of the file system.
         """
+        root = self.evidence_root()
+        try:
+            root.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
+
         if not target_path or target_path.strip() in ("", "."):
-            current = Path.cwd().resolve()
+            current = root
         else:
-            current = Path(target_path).resolve()
+            try:
+                current = self._confine_to_evidence_root(target_path)
+            except ValueError as exc:
+                return {
+                    "current_path": str(root),
+                    "parent_path": None,
+                    "has_parent": False,
+                    "items": [],
+                    "item_count": 0,
+                    "error": str(exc),
+                }
 
         if not current.exists():
-            current = Path.cwd().resolve()
+            current = root
 
         parent = current.parent.resolve() if current.parent != current else None
+        # The parent is only offered when it is still inside the root.
+        if parent is not None:
+            try:
+                parent.relative_to(root)
+            except ValueError:
+                parent = None
 
         items: List[Dict[str, Any]] = []
         try:
@@ -364,7 +454,11 @@ class PhotoRecCarver:
     def start_carving_job(self, source_target: str, partition_mode: str, file_types: List[str], destination_dir: str) -> CarvingJob:
         """Initialize and run a background PhotoRec carving job with telemetry."""
         job_id = f"CARVE-{uuid.uuid4().hex[:8].upper()}"
-        out_dir = Path(destination_dir).resolve()
+        # The recovered files are written where the operator says, so the
+        # destination has to stay inside the evidence root: otherwise the
+        # endpoint can create directories anywhere the service account can
+        # write.
+        out_dir = self._confine_to_evidence_root(destination_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
 
         job = CarvingJob(

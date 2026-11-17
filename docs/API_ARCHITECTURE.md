@@ -30,7 +30,7 @@ SWA AI employs a high-performance, asynchronous, multi-tiered API architecture b
        v                          v                          v
 +------------------+     +-------------------+     +------------------+
 |  Agent Workforce |     | Security Scanners |     | Integrations Hub |
-|  (85 Specialists)|     |   (15 Integrated) |     |  (23 Adapters)   |
+|  (94 Specialists)|     |   (15 Integrated) |     |  (23 Adapters)   |
 +------------------+     +-------------------+     +------------------+
                                   |
                                   v
@@ -50,7 +50,7 @@ All `/api/v1/*` responses adhere to a predictable contract:
   "meta": {
     "timestamp": "2026-11-04T12:00:00Z",
     "api_version": "v1",
-    "total": 85,
+    "total": 94,
     "offset": 0,
     "limit": 50
   },

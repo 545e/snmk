@@ -75,6 +75,23 @@ BLOCKED_PATH_PATTERNS = [
     r"(?i)\.env"
 ]
 
+# The REA analyser may only read files inside an allowed root.
+#
+# The blocklist above is a *denylist*: it names five shapes of sensitive
+# file and accepts everything else, which means the endpoint could still
+# read another user's credentials, a private key, or the platform's own
+# database.  An allowlist cannot be enumerated and forgotten; it has to be
+# widened deliberately.
+#
+# The allowed roots are, in order:
+#   1. the directories named in SWA_REA_ALLOWED_ROOTS (comma separated);
+#   2. the platform's own ``data/`` directory, which holds the uploads the
+#      operator has already handed over;
+#   3. the directory of the file that was uploaded through
+#      ``/api/rea/upload-analyze`` (the upload directory itself).
+#
+# When SWA_REA_ALLOWED_ROOTS is set, it *replaces* the defaults rather than
+# adding to them, so an operator can lock the analyser down completely.
 class REAEngine:
     """Manages REA CLI discovery, secure target validation, and analysis execution."""
 
@@ -84,6 +101,34 @@ class REAEngine:
         )
         os.makedirs(self.upload_dir, exist_ok=True)
         self.active_jobs: Dict[str, Dict[str, Any]] = {}
+
+    @staticmethod
+    def allowed_roots() -> List[Path]:
+        """Returns the directories the analyser is allowed to read from."""
+        configured = os.environ.get("SWA_REA_ALLOWED_ROOTS", "").strip()
+        if configured:
+            return [
+                Path(item.strip()).expanduser().resolve()
+                for item in configured.split(",")
+                if item.strip()
+            ]
+
+        repo_root = Path(__file__).resolve().parent.parent
+        roots = [
+            (repo_root / "data").resolve(),
+            (repo_root / "data" / "rea_uploads").resolve(),
+        ]
+        return roots
+
+    @staticmethod
+    def _is_within_allowed_root(resolved: Path) -> bool:
+        for root in REAEngine.allowed_roots():
+            try:
+                resolved.relative_to(root)
+                return True
+            except ValueError:
+                continue
+        return False
 
     @staticmethod
     def get_binary_path() -> Optional[str]:
@@ -158,6 +203,16 @@ class REAEngine:
 
         if not resolved.exists():
             return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
+
+        # Allowlist: the analyser may only read from the roots the operator
+        # has made available.  The blocklist above still applies, but it is
+        # a second line of defence rather than the only one.
+        if not REAEngine._is_within_allowed_root(resolved):
+            roots = ", ".join(str(root) for root in REAEngine.allowed_roots())
+            return False, str(resolved), (
+                f"Target is outside the allowed analysis roots ({roots}). "
+                f"Set SWA_REA_ALLOWED_ROOTS to widen them."
+            )
 
         return True, str(resolved), None
 

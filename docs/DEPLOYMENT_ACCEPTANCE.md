@@ -17,7 +17,7 @@
 | **External Integrations** | Real adapters for 23 third-party providers | **PASSED** | 23 adapters registered with encrypted storage |
 | **Threat Intelligence** | CISA KEV & FIRST EPSS active | **PASSED** | Live endpoints verified via `test_v1_api_suite.py` |
 | **SSRF & Scope Policy** | Block metadata/loopback, auto-authorize valid targets | **PASSED** | Tested against `169.254.169.254` and `starasia.org` |
-| **85 Specialist Agents** | All 85 manifests rendered across 5 tiers | **PASSED** | Verified in UI & API with fail-safe recovery |
+| **94 Specialist Agents** | All 94 manifests rendered across 6 tiers | **PASSED** | Verified in UI & API with fail-safe recovery |
 | **15 Security Tool Suites**| All 15 tools registered with command references | **PASSED** | Verified in `/api/v1/security-tools/catalog` |
 | **Nessus Report Engine** | 12 templates, PDF/HTML/CSV/JSON/XML export | **PASSED** | 16 test cases passed in `test_report_engine.py` |
 | **Automated Test Suite** | Zero regressions across test suite | **PASSED** | 206 tests collected and passing |

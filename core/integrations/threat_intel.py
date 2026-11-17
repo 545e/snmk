@@ -11,6 +11,10 @@ from typing import Any
 import httpx
 
 from core.integrations.base import BaseIntegrationAdapter
+from core.integrations.endpoint_policy import (
+    EndpointPolicyError,
+    validate_integration_endpoint,
+)
 
 
 class VirusTotalAdapter(BaseIntegrationAdapter):
@@ -253,6 +257,12 @@ class CisaKevAdapter(BaseIntegrationAdapter):
 
     async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = credentials.get("feed_url") or endpoint_url or "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
+        try:
+            # No credential is sent here, but the feed URL is operator
+            # supplied, so the SSRF guard still applies.
+            url = validate_integration_endpoint(url, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -281,6 +291,12 @@ class FirstEpssAdapter(BaseIntegrationAdapter):
 
     async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = credentials.get("api_url") or endpoint_url or "https://api.first.org/data/v1/epss?cve=CVE-2021-44228"
+        try:
+            # No credential is sent here, but the API URL is operator
+            # supplied, so the SSRF guard still applies.
+            url = validate_integration_endpoint(url, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:

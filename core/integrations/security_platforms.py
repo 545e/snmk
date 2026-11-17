@@ -13,6 +13,10 @@ from typing import Any
 import httpx
 
 from core.integrations.base import BaseIntegrationAdapter
+from core.integrations.endpoint_policy import (
+    EndpointPolicyError,
+    validate_integration_endpoint,
+)
 
 from core import tls_policy
 
@@ -42,7 +46,12 @@ class WazuhAdapter(BaseIntegrationAdapter):
         password = credentials.get("password", "").strip()
         if not url or not username:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Manager URL and credentials are required.", "latency_ms": 0}
-        
+        try:
+            # The manager credentials are about to be sent to this host.
+            url = validate_integration_endpoint(url, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
@@ -77,6 +86,11 @@ class SplunkAdapter(BaseIntegrationAdapter):
         token = credentials.get("hec_token", "").strip()
         if not url or not token:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Endpoint URL and HEC token required.", "latency_ms": 0}
+        try:
+            # The HEC token is about to be sent to this host.
+            url = validate_integration_endpoint(url, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
@@ -109,6 +123,11 @@ class ElasticSecurityAdapter(BaseIntegrationAdapter):
         api_key = credentials.get("api_key", "").strip()
         if not url or not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Elasticsearch URL and API key required.", "latency_ms": 0}
+        try:
+            # The API key is about to be sent to this host.
+            url = validate_integration_endpoint(url, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
@@ -187,6 +206,11 @@ class CrowdStrikeAdapter(BaseIntegrationAdapter):
         base = (credentials.get("base_url") or "https://api.crowdstrike.com").rstrip("/")
         if not cid or not secret:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Falcon Client ID and Secret required.", "latency_ms": 0}
+        try:
+            # The client secret is about to be sent to this host.
+            base = validate_integration_endpoint(base, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
@@ -223,6 +247,11 @@ class DefectDojoAdapter(BaseIntegrationAdapter):
         if not url or not key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "DefectDojo URL and API key required.", "latency_ms": 0}
         token_hdr = key if key.startswith("Token ") else f"Token {key}"
+        try:
+            # The DefectDojo API key is about to be sent to this host.
+            url = validate_integration_endpoint(url, provider_id=self.provider_id)
+        except EndpointPolicyError as exc:
+            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:

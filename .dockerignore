@@ -23,6 +23,17 @@ swa_data.db
 *.sqlite
 *.sqlite3
 
+# Secrets and credentials -- never bake these into an image layer.
+# The build context is the working directory, not the git tree, so a local
+# .env would otherwise be copied into the image by "COPY . .".
+.env
+.env.*
+!.env.example
+.swa_master.key
+*.pem
+*.key
+secrets/
+
 # Logs and runtime outputs
 *.log
 logs/
