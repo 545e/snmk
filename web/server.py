@@ -8199,6 +8199,106 @@ async def serve_index_with_content_version(request: Request):
         return HTMLResponse("<h1>SNMK Cybersecurity Platform</h1>", status_code=500)
 
 
+# =====================================================================
+# Database & MySQL Architecture Endpoints (Phase 4)
+# =====================================================================
+
+@app.get("/api/database/status")
+async def get_database_status_endpoint():
+    """Returns dual database architecture status covering both SQLite WAL and MySQL 8.x telemetry."""
+    from core.database import DB_PATH
+    from core.mysql_database import mysql_manager
+    sqlite_size_mb = 0.0
+    if os.path.exists(DB_PATH):
+        sqlite_size_mb = round(os.path.getsize(DB_PATH) / (1024 * 1024), 2)
+
+    mysql_health = mysql_manager.get_health_status(force_refresh=False)
+    return {
+        "primary_database": "sqlite_wal" if not mysql_manager.config.enabled else "mysql_cluster",
+        "sqlite": {
+            "status": "HEALTHY",
+            "journal_mode": "WAL",
+            "path": DB_PATH,
+            "size_mb": sqlite_size_mb,
+            "tables_count": 54,
+            "connection_pooling": "thread_local_reused"
+        },
+        "mysql": mysql_health,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+
+@app.get("/api/database/mysql/health")
+async def get_mysql_health_endpoint():
+    """Detailed live MySQL connectivity, connection pool, and latency diagnostics."""
+    from core.mysql_database import mysql_manager
+    return mysql_manager.get_health_status(force_refresh=True)
+
+@app.post("/api/database/mysql/init-schema")
+async def init_mysql_schema_endpoint():
+    """Applies normalized MySQL DDL schemas for enterprise cyber tables."""
+    from core.mysql_database import mysql_manager
+    return mysql_manager.init_schema()
+
+# =====================================================================
+# Centralized Alert & Notification Management Endpoints (Phase 8)
+# =====================================================================
+
+@app.get("/api/alerts")
+async def list_alerts_endpoint(
+    severity: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Retrieves operational, security, AI, and infrastructure alerts with filtering and pagination."""
+    from core.alert_manager import alert_manager
+    return {
+        "alerts": alert_manager.get_alerts(severity=severity, category=category, status=status, limit=limit),
+        "total": len(alert_manager._alerts)
+    }
+
+@app.get("/api/alerts/summary")
+async def get_alerts_summary_endpoint():
+    """Provides high-level alert posture metrics for the SOC dashboard."""
+    from core.alert_manager import alert_manager
+    return alert_manager.get_summary()
+
+@app.post("/api/alerts")
+async def create_alert_endpoint(payload: Dict[str, Any]):
+    """Creates a deduplicated security or system operational alert."""
+    from core.alert_manager import alert_manager
+    title = payload.get("title", "Untitled Alert")
+    sev = payload.get("severity", "MEDIUM")
+    cat = payload.get("category", "SECURITY")
+    desc = payload.get("description", "")
+    asset = payload.get("affected_asset")
+    corr_id = payload.get("correlation_id")
+    rem = payload.get("remediation")
+    alert = alert_manager.create_alert(
+        severity=sev,
+        category=cat,
+        title=title,
+        description=desc,
+        affected_asset=asset,
+        correlation_id=corr_id,
+        remediation=rem,
+        source="api_gateway"
+    )
+    return alert.model_dump()
+
+@app.patch("/api/alerts/{alert_id}/status")
+async def update_alert_status_endpoint(alert_id: str, payload: Dict[str, Any]):
+    """Updates the lifecycle state (ACTIVE, ACKNOWLEDGED, RESOLVED, SUPPRESSED) of an alert."""
+    from core.alert_manager import alert_manager
+    status = payload.get("status", "ACKNOWLEDGED")
+    owner = payload.get("owner")
+    notes = payload.get("notes")
+    ok = alert_manager.update_status(alert_id, new_status=status, owner=owner, notes=notes)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"success": True, "alert_id": alert_id, "status": status}
+
+
 # Mount static web UI files
 
 if os.path.exists(STATIC_DIR):

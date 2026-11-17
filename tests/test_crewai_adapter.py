@@ -107,3 +107,41 @@ def test_pentest_crew_factory_and_execution():
         assert "Crew [" in res.output
 
     asyncio.run(_test())
+
+
+def test_crewai_22_fleet_registration():
+    from core.crewai_adapter import CREWAI_22_FLEET_SPECS, get_crewai_agent_fleet
+
+    assert len(CREWAI_22_FLEET_SPECS) == 22
+    fleet = get_crewai_agent_fleet()
+    assert len(fleet) == 22
+
+    roles = {agent.role for agent in fleet}
+    assert "Lead AI Engineering Agent" in roles
+    assert "MySQL Database Agent" in roles
+    assert "Alert Management Agent" in roles
+    assert "C/C++ Engineering Agent" in roles
+    assert "Python Backend Agent" in roles
+    assert "Cybersecurity Agent" in roles
+    assert "Observability Agent" in roles
+
+    for agent in fleet:
+        assert agent.goal
+        assert agent.backstory
+        assert isinstance(agent.tools, list)
+
+
+def test_enterprise_engineering_crew_execution():
+    from core.crewai_adapter import create_enterprise_engineering_crew
+
+    async def _test():
+        crew = create_enterprise_engineering_crew()
+        assert len(crew.agents) == 4
+        assert len(crew.tasks) == 4
+
+        res = await crew.kickoff(inputs={"scope": "enterprise_cyber_platform"})
+        assert res.status == "COMPLETED"
+        assert res.tasks_completed == 4
+        assert len(res.task_results) == 4
+
+    asyncio.run(_test())
