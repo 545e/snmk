@@ -154,6 +154,10 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 <span>Specialist Agents</span>
             </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemPlatform" onclick="navToView('platform')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="6" rx="2"></rect><rect x="2" y="15" width="20" height="6" rx="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                <span>Platform Engineering</span>
+            </button>
             <button class="swa-sidebar-link soc-nav-item" id="navItemAiAutomation" onclick="navToView('ai_automation')">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                 <span>AI Automation</span>
@@ -4981,6 +4985,50 @@ Content-Type: application/json
 
 
 <!-- View: AI Automation -->
+<div id="viewPlatform" class="swa-view">
+    <div class="swa-page-header">
+        <div>
+            <h2 style="margin:0 0 4px 0;">Platform Engineering</h2>
+            <p style="margin:0; color:var(--text-muted); font-size:12.5px;">
+                Live status of the development toolchain, AI orchestration, database, alerts and observability.
+                All values are read from the running platform; no simulated telemetry is shown here.
+            </p>
+        </div>
+        <button class="btn" onclick="loadPlatformEngineering()">Refresh</button>
+    </div>
+
+    <div id="platformError" class="swa-card" style="display:none; border-color:#ef4444; padding:14px; margin-bottom:12px;"></div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px; margin-bottom:14px;">
+        <div class="swa-card" style="padding:14px;">
+            <h4 style="margin:0 0 10px 0;">CrewAI Orchestration</h4>
+            <div id="platformCrew" style="font-size:12.5px; line-height:1.9; color:var(--text-muted);">Loading…</div>
+        </div>
+        <div class="swa-card" style="padding:14px;">
+            <h4 style="margin:0 0 10px 0;">MySQL Database</h4>
+            <div id="platformMysql" style="font-size:12.5px; line-height:1.9; color:var(--text-muted);">Loading…</div>
+        </div>
+        <div class="swa-card" style="padding:14px;">
+            <h4 style="margin:0 0 10px 0;">Observability</h4>
+            <div id="platformOtel" style="font-size:12.5px; line-height:1.9; color:var(--text-muted);">Loading…</div>
+        </div>
+        <div class="swa-card" style="padding:14px;">
+            <h4 style="margin:0 0 10px 0;">Alerts</h4>
+            <div id="platformAlerts" style="font-size:12.5px; line-height:1.9; color:var(--text-muted);">Loading…</div>
+        </div>
+    </div>
+
+    <div class="swa-card" style="padding:14px;">
+        <h4 style="margin:0 0 10px 0;">Development &amp; Security Tools</h4>
+        <div style="overflow:auto; max-height:420px;">
+            <table class="vuln-table" style="width:100%;">
+                <thead><tr><th>Tool</th><th>Category</th><th>Status</th><th>Version</th><th>Notes</th></tr></thead>
+                <tbody id="platformToolsBody"><tr><td colspan="5">Loading…</td></tr></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
 <div id="viewAiAutomation" class="swa-view">
     <div class="swa-view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div>

@@ -414,6 +414,7 @@ Comprehensive documentation is available in the `docs/` directory:
 - [Security & Governance Policy](docs/SECURITY.md)
 - [SonarQube Static Analysis](docs/SONARQUBE.md)
 - [Enterprise Audit Reports (2026-11-15)](reports/audit/README.md)
+- [Platform Engineering Execution Report](reports/audit/SNMK_PLATFORM_ENGINEERING_EXECUTION_REPORT.md)
 - [Troubleshooting Manual](docs/TROUBLESHOOTING.md)
 
 ---
