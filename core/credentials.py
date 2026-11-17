@@ -55,12 +55,26 @@ def _load_or_generate_master_key() -> bytes:
         except Exception as e:
             logger.warning(f"Failed to read existing keyfile {keyfile}: {e}")
 
-    # Generate a new cryptographic random 32-byte key
+    # Generate a new cryptographic random 32-byte key. Create the file with
+    # restrictive permissions *before* writing the key: chmod after an
+    # ordinary open() leaves a window where the file has the process umask
+    # (often group- or world-readable) and already contains the key.
     new_key = os.urandom(32)
     try:
-        with open(keyfile, "wb") as f:
-            f.write(new_key)
-        # Attempt to restrict file permissions on POSIX systems
+        try:
+            flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+            fd = os.open(keyfile, flags, 0o600)
+            with os.fdopen(fd, "wb") as f:
+                f.write(new_key)
+        except FileExistsError:
+            # Another process created it between the exists() check and here.
+            with open(keyfile, "rb") as f:
+                content = f.read().strip()
+            if len(content) == 32:
+                return content
+            return hashlib.sha256(content).digest()
+        # Explicitly re-apply the mode on POSIX (belt and braces, and it also
+        # handles a platform that ignored the mode passed to os.open).
         if hasattr(os, "chmod"):
             try:
                 os.chmod(keyfile, 0o600)

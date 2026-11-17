@@ -134,7 +134,7 @@ routes, and are exactly what a passive scan reports:
 | Finding | Location | State |
 |---|---|---|
 | The Content-Security-Policy contains `'unsafe-inline'` and `'unsafe-eval'` in `default-src` | `web/server.py:303` | **Open** — it also blocks the 81 unescaped `innerHTML` sinks from being a real XSS vector |
-| `X-XSS-Protection: 1; mode=block` is set | `web/server.py:293` | Obsolete — the header has been deprecated in every browser for years and does nothing |
+| `X-XSS-Protection: 1; mode=block` was set | `web/server.py` | **Fixed** — the header has been removed; the browser XSS auditor is deprecated and the header was a source of bugs. CSP is the mitigation. |
 | The OpenAPI schema and `/docs` are public | `core/app_security.py:29` | **Open** — by design for a local tool |
 | `/api/auth/status` discloses the authentication configuration | `web/server.py:477` | **Open** |
 | `X-Frame-Options: SAMEORIGIN` is set | `web/server.py:291` | Good |
@@ -163,7 +163,7 @@ application, which is where authentication and authorisation actually live.
 |---|---|---|---|
 | DAST-01 | **No DAST is configured at all.** | High | **Open** |
 | DAST-02 | The CSP permits `'unsafe-inline'` and `'unsafe-eval'` | Medium | **Open** |
-| DAST-03 | The obsolete `X-XSS-Protection` header is sent | Low | **Open** — remove it |
+| DAST-03 | The obsolete `X-XSS-Protection` header is sent | Low | **FIXED** - the header is no longer set |
 | DAST-04 | The OpenAPI schema is public | Low | **Open** — by design, disable in production |
 | DAST-05 | `/api/auth/status` discloses the authentication configuration | Low | **Open** |
 | DAST-06 | The path traversal in the kill-chain report download would have been found by a scanner | High | **Open** |

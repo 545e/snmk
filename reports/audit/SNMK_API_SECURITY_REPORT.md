@@ -71,6 +71,10 @@ survive into the parameter; on Windows `os.path.join(dir, "C:\\...\\x.md")`
 returns the absolute second argument, and `..\\..\\` traverses. The
 extension is caller-selected from `html|pdf|json|csv|markdown|md`.
 
+**FIXED** — `report_id` is now restricted to `[A-Za-z0-9_-]{1,128}` and
+the resolved path is confirmed to be inside the report directory before
+the file is served.
+
 **Fix:** resolve the path and assert it is inside `output_dir`
 (`core/app_security.safe_resolve_path` already exists), and reject a
 `report_id` that is not a strict identifier.
@@ -188,18 +192,20 @@ Starlette inserts each `add_middleware` at index 0, so the **last
 registered is outermost**: the execution order is
 `assets → security_headers → auth → rate_limit → CORS → router`.
 
-**The rate limiter sits inside the authentication gate.** A request that
-fails authentication returns 401 before the limiter is consulted, so
-**failed-authentication attempts are never throttled** — which is precisely
-the traffic a brute-force attack generates.
+**FIXED:** the rate limiter is now registered last, so it is the outermost
+middleware and runs **before** the auth gate. A request that fails
+authentication is throttled rather than returning 401 unseen. The order is
+now `rate_limit → assets → security_headers → auth → CORS → router`, and
+`tests/test_post_audit_hardening.py` asserts both the order and that a
+rejected login from a non-loopback IP receives 429.
 
-Two further weaknesses: all loopback clients are fully exempt
-(`web/server.py:228`), and the bucket state is per-process and in-memory,
-so it is ineffective behind a proxy or across workers.
+Two weaknesses remain: all loopback clients are still fully exempt
+(`web/server.py`), and the bucket state is per-process and in-memory, so it
+is ineffective behind a proxy or across workers.
 
-**Fix:** register the rate limiter last so it is outermost; give
-`/api/auth/*` a strict per-IP budget; remove the blanket loopback exemption
-(use a separate authenticated quota for local tools); move the counters to a
+**Remaining fix:** give `/api/auth/*` a strict per-IP budget; remove the
+blanket loopback exemption (use a separate authenticated quota for local
+tools); move the counters to a
 shared store.
 
 ---

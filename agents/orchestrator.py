@@ -22,6 +22,23 @@ from agents.exploit_validator_agent import ExploitValidatorAgent
 from agents.remediation_agent import RemediationAgent
 
 class SWAOrchestrator:
+    @staticmethod
+    def _load_ai_key_from_vault() -> str:
+        """Reads the legacy ``ai_api_key`` setting, decrypting ``enc:v1`` values."""
+        from core import credentials as creds
+
+        raw = db.get_setting("ai_api_key", "") or ""
+        if not raw:
+            return ""
+        if creds.is_encrypted_secret_value(raw):
+            try:
+                return creds.decrypt_secret_value(raw)
+            except Exception:
+                # An unreadable envelope is not a usable key. Failing closed
+                # here is safer than sending the ciphertext to a provider.
+                return ""
+        return raw
+
     def __init__(self, job: ScanJob):
         self.job = job
         self.scan_id = job.id
@@ -29,7 +46,11 @@ class SWAOrchestrator:
         
         provider = self.config.ai_provider if self.config.ai_provider != "auto" else db.get_setting("ai_provider", "auto")
         model = self.config.ai_model or db.get_setting("ai_model", "minimax/minimax-m3.1-flash:free")
-        api_key = self.config.ai_api_key or db.get_setting("ai_api_key")
+        # A key that came from the request config is already plaintext; a key
+        # read from the settings vault may be an encrypted envelope.  Sending
+        # the envelope verbatim as a bearer token makes the provider call fail
+        # and leaks the ciphertext to the third party.
+        api_key = self.config.ai_api_key or self._load_ai_key_from_vault()
         base_url = self.config.ai_base_url or db.get_setting("ai_base_url")
 
         self.llm = SWALLMClient(

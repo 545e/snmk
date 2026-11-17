@@ -38,7 +38,9 @@ def test_security_headers_present():
     headers = resp.headers
     assert headers.get("X-Content-Type-Options") == "nosniff"
     assert headers.get("X-Frame-Options") == "SAMEORIGIN"
-    assert headers.get("X-XSS-Protection") == "1; mode=block"
+    # X-XSS-Protection is intentionally absent: the browser XSS auditor it
+    # controlled has been removed, and CSP is the actual mitigation.
+    assert headers.get("X-XSS-Protection") is None
     assert headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
     assert "default-src" in headers.get("Content-Security-Policy", "")
 

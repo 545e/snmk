@@ -106,7 +106,7 @@ HIGH: 17   MEDIUM: 58   LOW: 215
 | B104 | 12 | `hardcoded_bind_all_interfaces` | **Real in one place.** The server binds `0.0.0.0`; inside a container that is correct, but the value should be configurable. |
 | B607 | 11 | `start_process_with_partial_path` | **Real.** An external binary is invoked by bare name, so it is resolved through `PATH`. |
 | B608 | 5 | `hardcoded_sql_expressions` | **False positive.** All five are over server-controlled allowlists (`allowed_sorts`, `allowed_cols`), never over user input. |
-| B101 | 3 | `assert_used` | **Real.** `assert` is stripped under `python -O`. Two of the three are in the OWASP plugin layer, where an assert could silently disable a check. |
+| B101 | 3 | `assert_used` | **Fixed.** `assert` is stripped under `python -O`. The three are in `core/pattern_gating.py` and `core/signature_matching.py`, where an assert could silently disable a check. |
 | B103 | 2 | `set_bad_file_permissions` | **Real.** The master key file is created without an explicit restrictive mode. |
 | B310 | 2 | `urllib.request` without a timeout | **Real.** Same family as B113. |
 | B314 | 2 | `xml` parsing | **Needs triage.** Expat-based parsing is used for the report XML. |
@@ -117,9 +117,11 @@ HIGH: 17   MEDIUM: 58   LOW: 215
 1. **B104 — the bind address is not configurable.** `SWA_HOST` is read by
    `run.py`, but `web/server.py` hardcodes `0.0.0.0` in the uvicorn
    invocation for some entry points. **Medium.**
-2. **B101 — `assert` in the plugin layer.** Two asserts in
-   `plugins/owasp_plugins.py` guard plugin behaviour and would vanish
-   under `python -O`. **Medium.**
+2. **B101 — `assert` invariants (FIXED).** The original note placed these in
+   `plugins/owasp_plugins.py`; re-checking showed they were in
+   `core/pattern_gating.py` and `core/signature_matching.py`. They guarded
+   internal parser invariants and would vanish under `python -O`. All three
+   are now explicit checks. **Medium, closed.**
 3. **B607 — external binaries resolved through `PATH`.** A poisoned `PATH`
    would substitute the binary. **Medium.**
 
@@ -207,7 +209,7 @@ is tracked, and it contains obvious placeholders.
 | 1 | Add a `gitleaks.toml` allowlist so the scanner's output is actionable | Low |
 | 2 | Add gitleaks, bandit, pip-audit and semgrep to `requirements-dev.txt` and to CI | Low |
 | 3 | Make the uvicorn bind address configurable (B104) | Low |
-| 4 | Replace the two `assert` statements in the plugin layer with explicit checks (B101) | Low |
+| 4 | Replace the three `assert` statements with explicit checks (B101) — **DONE** | Low |
 | 5 | Pin the external-binary paths, or resolve them through the same `find_binary` helper the rest of the code uses (B607) | Low |
 | 6 | Add the missing request timeouts (B113, B310) | Low |
 | 7 | Add a lockfile and pin the resolved versions | Medium |

@@ -134,7 +134,7 @@ documented and the container default has been changed to
 | SEC-13 | The scope allowlist is defeated by session auto-authorization (`SWA_ENFORCE_ALLOWLIST` defaults off) and `POST /api/scope/targets` persists arbitrary domains unauthenticated | `core/scope_policy.py:370`, `web/server.py:3812` |
 | SEC-15 | Loopback is auto-classified as a lab target, so local SSRF needs no lab-mode grant | `core/scope_policy.py:503` |
 | SEC-17 | Most list endpoints accept an unbounded `limit`; `/api/findings` returns the whole table by default | `web/server.py:1900` and 20 other sites |
-| SEC-18 | The rate limiter sits *inside* the auth gate, so failed-auth requests are never throttled; loopback is fully exempt | `web/server.py:190` vs `:252` |
+| SEC-18 | The rate limiter sat *inside* the auth gate, so failed-auth requests were never throttled; loopback is fully exempt | `web/server.py` | **FIXED (first half)** — the limiter is now the outermost middleware, so a rejected credential still consumes the budget. The loopback exemption remains by design. |
 | SEC-19 | No request-size limit; uploads are fully buffered before the size check | `web/server.py:4006` |
 | SEC-20 | Path traversal in the kill-chain report download (the `report_id` becomes a filesystem path; the extension is caller-selected) | `web/kill_chain_router.py:398` |
 | SEC-21 | Tool binaries are downloaded and executed with no pinned checksum or signature verification — the SHA-256 is computed and compared against nothing | `core/tool_dependency_manager.py:881` |
@@ -203,7 +203,7 @@ a later reader does not have to re-derive them.
 | SEC-30 | `.env` and key files are excluded from the Docker build context | `.dockerignore` |
 | SEC-31 | The key-shaped value in the documentation was replaced with an unmistakable placeholder | `docs/API_AUTHENTICATION.md` |
 
-**New regression tests:** `tests/test_auth_hardening.py` (12 tests) and
+**New regression tests:** `tests/test_auth_hardening.py` (12 tests), `tests/test_post_audit_hardening.py` (11 tests) and
 additional cases in `tests/test_rea_engine.py` and
 `tests/test_digital_forensics.py`.
 

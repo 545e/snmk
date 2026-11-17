@@ -187,9 +187,14 @@ _SERVER_START_TIME = time.time()
 
 
 
-@app.middleware("http")
+# Rate limiting is deliberately registered at the END of this module (see the
+# bottom of the file). Starlette inserts each middleware at index 0, so the
+# last one registered runs FIRST. If the limiter ran inside the auth gate, a
+# request that failed authentication would return 401 before the limiter was
+# consulted -- and brute-force attempts against the login endpoints would
+# never be throttled.
 
-async def rate_limit_middleware(request: Request, call_next):
+async def _rate_limit_middleware_impl(request: Request, call_next):
 
     from fastapi.responses import JSONResponse
 
@@ -320,7 +325,10 @@ async def add_security_headers(request: Request, call_next):
 
     response.headers["X-Frame-Options"] = "SAMEORIGIN"
 
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # X-XSS-Protection is deliberately not set: the browser XSS auditor it
+    # controlled has been removed from modern browsers, and the header was
+    # itself a source of vulnerabilities in the ones that still had it.
+    # CSP is the actual mitigation.
 
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
 
@@ -8136,4 +8144,14 @@ async def _serve_assets_with_content_version(request, call_next):
 if os.path.exists(STATIC_DIR):
 
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
+
+
+
+# Register the rate limiter LAST so that it is the OUTERMOST middleware.
+# Starlette inserts at index 0, so the last registered runs first. That
+# means a request with invalid credentials is throttled before the auth gate
+# rejects it -- brute-force attempts against /api/auth/login are no longer
+# invisible to the limiter. The implementation is defined near the top of
+# this module so the ordering is visible here.
+app.middleware("http")(_rate_limit_middleware_impl)
 
