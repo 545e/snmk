@@ -310,10 +310,23 @@ function pollScanStatus(scanId) {
 }
 
 async function loadScans(triggerBtn) {
-    const btn = (triggerBtn && triggerBtn.nodeType) ? triggerBtn : (document.getElementById('refreshScansBtn') || document.querySelector('button[onclick*="loadScans"]'));
+    // Only lock the button when the *user* clicked it. Background refreshes
+    // (dashboard init, view switches) previously grabbed #refreshScansBtn by
+    // fallback and disabled it; when that background promise did not settle
+    // the button stayed disabled forever and looked broken.
+    const btn = (triggerBtn && triggerBtn.nodeType) ? triggerBtn : null;
     const svg = btn ? btn.querySelector('svg') : null;
     if (svg) svg.classList.add('spin-anim');
-    if (btn) btn.disabled = true;
+    if (btn) {
+        btn.disabled = true;
+        // Watchdog: never leave the button stuck if the request is aborted,
+        // the tab is backgrounded, or an unexpected path skips `finally`.
+        clearTimeout(btn._refreshWatchdog);
+        btn._refreshWatchdog = setTimeout(() => {
+            btn.disabled = false;
+            if (svg) svg.classList.remove('spin-anim');
+        }, 10000);
+    }
 
     try {
         const res = await fetch('/api/scans');
@@ -440,6 +453,7 @@ async function loadScans(triggerBtn) {
         console.warn('loadScans error:', e);
         if (triggerBtn && typeof showToast === 'function') showToast('Failed to refresh assessments: ' + e.message);
     } finally {
+        if (btn) clearTimeout(btn._refreshWatchdog);
         if (svg) svg.classList.remove('spin-anim');
         if (btn) btn.disabled = false;
     }
