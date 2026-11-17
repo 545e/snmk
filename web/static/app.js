@@ -555,8 +555,8 @@ async function loadScans(triggerBtn) {
                             <td style="font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                             <td>
                                 <div style="display: flex; gap: 6px;">
-                                    <button class="btn btn-xs btn-primary hover-elevate" onclick="openAssessmentDetailsModal('${s.id}')" style="font-weight: 700; padding: 4px 12px; border-radius: 6px;">View</button>
-                                    <button class="btn btn-xs btn-outline hover-elevate" onclick="openReportFormatModal('${s.id}')" style="padding: 4px 10px; border-radius: 6px;">📄 Report ▾</button>
+                                    <button type="button" class="btn btn-xs btn-primary hover-elevate" onclick="openAssessmentDetailsModal('${s.id}'); event.stopPropagation();" style="font-weight: 700; padding: 4px 12px; border-radius: 6px;">View</button>
+                                    <button type="button" class="btn btn-xs btn-outline hover-elevate" onclick="openReportFormatModal('${s.id}'); event.stopPropagation();" style="padding: 4px 10px; border-radius: 6px;">📄 Report ▾</button>
                                 </div>
                             </td>
                         </tr>
@@ -586,8 +586,8 @@ async function loadScans(triggerBtn) {
                             <td style="font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                             <td style="text-align: right;">
                                 <div style="display: flex; gap: 6px; justify-content: flex-end;">
-                                    <button class="btn btn-xs btn-primary" onclick="openAssessmentDetailsModal('${s.id}')" style="font-weight: 700; padding: 3px 10px;">View</button>
-                                    <button class="btn btn-xs btn-outline" onclick="openReportFormatModal('${s.id}')" style="padding: 3px 8px;">📄 Report ▾</button>
+                                    <button type="button" class="btn btn-xs btn-primary" onclick="openAssessmentDetailsModal('${s.id}'); event.stopPropagation();" style="font-weight: 700; padding: 3px 10px;">View</button>
+                                    <button type="button" class="btn btn-xs btn-outline" onclick="openReportFormatModal('${s.id}'); event.stopPropagation();" style="padding: 3px 8px;">📄 Report ▾</button>
                                 </div>
                             </td>
                         </tr>
@@ -13145,31 +13145,47 @@ async function updateAllTools() {
 // Assessment Details Inspector & Report Formats Modal Controllers
 // ==============================================================================
 
-async function openAssessmentDetailsModal(scanId) {
+function openAssessmentDetailsModal(scanId) {
     if (!scanId) return;
     currentScanId = scanId;
-    
-    // Also update background dashboard telemetry pane
-    if (typeof selectScan === 'function' && scansData[scanId]) {
-        selectScan(scanId);
-    }
 
     const modal = document.getElementById('assessmentDetailsModal');
-    if (!modal) return;
-
-    let scan = scansData[scanId];
-    if (!scan) {
-        try {
-            const res = await fetch(`/api/scans/${scanId}`);
-            if (res.ok) {
-                scan = await res.json();
-                scansData[scanId] = scan;
-            }
-        } catch (_) {}
+    if (!modal) {
+        console.error('assessmentDetailsModal element not found in DOM');
+        return;
     }
-    scan = scan || { id: scanId, target_url: 'Target Host', profile: 'standard', status: 'COMPLETED' };
 
-    // Fill Header
+    // 1. Instantly display modal so user gets immediate visual confirmation
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+
+    // Ensure backdrop click and ESC key listeners close the modal cleanly
+    modal.onclick = function(e) {
+        if (e.target === modal) closeAssessmentDetailsModal();
+    };
+    if (!window.__modalEscAttached) {
+        window.__modalEscAttached = true;
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAssessmentDetailsModal();
+                if (typeof closeReportFormatsModal === 'function') closeReportFormatsModal();
+                if (typeof closeFindingModal === 'function') closeFindingModal();
+            }
+        });
+    }
+
+    // 2. Synchronize background dashboard pane safely
+    try {
+        if (typeof selectScan === 'function' && scansData[scanId]) {
+            selectScan(scanId);
+        }
+    } catch (err) {
+        console.debug('selectScan non-blocking error:', err);
+    }
+
+    // 3. Immediately populate headers and links from in-memory cache
+    let scan = scansData[scanId] || { id: scanId, target_url: 'Target Host', profile: 'standard', status: 'COMPLETED' };
+
     const targetEl = document.getElementById('modalScanTarget');
     const idEl = document.getElementById('modalScanId');
     const profileEl = document.getElementById('modalScanProfile');
@@ -13180,14 +13196,15 @@ async function openAssessmentDetailsModal(scanId) {
     if (idEl) idEl.textContent = scan.id;
     if (profileEl) profileEl.textContent = (scan.profile || 'standard').toUpperCase().replace('_', ' ');
     if (statusEl) {
-        statusEl.textContent = scan.status || 'COMPLETED';
-        statusEl.className = `badge-status status-${scan.status || 'COMPLETED'}`;
+        const sStatus = (scan.status || 'COMPLETED').toUpperCase();
+        statusEl.textContent = sStatus;
+        statusEl.className = `badge-status status-${sStatus}`;
     }
     if (startedEl) {
         startedEl.textContent = scan.created_at ? new Date(scan.created_at).toLocaleString() : 'Recent';
     }
 
-    // Configure Direct Multi-Format Download URLs
+    // Direct Multi-Format Download URLs
     const encId = encodeURIComponent(scanId);
     const pdfBtn = document.getElementById('modalDownloadPdf');
     const docxBtn = document.getElementById('modalDownloadDocx');
@@ -13205,95 +13222,137 @@ async function openAssessmentDetailsModal(scanId) {
     if (mdBtn) mdBtn.href = `/api/scans/${encId}/report?format=markdown`;
     if (sarifBtn) sarifBtn.href = `/api/scans/${encId}/report?format=sarif`;
 
-    // Fetch and render scan-specific findings
+    // Initialize Findings and Logs Loading State
     const listEl = document.getElementById('modalFindingsList');
     if (listEl) {
-        listEl.innerHTML = '<div style="color: var(--brand); text-align: center; padding: 20px;">Fetching vulnerability findings...</div>';
+        listEl.innerHTML = '<div style="color: var(--brand); text-align: center; padding: 24px;"><span class="status-dot-pulse dot-blue" style="margin-right: 6px;"></span> Fetching vulnerability findings...</div>';
     }
-
-    try {
-        const fRes = await fetch(`/api/scans/${encId}/findings`);
-        const findings = fRes.ok ? await fRes.json() : [];
-        
-        // Calculate counts
-        let crit = 0, high = 0, med = 0, low = 0;
-        findings.forEach(f => {
-            const sev = (f.severity || '').toUpperCase();
-            if (sev === 'CRITICAL') crit++;
-            else if (sev === 'HIGH') high++;
-            else if (sev === 'MEDIUM') med++;
-            else low++;
-        });
-
-        const totalEl = document.getElementById('modalCountTotal');
-        const critEl = document.getElementById('modalCountCrit');
-        const highEl = document.getElementById('modalCountHigh');
-        const medEl = document.getElementById('modalCountMed');
-        const lowEl = document.getElementById('modalCountLow');
-
-        if (totalEl) totalEl.textContent = findings.length;
-        if (critEl) critEl.textContent = crit;
-        if (highEl) highEl.textContent = high;
-        if (medEl) medEl.textContent = med;
-        if (lowEl) lowEl.textContent = low;
-
-        // Posture Score Badge
-        const scoreBadge = document.getElementById('modalScanScoreBadge');
-        if (scoreBadge) {
-            let score = 100 - (crit * 30 + high * 18 + med * 8 + low * 3);
-            score = Math.max(0, Math.min(100, score));
-            let grade = score >= 90 ? 'Grade A' : (score >= 75 ? 'Grade B' : (score >= 60 ? 'Grade C' : (score >= 40 ? 'Grade D' : 'Grade F')));
-            scoreBadge.textContent = `Score: ${score}/100 (${grade})`;
-            scoreBadge.className = `score-badge ${score >= 90 ? 'score-A' : (score >= 75 ? 'score-B' : (score >= 60 ? 'score-C' : 'score-F'))}`;
-        }
-
-        if (listEl) {
-            if (findings.length === 0) {
-                listEl.innerHTML = '<div style="color: var(--safe); text-align: center; padding: 24px; font-weight: 600;">✓ Zero vulnerabilities detected in this assessment cycle. Clean perimeter verified.</div>';
-            } else {
-                listEl.innerHTML = findings.map((f, i) => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: ${i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'};">
-                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-                            <span class="sev-tag tag-${f.severity || 'LOW'}">${f.severity || 'LOW'}</span>
-                            <span style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.06); font-family: var(--mono); color: var(--text-muted);">CVSS ${f.cvss_score || '0.0'}</span>
-                            <strong style="color: var(--text-title); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.title || 'Finding')}</strong>
-                            <code style="color: var(--brand); font-size: 11px; margin-left: 6px;">${escapeHtml(f.method || 'GET')} ${escapeHtml(f.endpoint || '')}</code>
-                        </div>
-                        <button class="btn btn-xs btn-outline" onclick="openFindingModal('${f.id}')" style="margin-left: 10px;">Inspect & PoC</button>
-                    </div>
-                `).join('');
-            }
-        }
-    } catch (e) {
-        if (listEl) listEl.innerHTML = `<div style="color: var(--text-muted); padding: 16px; text-align: center;">Could not load findings: ${escapeHtml(e.message)}</div>`;
-    }
-
-    // Fetch and render scan logs
     const logsEl = document.getElementById('modalScanLogs');
     if (logsEl) {
-        try {
-            const lRes = await fetch(`/api/scans/${encId}/logs?limit=40`);
-            if (lRes.ok) {
-                const logs = await lRes.json();
+        logsEl.textContent = 'Streaming assessment logs and events...';
+    }
+
+    // Initial default count display from scan metadata if available
+    const totalEl = document.getElementById('modalCountTotal');
+    if (totalEl && scan.findings_count !== undefined) {
+        totalEl.textContent = scan.findings_count;
+    }
+
+    // 4. Asynchronously fetch full scan details if missing
+    if (!scansData[scanId]) {
+        fetch(`/api/scans/${encId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(fullScan => {
+                if (fullScan) {
+                    scansData[scanId] = fullScan;
+                    if (targetEl) targetEl.textContent = fullScan.target_url || targetEl.textContent;
+                    if (profileEl) profileEl.textContent = (fullScan.profile || 'standard').toUpperCase().replace('_', ' ');
+                    if (statusEl) {
+                        statusEl.textContent = (fullScan.status || 'COMPLETED').toUpperCase();
+                        statusEl.className = `badge-status status-${(fullScan.status || 'COMPLETED').toUpperCase()}`;
+                    }
+                    if (startedEl && fullScan.created_at) {
+                        startedEl.textContent = new Date(fullScan.created_at).toLocaleString();
+                    }
+                }
+            })
+            .catch(e => console.debug('Scan metadata refresh non-blocking:', e));
+    }
+
+    // 5. Asynchronously fetch and render findings
+    fetch(`/api/scans/${encId}/findings`)
+        .then(r => r.ok ? r.json() : [])
+        .then(rawFindings => {
+            const findings = Array.isArray(rawFindings) ? rawFindings : (rawFindings.findings || rawFindings.items || []);
+            
+            // Calculate severity breakdown
+            let crit = 0, high = 0, med = 0, low = 0;
+            findings.forEach(f => {
+                const sev = (f.severity || '').toUpperCase();
+                if (sev === 'CRITICAL') crit++;
+                else if (sev === 'HIGH') high++;
+                else if (sev === 'MEDIUM') med++;
+                else low++;
+            });
+
+            const critEl = document.getElementById('modalCountCrit');
+            const highEl = document.getElementById('modalCountHigh');
+            const medEl = document.getElementById('modalCountMed');
+            const lowEl = document.getElementById('modalCountLow');
+
+            if (totalEl) totalEl.textContent = findings.length;
+            if (critEl) critEl.textContent = crit;
+            if (highEl) highEl.textContent = high;
+            if (medEl) medEl.textContent = med;
+            if (lowEl) lowEl.textContent = low;
+
+            // Posture Score Badge
+            const scoreBadge = document.getElementById('modalScanScoreBadge');
+            if (scoreBadge) {
+                let score = 100 - (crit * 30 + high * 18 + med * 8 + low * 3);
+                score = Math.max(0, Math.min(100, score));
+                let grade = score >= 90 ? 'Grade A' : (score >= 75 ? 'Grade B' : (score >= 60 ? 'Grade C' : (score >= 40 ? 'Grade D' : 'Grade F')));
+                scoreBadge.textContent = `Score: ${score}/100 (${grade})`;
+                scoreBadge.className = `score-badge ${score >= 90 ? 'score-A' : (score >= 75 ? 'score-B' : (score >= 60 ? 'score-C' : 'score-F'))}`;
+            }
+
+            if (listEl) {
+                if (findings.length === 0) {
+                    listEl.innerHTML = '<div style="color: var(--safe); text-align: center; padding: 24px; font-weight: 600;">✓ Zero vulnerabilities detected in this assessment cycle. Clean perimeter verified.</div>';
+                } else {
+                    listEl.innerHTML = findings.map((f, i) => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: ${i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'};">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                <span class="sev-tag tag-${f.severity || 'LOW'}">${f.severity || 'LOW'}</span>
+                                <span style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.06); font-family: var(--mono); color: var(--text-muted);">CVSS ${f.cvss_score || '0.0'}</span>
+                                <strong style="color: var(--text-title); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.title || 'Finding')}</strong>
+                                <code style="color: var(--brand); font-size: 11px; margin-left: 6px;">${escapeHtml(f.method || 'GET')} ${escapeHtml(f.endpoint || '')}</code>
+                            </div>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="openFindingModal('${f.id}')" style="margin-left: 10px;">Inspect & PoC</button>
+                        </div>
+                    `).join('');
+                }
+            }
+        })
+        .catch(e => {
+            console.debug('Failed to load assessment findings:', e);
+            if (listEl) listEl.innerHTML = `<div style="color: var(--text-muted); padding: 16px; text-align: center;">Could not load findings: ${escapeHtml(e.message)}</div>`;
+        });
+
+    // 6. Asynchronously fetch logs with a 5s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    fetch(`/api/scans/${encId}/logs?limit=40`, { signal: controller.signal })
+        .then(r => {
+            clearTimeout(timeoutId);
+            return r.ok ? r.json() : [];
+        })
+        .then(logs => {
+            if (logsEl) {
                 if (Array.isArray(logs) && logs.length > 0) {
-                    logsEl.textContent = logs.map(ev => `[${ev.created_at ? ev.created_at.substring(11, 19) : '--'}] [${ev.agent || 'ScanEngine'}] ${ev.message}`).join('\n');
+                    logsEl.textContent = logs.map(ev => {
+                        const ts = ev.timestamp || (ev.created_at ? ev.created_at.substring(11, 19) : '--');
+                        return `[${ts}] [${ev.agent || 'ScanEngine'}] ${ev.message}`;
+                    }).join('\n');
                 } else {
                     logsEl.textContent = `[${new Date().toLocaleTimeString()}] Assessment initialized and completed successfully. No execution warnings logged.`;
                 }
-            } else {
-                logsEl.textContent = 'Log stream unavailable for this assessment.';
             }
-        } catch (_) {
-            logsEl.textContent = 'Log stream unavailable for this assessment.';
-        }
-    }
-
-    modal.classList.add('open');
+        })
+        .catch(e => {
+            clearTimeout(timeoutId);
+            if (logsEl) {
+                logsEl.textContent = `[${new Date().toLocaleTimeString()}] Telemetry log stream closed or empty for this assessment.`;
+            }
+        });
 }
 
 function closeAssessmentDetailsModal() {
     const modal = document.getElementById('assessmentDetailsModal');
-    if (modal) modal.classList.remove('open');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
 }
 
 function goToVulnerabilitiesFromModal() {
@@ -13320,6 +13379,13 @@ function openReportFormatModal(scanId) {
     const modal = document.getElementById('reportFormatsModal');
     if (!modal) return;
 
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+
+    modal.onclick = function(e) {
+        if (e.target === modal) closeReportFormatsModal();
+    };
+
     const scan = scansData[scanId] || { id: scanId, target_url: 'Target System' };
     const targetLabel = document.getElementById('reportFormatsModalTarget');
     if (targetLabel) {
@@ -13342,14 +13408,23 @@ function openReportFormatModal(scanId) {
     if (json) json.href = `/api/scans/${enc}/report?format=json`;
     if (md) md.href = `/api/scans/${enc}/report?format=markdown`;
     if (sarif) sarif.href = `/api/scans/${enc}/report?format=sarif`;
-
-    modal.classList.add('open');
 }
 
 function closeReportFormatsModal() {
     const modal = document.getElementById('reportFormatsModal');
-    if (modal) modal.classList.remove('open');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
 }
+
+// Ensure global accessibility for inline onclick handlers
+window.openAssessmentDetailsModal = openAssessmentDetailsModal;
+window.closeAssessmentDetailsModal = closeAssessmentDetailsModal;
+window.openReportFormatModal = openReportFormatModal;
+window.closeReportFormatsModal = closeReportFormatsModal;
+window.goToVulnerabilitiesFromModal = goToVulnerabilitiesFromModal;
+window.copyScanIdDirect = copyScanIdDirect;
 
 // =====================================================================
 // CYBER AI EXECUTIVE DASHBOARD CONTROLLERS (Match Reference UI)
