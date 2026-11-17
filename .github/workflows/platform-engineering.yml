@@ -1,0 +1,146 @@
+name: "Platform Engineering Quality Gates"
+
+# Additional quality gates requested by the platform-engineering mission.
+# This workflow never deploys, never force-pushes and never publishes artefacts.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: platform-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  python-quality:
+    name: Python format, lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install ruff black mypy bandit
+
+      # Blocking: the modules added by this initiative are Ruff-clean.
+      - name: Ruff (new platform modules)
+        run: |
+          ruff check \
+            core/dev_tool_registry.py \
+            core/crew_coordinator.py \
+            core/mysql_adapter.py \
+            core/alert_manager.py \
+            core/observability.py \
+            --output-format concise
+
+      # Advisory: the legacy tree predates Ruff and still has findings.
+      - name: Ruff (full tree, advisory)
+        continue-on-error: true
+        run: ruff check core agents plugins reports --output-format concise
+
+      - name: Format check (Black, advisory on legacy tree)
+        continue-on-error: true
+        run: black --check core agents plugins reports
+
+      - name: Type check
+        # Advisory only: the legacy tree is not fully annotated yet.
+        continue-on-error: true
+        run: mypy core --ignore-missing-imports --no-error-summary
+
+      - name: SAST (Bandit)
+        run: bandit -r core agents plugins -q -f json -o bandit.json
+
+      - name: Upload Bandit report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bandit-report
+          path: bandit.json
+          if-no-files-found: ignore
+
+  dependencies-and-secrets:
+    name: SCA and secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install scanners
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-audit
+
+      - name: SCA (pip-audit)
+        run: pip-audit -r requirements.txt
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  container-and-iac:
+    name: Container and IaC checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy config and filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '0'   # advisory until the backlog is triaged
+          format: sarif
+          output: trivy-results.sarif
+
+      - name: Upload Trivy report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-results.sarif
+          if-no-files-found: ignore
+
+  platform-tests:
+    name: Platform engineering tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y libpcap-dev
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Run tests
+        env:
+          PYTHONPATH: .
+        run: |
+          pytest tests/test_platform_engineering.py \
+                 tests/test_post_audit_hardening.py \
+                 tests/test_auth_hardening.py -q
+
+      - name: Node syntax check
+        run: node --check web/static/app.js

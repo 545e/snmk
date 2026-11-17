@@ -4130,6 +4130,313 @@ async def get_rea_job(job_id: str):
 
 
 
+class CrewTaskRequest(BaseModel):
+
+    role: str
+
+    targets: Optional[List[str]] = Field(default_factory=list)
+
+    description: Optional[str] = ""
+
+    timeout_sec: int = Field(default=30, ge=1, le=300)
+
+    retries: int = Field(default=0, ge=0, le=3)
+
+
+
+class AlertCreateRequest(BaseModel):
+
+    title: str
+
+    severity: str = Field(default="medium", pattern="^(critical|high|medium|low|info)$")
+
+    source: str = "manual"
+
+    component: str = "platform"
+
+    description: str = ""
+
+    evidence: str = ""
+
+    related_id: str = ""
+
+    remediation: str = ""
+
+
+
+@app.get("/metrics", include_in_schema=False)
+
+async def prometheus_metrics():
+
+    """Prometheus exposition of live, measured counters."""
+
+    from core.observability import metrics_response
+
+    return metrics_response()
+
+
+
+@app.get("/api/observability")
+
+async def observability_status():
+
+    """Reports the honest state of metrics and tracing."""
+
+    from core.observability import otel_status
+
+    status = otel_status()
+    status["prometheus_metrics"] = "enabled"
+    status["correlation_ids"] = "enabled"
+    return status
+
+
+
+@app.get("/api/alerts")
+
+async def list_alerts(
+    severity: Optional[str] = Query(None, pattern="^(critical|high|medium|low|info)$"),
+    status: Optional[str] = Query(None, pattern="^(open|acknowledged|assigned|suppressed|resolved)$"),
+    source: Optional[str] = None,
+    limit: int = Query(100, ge=1, le=500),
+):
+    """Lists real alerts with optional filtering."""
+
+    from core.alert_manager import manager as alerts
+
+    return {"alerts": alerts.list(severity=severity, status=status, source=source, limit=limit),
+            "summary": alerts.summary()}
+
+
+
+@app.get("/api/alerts/summary")
+
+async def alert_summary():
+
+    from core.alert_manager import manager as alerts
+
+    return alerts.summary()
+
+
+
+@app.post("/api/alerts")
+
+async def create_alert(req: AlertCreateRequest):
+
+    """Creates an alert from an observed event."""
+
+    from core.alert_manager import Severity, manager as alerts
+
+    alert = alerts.create(
+        title=req.title,
+        severity=Severity(req.severity),
+        source=req.source,
+        component=req.component,
+        description=req.description,
+        evidence=req.evidence,
+        related_id=req.related_id,
+        remediation=req.remediation,
+    )
+
+    return alert.to_dict()
+
+
+
+@app.post("/api/alerts/{alert_id}/acknowledge")
+
+async def acknowledge_alert(alert_id: str):
+
+    from core.alert_manager import manager as alerts
+
+    if not alerts.acknowledge(alert_id):
+        raise HTTPException(status_code=404, detail="Alert not found or already resolved.")
+
+    return {"id": alert_id, "status": "acknowledged"}
+
+
+
+@app.post("/api/alerts/{alert_id}/assign")
+
+async def assign_alert(alert_id: str, owner: str = Query(..., min_length=1)):
+
+    from core.alert_manager import manager as alerts
+
+    if not alerts.assign(alert_id, owner):
+        raise HTTPException(status_code=404, detail="Alert not found or already resolved.")
+
+    return {"id": alert_id, "status": "assigned", "owner": owner}
+
+
+
+@app.post("/api/alerts/{alert_id}/resolve")
+
+async def resolve_alert(alert_id: str, resolution: str = Query(..., min_length=1)):
+
+    from core.alert_manager import manager as alerts
+
+    if not alerts.resolve(alert_id, resolution):
+        raise HTTPException(status_code=404, detail="Alert not found.")
+
+    return {"id": alert_id, "status": "resolved"}
+
+
+
+@app.post("/api/alerts/{alert_id}/notify")
+
+async def notify_alert(alert_id: str):
+
+    """
+
+    Attempts delivery. Delivery is reported as DELIVERED only when the
+
+    channel confirms it; otherwise NOT_CONFIGURED or FAILED is returned.
+
+    """
+
+    from core.alert_manager import manager as alerts
+
+    results = alerts.notify(alert_id)
+
+    if not results:
+        raise HTTPException(status_code=404, detail="Alert not found.")
+
+    return {"id": alert_id, "delivery": results}
+
+
+
+@app.get("/api/mysql/status")
+
+async def get_mysql_status():
+
+    """Measured MySQL readiness. Never reports fabricated database statistics."""
+
+    from core.mysql_adapter import mysql_status
+
+    return mysql_status()
+
+
+
+@app.get("/api/mysql/metrics")
+
+async def get_mysql_metrics():
+
+    """Real MySQL telemetry, or an explicit unavailable reason."""
+
+    from core.mysql_adapter import mysql_metrics
+
+    return mysql_metrics()
+
+
+
+@app.get("/api/crew/status")
+
+async def get_crew_status():
+
+    """Reports the *measured* orchestration mode and role execution history."""
+
+    from core.crew_coordinator import coordinator
+
+    return coordinator.status()
+
+
+
+@app.get("/api/crew/roles")
+
+async def list_crew_roles():
+
+    """Lists the declared specialist roles and the work each one actually performs."""
+
+    from core.crew_coordinator import ROLES
+
+    return {"total": len(ROLES), "roles": [r.__dict__ for r in ROLES]}
+
+
+
+@app.get("/api/crew/history")
+
+async def get_crew_history(limit: int = Query(50, ge=1, le=100)):
+
+    """Returns recorded executions: status, errors, output and duration."""
+
+    from core.crew_coordinator import coordinator
+
+    return {"tasks": coordinator.history_payload(limit)}
+
+
+
+@app.post("/api/crew/tasks")
+
+async def submit_crew_task(req: CrewTaskRequest):
+
+    """Submits a specialist task. Only completed executions count as operational."""
+
+    from core.crew_coordinator import coordinator
+
+    try:
+
+        task = coordinator.submit(
+            req.role,
+            targets=req.targets or (),
+            description=req.description or "",
+            timeout_sec=req.timeout_sec,
+            retries=req.retries,
+        )
+
+    except (ValueError, RuntimeError) as exc:
+
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    return {"task_id": task.task_id, "status": task.status.value, "orchestrator": task.orchestrator}
+
+
+
+@app.get("/api/crew/tasks/{task_id}")
+
+async def get_crew_task(task_id: str):
+
+    from core.crew_coordinator import coordinator
+
+    for item in coordinator.history_payload(100):
+
+        if item["task_id"] == task_id:
+
+            return item
+
+    raise HTTPException(status_code=404, detail=f"Task '{task_id}' not found.")
+
+
+
+@app.get("/api/dev-tools")
+async def list_dev_tools():
+    """
+    Reports the *measured* status of the development and security tools.
+
+    Nothing here is inferred from documentation: a tool is OPERATIONAL only
+    when its version probe actually executed successfully on this host.
+    """
+    from core.dev_tool_registry import snapshot as _snapshot
+    from collections import Counter
+
+    tools = _snapshot()
+    return {
+        "total": len(tools),
+        "summary": dict(Counter(item["status"] for item in tools)),
+        "tools": tools,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+    }
+
+
+@app.get("/api/dev-tools/{tool_id}")
+async def get_dev_tool(tool_id: str):
+    """Returns the measured status of one development/security tool."""
+    from core.dev_tool_registry import registry as _registry
+
+    _registry.snapshot()
+    record = _registry.get(tool_id)
+    if not record:
+        raise HTTPException(status_code=404, detail=f"Tool '{tool_id}' is not declared.")
+    return record.to_dict()
+
+
 @app.get("/api/tools/registry")
 
 async def list_tool_registry(category: Optional[str] = None):
@@ -8153,5 +8460,12 @@ if os.path.exists(STATIC_DIR):
 # rejects it -- brute-force attempts against /api/auth/login are no longer
 # invisible to the limiter. The implementation is defined near the top of
 # this module so the ordering is visible here.
+# Observability is registered FIRST so the rate limiter below stays outermost
+# (Starlette inserts at index 0). Its metrics observe real request paths and
+# add a correlation ID to every response.
+from core.observability import ObservabilityMiddleware as _ObservabilityMiddleware
+
+app.add_middleware(_ObservabilityMiddleware)
+
 app.middleware("http")(_rate_limit_middleware_impl)
 

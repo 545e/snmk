@@ -39,6 +39,10 @@ data/model_checkpoints/*
 data/exports/*
 !data/exports/.gitkeep
 
+# Runtime state created by the platform at work (alerts, agent history)
+data/alerts.json
+data/crew_execution_history.json
+
 # Accidental nested git clone directory
 SWA/
 

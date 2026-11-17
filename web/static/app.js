@@ -1482,6 +1482,9 @@ const VIEW_CONTAINER_MAP = {
     'ai_automation': 'viewAiAutomation',
     'automation': 'viewAiAutomation',
     'workflows': 'viewAiAutomation',
+    'platform': 'viewPlatform',
+    'observability': 'viewPlatform',
+    'database': 'viewPlatform',
     'security_testing': 'viewCyberTest',
     'api_testing': 'viewCyberTest',
     'web_testing': 'viewCyberTest',
@@ -16466,3 +16469,93 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 } else {
     document.addEventListener('DOMContentLoaded', initToolHealthMonitoring);
 }
+
+
+function platformEscape(value) {
+    const div = document.createElement('div');
+    div.textContent = value === null || value === undefined ? '' : String(value);
+    return div.innerHTML;
+}
+
+function platformRows(container, pairs) {
+    const el = document.getElementById(container);
+    if (!el) return;
+    el.innerHTML = Object.entries(pairs)
+        .map(([k, v]) => `<div><strong>${platformEscape(k)}:</strong> ${platformEscape(v)}</div>`)
+        .join('');
+}
+
+async function loadPlatformEngineering() {
+    const errorBox = document.getElementById('platformError');
+    if (errorBox) errorBox.style.display = 'none';
+
+    try {
+        const [crew, mysql, otel, alerts, tools] = await Promise.all([
+            fetch('/api/crew/status').then(r => r.json()),
+            fetch('/api/mysql/status').then(r => r.json()),
+            fetch('/api/observability').then(r => r.json()),
+            fetch('/api/alerts/summary').then(r => r.json()),
+            fetch('/api/dev-tools').then(r => r.json()),
+        ]);
+
+        platformRows('platformCrew', {
+            'Mode': crew.mode,
+            'CrewAI installed': crew.crewai_installed ? 'yes' : 'no',
+            'CrewAI actually executed': crew.crewai_executed ? 'yes' : 'no',
+            'Roles declared': crew.roles_declared,
+            'Roles with a completed task': crew.roles_operational,
+            'Tasks recorded': crew.tasks_total,
+        });
+
+        platformRows('platformMysql', {
+            'Backend': mysql.backend || (mysql.enabled ? 'mysql' : 'not enabled'),
+            'Status': mysql.status,
+            'Endpoint': mysql.endpoint || 'n/a',
+            'Version': mysql.version || 'n/a',
+            'Reason': mysql.reason || '-',
+        });
+
+        platformRows('platformOtel', {
+            'Prometheus metrics': otel.prometheus_metrics || '-',
+            'OTel SDK installed': otel.otel_sdk_installed ? 'yes' : 'no',
+            'Tracing enabled': otel.tracing_enabled ? 'yes' : 'no',
+            'Correlation IDs': otel.correlation_ids || '-',
+        });
+
+        platformRows('platformAlerts', {
+            'Total': alerts.total,
+            'Open': alerts.open,
+            'By severity': Object.entries(alerts.by_severity || {}).map(([k, v]) => `${k}: ${v}`).join(', ') || 'none',
+            'Channels configured': (alerts.channels_configured || []).join(', ') || 'none',
+        });
+
+        const body = document.getElementById('platformToolsBody');
+        if (body) {
+            body.innerHTML = (tools.tools || []).map(t => `
+                <tr>
+                    <td>${platformEscape(t.name)}</td>
+                    <td>${platformEscape(t.category)}</td>
+                    <td>${platformEscape(t.status)}</td>
+                    <td>${platformEscape(t.version || '-')}</td>
+                    <td>${platformEscape(t.reason || '-')}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (error) {
+        if (errorBox) {
+            errorBox.style.display = 'block';
+            errorBox.textContent = 'Unable to load platform status: ' + error.message;
+        }
+    }
+}
+
+// Load real data whenever this view is opened. The existing navToView()
+// switches .swa-view containers; this listener only reacts to our view.
+document.addEventListener('DOMContentLoaded', function () {
+    const target = document.getElementById('viewPlatform');
+    if (!target) return;
+    const observer = new MutationObserver(function () {
+        if (target.classList.contains('active')) loadPlatformEngineering();
+    });
+    observer.observe(target, { attributes: true, attributeFilter: ['class'] });
+});
