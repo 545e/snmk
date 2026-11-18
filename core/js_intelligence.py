@@ -1954,7 +1954,7 @@ class JavaScriptSecretScanner:
                         "category": meta["category"],
                         "severity": meta["severity"].upper(),
                         "confidence": meta["confidence"],
-                        "raw_value": val,
+                        "raw_value": masked,
                         "masked_value": masked,
                         "source_url": source_url or "inline",
                         "line": line_num,
@@ -1982,23 +1982,22 @@ class GhostJsAnalyzer:
         self.timeout = timeout
 
     def scan_content(self, content: str, source_url: str = "") -> dict[str, Any]:
-        """Scans raw JS/JSON/HTML string and extracts secrets, endpoints, and storage URLs."""
-        secrets = self.scanner.scan(content, source_url=source_url)
+        """Scans raw JS/JSON/HTML string and extracts audit findings, endpoints, and storage URLs."""
+        detected = self.scanner.scan(content, source_url=source_url)
         discovery = EndpointAndStorageExtractor.extract_endpoints_and_assets(content, base_url=source_url)
         
         return {
             "source": source_url or "inline",
-            "secrets_count": len(secrets),
-            "findings": secrets,
-            "secrets": secrets,
+            "findings_count": len(detected),
+            "findings": detected,
             "api_endpoints": discovery["api_endpoints"],
             "cloud_storage": discovery["cloud_storage"],
             "source_maps": discovery["source_maps"],
             "summary": {
-                "critical": sum(1 for s in secrets if s["severity"] == "CRITICAL"),
-                "high": sum(1 for s in secrets if s["severity"] == "HIGH"),
-                "medium": sum(1 for s in secrets if s["severity"] == "MEDIUM"),
-                "low": sum(1 for s in secrets if s["severity"] == "LOW"),
+                "critical": sum(1 for s in detected if s["severity"] == "CRITICAL"),
+                "high": sum(1 for s in detected if s["severity"] == "HIGH"),
+                "medium": sum(1 for s in detected if s["severity"] == "MEDIUM"),
+                "low": sum(1 for s in detected if s["severity"] == "LOW"),
                 "endpoints": len(discovery["api_endpoints"]),
                 "cloud_buckets": len(discovery["cloud_storage"]),
                 "source_maps": len(discovery["source_maps"]),
@@ -2008,13 +2007,13 @@ class GhostJsAnalyzer:
     def scan_file(self, filepath: str) -> dict[str, Any]:
         """Scans local JavaScript, JSON, or HTML file."""
         if not os.path.exists(filepath):
-            return {"error": f"File not found: {filepath}", "findings": [], "secrets": []}
+            return {"error": f"File not found: {filepath}", "findings": []}
         try:
             with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
             return self.scan_content(content, source_url=filepath)
         except Exception as e:
-            return {"error": str(e), "findings": [], "secrets": []}
+            return {"error": str(e), "findings": []}
 
     async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> dict[str, Any]:
         """
@@ -2035,7 +2034,6 @@ class GhostJsAnalyzer:
                 "target_url": target_url,
                 "error": "Invalid target URL scheme or host",
                 "findings": [],
-                "secrets": [],
                 "api_endpoints": [],
                 "cloud_storage": [],
                 "source_maps": [],
@@ -2046,14 +2044,13 @@ class GhostJsAnalyzer:
                 "target_url": target_url,
                 "error": "Target host belongs to private, loopback, or cloud metadata IP space",
                 "findings": [],
-                "secrets": [],
                 "api_endpoints": [],
                 "cloud_storage": [],
                 "source_maps": [],
             }
         target_url = urlunparse(parsed_target)
 
-        all_secrets = []
+        all_findings = []
         all_endpoints = []
         all_cloud_storage = []
         all_source_maps = []
@@ -2070,7 +2067,6 @@ class GhostJsAnalyzer:
                     "target_url": target_url,
                     "error": f"Failed to fetch initial target: {e}",
                     "findings": [],
-                    "secrets": [],
                     "api_endpoints": [],
                     "cloud_storage": [],
                     "source_maps": [],
@@ -2078,7 +2074,7 @@ class GhostJsAnalyzer:
 
             # Scan main page content
             main_res = self.scan_content(body, source_url=target_url)
-            all_secrets.extend(main_res["secrets"])
+            all_findings.extend(main_res["findings"])
             all_endpoints.extend(main_res["api_endpoints"])
             all_cloud_storage.extend(main_res["cloud_storage"])
             all_source_maps.extend(main_res["source_maps"])
@@ -2127,7 +2123,7 @@ class GhostJsAnalyzer:
 
                     for b_res in bundle_results:
                         if b_res:
-                            all_secrets.extend(b_res["secrets"])
+                            all_findings.extend(b_res["findings"])
                             all_endpoints.extend(b_res["api_endpoints"])
                             all_cloud_storage.extend(b_res["cloud_storage"])
                             all_source_maps.extend(b_res["source_maps"])
@@ -2141,18 +2137,17 @@ class GhostJsAnalyzer:
             "target_url": target_url,
             "scanned_assets_count": len(scanned_assets),
             "scanned_assets": scanned_assets,
-            "secrets_count": len(all_secrets),
-            "findings": all_secrets,
-            "secrets": all_secrets,
+            "findings_count": len(all_findings),
+            "findings": all_findings,
             "api_endpoints": list(unique_endpoints),
             "cloud_storage": list(unique_cloud),
             "source_maps": list(unique_maps),
             "summary": {
-                "critical": sum(1 for s in all_secrets if s["severity"] == "CRITICAL"),
-                "high": sum(1 for s in all_secrets if s["severity"] == "HIGH"),
-                "medium": sum(1 for s in all_secrets if s["severity"] == "MEDIUM"),
-                "low": sum(1 for s in all_secrets if s["severity"] == "LOW"),
-                "total_secrets": len(all_secrets),
+                "critical": sum(1 for s in all_findings if s["severity"] == "CRITICAL"),
+                "high": sum(1 for s in all_findings if s["severity"] == "HIGH"),
+                "medium": sum(1 for s in all_findings if s["severity"] == "MEDIUM"),
+                "low": sum(1 for s in all_findings if s["severity"] == "LOW"),
+                "total_findings": len(all_findings),
                 "endpoints_discovered": len(unique_endpoints),
                 "cloud_buckets": len(unique_cloud),
                 "source_maps": len(unique_maps),

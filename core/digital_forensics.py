@@ -158,8 +158,7 @@ def confine_to_evidence_root(target_path: str) -> Path:
     Raises :class:`ValueError` when the resolved path is outside it.
     """
     root = forensics_evidence_root().resolve()
-    root_str = os.path.abspath(str(root))
-    root_real = os.path.realpath(str(root))
+    root_str = os.path.realpath(str(root))
 
     clean_target = os.path.normpath(str(target_path or "")).strip()
     parts = clean_target.replace("\\", "/").split("/")
@@ -167,21 +166,25 @@ def confine_to_evidence_root(target_path: str) -> Path:
         raise ValueError("Directory traversal sequence not permitted in evidence path")
 
     if os.path.isabs(clean_target):
-        cand_str = os.path.abspath(clean_target)
+        cand_real = os.path.realpath(clean_target)
     else:
-        cand_str = os.path.abspath(os.path.join(root_str, clean_target))
-    cand_real = os.path.realpath(cand_str)
+        cand_real = os.path.realpath(os.path.join(root_str, clean_target))
 
-    is_safe = (
-        (cand_str.startswith(root_str) and os.path.commonpath([root_str, cand_str]) == root_str) or
-        (cand_real.startswith(root_real) and os.path.commonpath([root_real, cand_real]) == root_real)
-    )
-    if not is_safe:
+    cand_norm = os.path.normcase(cand_real)
+    root_norm = os.path.normcase(root_str)
+
+    if not cand_norm.startswith(root_norm) and not cand_norm.startswith(root_norm.rstrip(os.sep)):
         raise ValueError(
             f"Path '{target_path}' is outside the evidence root '{root}'."
         )
 
-    rel = os.path.relpath(cand_real, root_real)
+    try:
+        if os.path.commonpath([root_norm.rstrip(os.sep), cand_norm]) != root_norm.rstrip(os.sep):
+            raise ValueError(f"Path '{target_path}' is outside the evidence root '{root}'.")
+    except ValueError:
+        raise ValueError(f"Path '{target_path}' is outside the evidence root '{root}'.")
+
+    rel = os.path.relpath(cand_norm, root_norm.rstrip(os.sep))
     if rel.startswith("..") or ".." in rel.replace("\\", "/").split("/"):
         raise ValueError(f"Path '{target_path}' is outside the evidence root '{root}'.")
 
@@ -337,6 +340,10 @@ class StorageMediaInspector:
         account can read.
         """
         p = confine_to_evidence_root(file_path)
+        root_real = os.path.realpath(str(forensics_evidence_root()))
+        p_real = os.path.realpath(str(p))
+        if not p_real.startswith(root_real):
+            raise ValueError(f"Path outside evidence root: {file_path}")
         if not p.is_file():
             raise FileNotFoundError(f"Forensic file not found: {file_path}")
 
@@ -431,9 +438,9 @@ class PhotoRecCarver:
                     "error": str(exc),
                 }
 
-        curr_str = os.path.abspath(str(current))
-        root_str = os.path.abspath(str(root))
-        if not curr_str.startswith(root_str) and os.path.commonpath([root_str, curr_str]) != root_str:
+        curr_str = os.path.realpath(str(current))
+        root_str = os.path.realpath(str(root))
+        if not curr_str.startswith(root_str):
             current = root
 
         if not current.exists():
@@ -449,6 +456,9 @@ class PhotoRecCarver:
 
         items: List[Dict[str, Any]] = []
         try:
+            cur_real = os.path.realpath(str(current))
+            if not cur_real.startswith(root_str):
+                raise PermissionError("Access outside evidence root")
             for entry in sorted(os.scandir(current), key=lambda e: (not e.is_dir(), e.name.lower())):
                 try:
                     stat = entry.stat()
@@ -480,6 +490,10 @@ class PhotoRecCarver:
         # endpoint can create directories anywhere the service account can
         # write.
         out_dir = self._confine_to_evidence_root(destination_dir)
+        root_str = os.path.realpath(str(self.evidence_root()))
+        out_str = os.path.realpath(str(out_dir))
+        if not out_str.startswith(root_str):
+            raise ValueError("Destination directory outside evidence root")
         out_dir.mkdir(parents=True, exist_ok=True)
 
         job = CarvingJob(
@@ -765,6 +779,10 @@ class ExifToolGpsEngine:
 
     def extract_from_file(self, file_path: str) -> ExifMetadataReport:
         p = confine_to_evidence_root(file_path)
+        root_str = os.path.realpath(str(forensics_evidence_root()))
+        p_str = os.path.realpath(str(p))
+        if not p_str.startswith(root_str):
+            raise ValueError(f"File outside evidence root: {file_path}")
         if not p.is_file():
             raise FileNotFoundError(f"File not found: {file_path}")
         with open(p, "rb") as f:
@@ -839,9 +857,11 @@ class ChainOfCustodyLedger:
             p = None
             try:
                 confined = confine_to_evidence_root(storage_path)
-                confined_str = os.path.abspath(str(confined))
-                root_str = os.path.abspath(str(forensics_evidence_root()))
-                if confined_str.startswith(root_str) and os.path.commonpath([root_str, confined_str]) == root_str and confined.is_file():
+                confined_str = os.path.realpath(str(confined))
+                root_str = os.path.realpath(str(forensics_evidence_root()))
+                if not confined_str.startswith(root_str):
+                    raise ValueError("Evidence path outside root")
+                if confined.is_file():
                     p = confined
             except Exception:
                 p = None

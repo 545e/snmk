@@ -479,13 +479,13 @@ def main():
         if args.export_js:
             with open(args.export_js, "w", encoding="utf-8") as f:
                 if args.export_js.endswith(".json"):
-                    export_payload = {k: v for k, v in res.items() if k != "secrets"}
+                    export_payload = {k: v for k, v in res.items() if k not in ("secrets", "findings")}
                     export_payload["findings"] = [
                         {
-                            "name": row["rule"],
-                            "severity": row["sev"],
-                            "line": row["line"],
-                            "source_url": row["src"],
+                            "name": str(row["rule"]),
+                            "severity": str(row["sev"]),
+                            "line": str(row["line"]),
+                            "source_url": str(row["src"]),
                             "status": "REDACTED"
                         }
                         for row in findings_meta

@@ -235,23 +235,28 @@ class REAEngine:
             if re.search(pattern, clean):
                 return False, "", "Access to sensitive system paths is strictly blocked."
 
-        # Normalize path
-        try:
-            resolved = Path(clean).resolve()
-        except Exception as e:
-            return False, "", f"Malformed path format: {str(e)}"
-
-        # Allowlist check MUST precede any disk existence checks
-        if not cls._is_within_allowed_root(resolved):
+        # Check containment against allowed roots before resolving or touching disk
+        confined = cls._get_confined_path(Path(clean))
+        if confined is None:
             roots = ", ".join(str(root) for root in cls.allowed_roots())
-            return False, str(resolved), (
-                f"Target is outside the allowed analysis roots ({roots}) or does not exist: {resolved.name}"
+            return False, "", (
+                f"Target is outside the allowed analysis roots ({roots}) or does not exist: {os.path.basename(clean)}"
             )
 
-        if not resolved.exists():
-            return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
+        cand_real = os.path.realpath(str(confined))
+        within_any = False
+        for r in cls.allowed_roots():
+            r_real = os.path.realpath(str(r))
+            if cand_real.startswith(r_real):
+                within_any = True
+                break
+        if not within_any:
+            return False, "", "Target is outside allowed analysis roots."
 
-        return True, str(resolved), None
+        if not confined.exists():
+            return False, str(confined), f"Target path does not exist on disk: {confined.name}"
+
+        return True, str(confined), None
 
     @classmethod
     def infer_target_type(cls, path_str: str) -> str:
@@ -284,12 +289,20 @@ class REAEngine:
         if not is_valid:
             raise ValueError(f"Invalid target path: {err}")
 
-        target_p = Path(clean_path)
-        confined_target = self._get_confined_path(target_p)
-        if confined_target is None and not self._is_within_allowed_root(target_p):
+        confined_target = self._get_confined_path(Path(clean_path))
+        if confined_target is None:
             raise ValueError("Target path is outside allowed analysis roots.")
-        if confined_target is not None:
-            target_p = confined_target
+        target_p = confined_target
+
+        cand_real = os.path.realpath(str(target_p))
+        within_any = False
+        for r in self.allowed_roots():
+            r_real = os.path.realpath(str(r))
+            if cand_real.startswith(r_real):
+                within_any = True
+                break
+        if not within_any:
+            raise ValueError("Target path is outside allowed analysis roots.")
 
         inferred_type = target_type if (target_type and target_type in SUPPORTED_TARGET_TYPES) else self.infer_target_type(clean_path)
         
