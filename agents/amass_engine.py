@@ -43,6 +43,7 @@ import shutil
 import socket
 import uuid
 from typing import Any
+import urllib.parse
 from urllib.parse import urlparse
 
 import httpx
@@ -328,9 +329,16 @@ class AmassSubdomainEngine:
         if len(parts) >= 3:
             potential_cctld = f"{parts[-2]}.{parts[-1]}"
             if potential_cctld in MULTI_PART_SUFFIXES:
-                return ".".join(parts[-3:])
-            return ".".join(parts[-2:])
-        return d
+                res = ".".join(parts[-3:])
+            else:
+                res = ".".join(parts[-2:])
+        else:
+            res = d
+
+        clean_d = re.sub(r"[^a-zA-Z0-9.-]", "", res)
+        if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$", clean_d):
+            return "example.com"
+        return clean_d
 
     def _locate_amass_binary(self) -> str | None:
         """Auto-detects native OWASP Amass binary if installed on the host."""
@@ -598,10 +606,10 @@ class AmassSubdomainEngine:
 
     async def _query_crt_sh(self):
         """Query Certificate Transparency logs via crt.sh with JSON & HTML regex fallback."""
-        url = f"https://crt.sh/?q=%25.{self.base_domain}&output=json"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=7.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=7.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://crt.sh/", params={"q": f"%.{safe_domain}", "output": "json"})
                 if resp.status_code == 200:
                     entries = resp.json()
                     count = 0
@@ -618,9 +626,8 @@ class AmassSubdomainEngine:
 
         # HTML regex fallback if crt.sh JSON endpoint times out or errors
         try:
-            html_url = f"https://crt.sh/?q=%25.{self.base_domain}"
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                r = await client.get(html_url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                r = await client.get("https://crt.sh/", params={"q": f"%.{safe_domain}"})
                 if r.status_code == 200:
                     matches = set(re.findall(rf"[\w\.-]+\.{re.escape(self.base_domain)}", r.text, re.IGNORECASE))
                     for m in matches:
@@ -630,10 +637,10 @@ class AmassSubdomainEngine:
 
     async def _query_hackertarget(self):
         """Query HackerTarget passive host search registry."""
-        url = f"https://api.hackertarget.com/hostsearch/?q={self.base_domain}"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://api.hackertarget.com/hostsearch/", params={"q": safe_domain})
                 if resp.status_code == 200 and "API count exceeded" not in resp.text:
                     lines = resp.text.strip().splitlines()
                     for line in lines:
@@ -645,9 +652,10 @@ class AmassSubdomainEngine:
 
     async def _query_alienvault_otx(self):
         """Query AlienVault OTX Passive DNS threat indicators."""
-        url = f"https://otx.alienvault.com/api/v1/indicators/domain/{self.base_domain}/passive_dns"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
+        url = f"https://otx.alienvault.com/api/v1/indicators/domain/{safe_domain}/passive_dns"
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -660,10 +668,13 @@ class AmassSubdomainEngine:
 
     async def _query_certspotter(self):
         """Query SSLMate CertSpotter CT log issuances."""
-        url = f"https://api.certspotter.com/v1/issuances?domain={self.base_domain}&include_subdomains=true&expand=dns_names"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get(
+                    "https://api.certspotter.com/v1/issuances",
+                    params={"domain": safe_domain, "include_subdomains": "true", "expand": "dns_names"}
+                )
                 if resp.status_code == 200:
                     data = resp.json()
                     for item in data[:100]:
@@ -674,10 +685,13 @@ class AmassSubdomainEngine:
 
     async def _query_wayback(self):
         """Query Internet Archive Wayback Machine CDX API."""
-        url = f"https://web.archive.org/cdx/search/cdx?url=*.{self.base_domain}/*&output=json&fl=original&collapse=urlkey&limit=150"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get(
+                    "https://web.archive.org/cdx/search/cdx",
+                    params={"url": f"*.{safe_domain}/*", "output": "json", "fl": "original", "collapse": "urlkey", "limit": "150"}
+                )
                 if resp.status_code == 200:
                     rows = resp.json()
                     if len(rows) > 1:
@@ -691,10 +705,10 @@ class AmassSubdomainEngine:
 
     async def _query_threatminer(self):
         """Query ThreatMiner cyber threat intelligence API."""
-        url = f"https://api.threatminer.org/v2/domain.php?q={self.base_domain}&rt=5"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://api.threatminer.org/v2/domain.php", params={"q": safe_domain, "rt": "5"})
                 if resp.status_code == 200:
                     data = resp.json()
                     for sub in data.get("results", []):
@@ -704,10 +718,10 @@ class AmassSubdomainEngine:
 
     async def _query_urlscan(self):
         """Query URLScan.io index for recorded domain appearances."""
-        url = f"https://urlscan.io/api/v1/search/?q=domain:{self.base_domain}&size=100"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://urlscan.io/api/v1/search/", params={"q": f"domain:{safe_domain}", "size": "100"})
                 if resp.status_code == 200:
                     data = resp.json()
                     for res in data.get("results", []):
@@ -719,9 +733,10 @@ class AmassSubdomainEngine:
 
     async def _query_subdomain_center(self):
         """Query Subdomain Center API."""
-        url = f"https://api.subdomain.center/subdomains/{self.base_domain}"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
+        url = f"https://api.subdomain.center/subdomains/{safe_domain}"
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     subs = resp.json()
@@ -733,9 +748,10 @@ class AmassSubdomainEngine:
 
     async def _query_anubis(self):
         """Query Anubis DB threat intelligence."""
-        url = f"https://jldc.me/anubis/subdomains/{self.base_domain}"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
+        url = f"https://jldc.me/anubis/subdomains/{safe_domain}"
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     entries = resp.json()
@@ -747,10 +763,10 @@ class AmassSubdomainEngine:
 
     async def _query_rapiddns(self):
         """Query RapidDNS public DNS records."""
-        url = f"https://rapiddns.io/subdomain/{self.base_domain}?full=1"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get(f"https://rapiddns.io/subdomain/{safe_domain}", params={"full": "1"})
                 if resp.status_code == 200:
                     matches = set(re.findall(rf"[\w\.-]+\.{re.escape(self.base_domain)}", resp.text, re.IGNORECASE))
                     for m in matches:

@@ -28,12 +28,23 @@ class RouteAnalysisEngine:
         target = target.strip()
         max_hops = min(max(max_hops, 3), 30)
 
-        # Resolve domain if needed
+        # Validate that target does not contain command switches or invalid characters
+        if not target or target.startswith("-") or not re.match(r"^[a-zA-Z0-9.:-]+$", target):
+            logger.warning(f"Invalid target for traceroute: {target}")
+            return {"target": target, "hops": [], "explanations": ["Target address contains invalid characters."]}
+
+        # Resolve domain to a validated IP address
         dest_ip = target
         try:
-            dest_ip = socket.gethostbyname(target)
-        except Exception:
-            pass
+            import ipaddress
+            ipaddress.ip_address(target)
+        except ValueError:
+            try:
+                dest_ip = socket.gethostbyname(target)
+                ipaddress.ip_address(dest_ip)
+            except Exception:
+                logger.warning(f"Could not resolve target to IP: {target}")
+                return {"target": target, "hops": [], "explanations": ["Could not resolve target to a valid IP address."]}
 
         hops: list[RouteHop] = []
 

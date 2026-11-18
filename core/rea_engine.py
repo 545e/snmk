@@ -205,8 +205,7 @@ class REAEngine:
             return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
 
         # Allowlist: the analyser may only read from the roots the operator
-        # has made available.  The blocklist above still applies, but it is
-        # a second line of defence rather than the only one.
+        # has made available.
         if not REAEngine._is_within_allowed_root(resolved):
             roots = ", ".join(str(root) for root in REAEngine.allowed_roots())
             return False, str(resolved), (

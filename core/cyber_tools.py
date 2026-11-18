@@ -29,6 +29,26 @@ from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunpar
 import httpx
 
 from core import tls_policy
+from core.scope_policy import scope_policy
+
+
+def _validate_safe_target_url(target_url: str) -> str | None:
+    """SSRF guard: validates URL scheme and ensures target is not in restricted IP space."""
+    if not target_url or not isinstance(target_url, str):
+        return None
+    url = target_url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return None
+        is_restr, _ = scope_policy.is_private_or_restricted(parsed.hostname)
+        if is_restr:
+            return None
+        return urlunparse(parsed)
+    except Exception:
+        return None
 
 
 # =====================================================================
@@ -193,12 +213,18 @@ class SecurityHeadersTool:
     @classmethod
     async def evaluate(cls, target_url: str) -> dict[str, Any]:
         """Audits HTTP response headers, grades security posture from A+ to F."""
-        if not target_url.startswith(("http://", "https://")):
-            target_url = f"https://{target_url}"
+        safe_url = _validate_safe_target_url(target_url)
+        if not safe_url:
+            return {
+                "target_url": target_url,
+                "error": "Target URL is invalid or points to restricted/private IP space",
+                "score": 0,
+                "grade": "F"
+            }
 
-        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=True)) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=False)) as client:
             try:
-                resp = await client.get(target_url)
+                resp = await client.get(safe_url)
                 headers_lower = {k.lower(): v for k, v in resp.headers.items()}
                 status_code = resp.status_code
                 final_url = str(resp.url)
@@ -510,17 +536,22 @@ class WhoisIpTool:
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 if is_ip or resolved_ip:
-                    # Query IP RDAP endpoint
-                    r = await client.get(f"https://rdap.arin.net/registry/ip/{resolved_ip}")
-                    if r.status_code == 200:
-                        data = r.json()
-                        intel["rdap_source"] = "ARIN"
-                        intel["org"] = data.get("name")
-                        for entity in data.get("entities", []):
-                            for vcard in entity.get("vcardArray", [[]])[1]:
-                                if vcard[0] == "fn":
-                                    intel["isp"] = vcard[3]
-                                    break
+                    try:
+                        ip_obj = ipaddress.ip_address(resolved_ip)
+                        if not ip_obj.is_private and not ip_obj.is_loopback and not ip_obj.is_link_local:
+                            safe_ip = quote(str(ip_obj), safe="")
+                            r = await client.get(f"https://rdap.arin.net/registry/ip/{safe_ip}")
+                            if r.status_code == 200:
+                                data = r.json()
+                                intel["rdap_source"] = "ARIN"
+                                intel["org"] = data.get("name")
+                                for entity in data.get("entities", []):
+                                    for vcard in entity.get("vcardArray", [[]])[1]:
+                                        if vcard[0] == "fn":
+                                            intel["isp"] = vcard[3]
+                                            break
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
@@ -740,9 +771,17 @@ class TargetedVulnProberTool:
         elif vuln_type in ["cors", "cors_misconfig"]:
             # Test custom Origin header
             evil_origin = "https://evil-attacker.example.com"
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0)) as client:
+            safe_target = _validate_safe_target_url(target_url)
+            if not safe_target:
+                return {
+                    "target_url": target_url,
+                    "vuln_type": "CORS Misconfiguration",
+                    "vulnerable": False,
+                    "summary": "Target URL is invalid or points to restricted address space",
+                }
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, follow_redirects=False)) as client:
                 try:
-                    r = await client.get(target_url, headers={"Origin": evil_origin})
+                    r = await client.get(safe_target, headers={"Origin": evil_origin})
                     acao = r.headers.get("access-control-allow-origin", "")
                     acac = r.headers.get("access-control-allow-credentials", "")
                     acac_bool = acac.lower() == "true"

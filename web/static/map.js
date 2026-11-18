@@ -11,6 +11,16 @@ let mapCurrentAssessmentId = "MAP-" + Math.random().toString(36).substring(2, 8)
 let mapCurrentTarget = "";
 let mapCaptureActive = false;
 
+function escapeHtml(str) {
+    if (str === null || str === undefined) return "";
+    return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
 // Initialize MAP View when navigated to
 async function initMapView() {
     console.log("[MAP] Initializing Enterprise Network Intelligence Workspace...");
@@ -533,18 +543,18 @@ async function runDnsLookup() {
 
         tbody.innerHTML = "";
         if (!res.records || res.records.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">No DNS records resolved for ${domain}.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding:20px; color:#64748b;">No DNS records resolved for ${escapeHtml(domain)}.</td></tr>`;
             return;
         }
 
         res.records.forEach(r => {
             const tr = document.createElement("tr");
             tr.innerHTML = `
-                <td><strong>${r.record_type}</strong></td>
-                <td><code>${r.value}</code></td>
-                <td>${r.ttl}s</td>
-                <td>${r.response_time_ms} ms</td>
-                <td>${r.resolver}</td>
+                <td><strong>${escapeHtml(r.record_type)}</strong></td>
+                <td><code>${escapeHtml(r.value)}</code></td>
+                <td>${escapeHtml(r.ttl)}s</td>
+                <td>${escapeHtml(r.response_time_ms)} ms</td>
+                <td>${escapeHtml(r.resolver)}</td>
             `;
             tbody.appendChild(tr);
         });
@@ -568,7 +578,7 @@ async function runRouteTrace() {
     const target = input ? input.value.trim() : "8.8.8.8";
 
     const tbody = document.getElementById("routeHopsTableBody");
-    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#38bdf8;">Executing traceroute diagnostics to ${target}...</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#38bdf8;">Executing traceroute diagnostics to ${escapeHtml(target)}...</td></tr>`;
 
     try {
         const res = await fetch('/api/network/route/analyze', {
@@ -721,7 +731,7 @@ async function askMapAi(queryText) {
     if (!q) return;
 
     const respArea = document.getElementById("mapAiResponseArea");
-    if (respArea) respArea.innerHTML = `<div style="color:#38bdf8;">Querying MAP AI Network Intelligence Agent for: <em>"${q}"</em>...</div>`;
+    if (respArea) respArea.innerHTML = `<div style="color:#38bdf8;">Querying MAP AI Network Intelligence Agent for: <em>"${escapeHtml(q)}"</em>...</div>`;
 
     try {
         const res = await fetch('/api/network/ai/query', {

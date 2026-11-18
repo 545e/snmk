@@ -21,6 +21,7 @@ from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 import httpx
 
 from core.models import Severity, VulnerabilityFinding
+from core.scope_policy import scope_policy
 from core.signature_matching import SignatureMatcher
 
 # Detailed database error signatures mapped to vendor engines
@@ -144,6 +145,12 @@ class SQLiEngine:
         """Performs rigorous, safe SQL injection evaluation on a specific parameter."""
         findings = []
         parsed = urlparse(target_url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return findings
+        is_restr, _ = scope_policy.is_private_or_restricted(parsed.hostname)
+        if is_restr:
+            return findings
+        target_url = urlunparse(parsed)
         query_params = parse_qs(parsed.query)
 
         # Baseline request

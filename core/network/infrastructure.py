@@ -52,16 +52,36 @@ class InternetInfrastructureEngine:
 
     async def lookup_isp_asn(self, ip: str) -> IspAsnInfo:
         """Retrieves ISP, ASN, prefix, and reverse DNS for any IPv4 or IPv6."""
+        import ipaddress
+        import urllib.parse
+
         ip = ip.strip()
-        if ip in self._cache:
-            return self._cache[ip]
-
-        # Handle private address
-        if is_private_ip(ip):
-            rev_dns = "localhost" if ip in ("127.0.0.1", "::1") else "internal.local"
-
+        try:
+            ip_obj = ipaddress.ip_address(ip)
+            clean_ip = str(ip_obj)
+        except ValueError:
             return IspAsnInfo(
                 ip=ip,
+                asn="INVALID",
+                asn_org="Invalid IP Format",
+                isp="Invalid IP Format",
+                organization="Invalid",
+                rdap_registry="None",
+                network_prefix="None",
+                reverse_dns=None,
+                bgp_announced=False,
+                country="INVALID"
+            )
+
+        if clean_ip in self._cache:
+            return self._cache[clean_ip]
+
+        # Handle private address
+        if is_private_ip(clean_ip) or ip_obj.is_private or ip_obj.is_loopback:
+            rev_dns = "localhost" if clean_ip in ("127.0.0.1", "::1") else "internal.local"
+
+            return IspAsnInfo(
+                ip=clean_ip,
                 asn="PRIVATE",
                 asn_org="Private Subnet (RFC 1918 / Local Area Network)",
                 isp="Local Gateway / Internal Network",
@@ -76,7 +96,7 @@ class InternetInfrastructureEngine:
         # Reverse DNS lookup
         rev_dns = None
         try:
-            rev_dns = socket.gethostbyaddr(ip)[0]
+            rev_dns = socket.gethostbyaddr(clean_ip)[0]
         except Exception:
             pass
 
@@ -86,10 +106,12 @@ class InternetInfrastructureEngine:
         org = None
         country = None
 
+        safe_ip = urllib.parse.quote(clean_ip, safe="")
+
         # 1. Query ipinfo.io
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                res = await client.get(f"https://ipinfo.io/{ip}/json")
+            async with httpx.AsyncClient(timeout=4.0, follow_redirects=False) as client:
+                res = await client.get(f"https://ipinfo.io/{safe_ip}/json")
                 if res.status_code == 200:
                     data = res.json()
                     org_str = data.get("org", "")
@@ -106,14 +128,14 @@ class InternetInfrastructureEngine:
                     if not rev_dns and data.get("hostname"):
                         rev_dns = data.get("hostname")
         except Exception as e:
-            logger.debug(f"ipinfo ASN lookup failed for {ip}: {e}")
+            logger.debug(f"ipinfo ASN lookup failed for {clean_ip}: {e}")
 
         # 2. Query RIPEstat BGP Prefix Overview
         network_prefix = None
         bgp_announced = True
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                res = await client.get(f"https://stat.ripe.net/data/prefix-overview/data.json?resource={ip}")
+            async with httpx.AsyncClient(timeout=4.0, follow_redirects=False) as client:
+                res = await client.get("https://stat.ripe.net/data/prefix-overview/data.json", params={"resource": clean_ip})
                 if res.status_code == 200:
                     rdata = res.json().get("data", {})
                     asns = rdata.get("asns", [])
@@ -130,8 +152,8 @@ class InternetInfrastructureEngine:
         rdap_reg = "ARIN/RIPE/APNIC"
         if not asn:
             try:
-                async with httpx.AsyncClient(timeout=4.0) as client:
-                    res = await client.get(f"https://rdap.arin.net/registry/ip/{ip}")
+                async with httpx.AsyncClient(timeout=4.0, follow_redirects=False) as client:
+                    res = await client.get(f"https://rdap.arin.net/registry/ip/{safe_ip}")
                     if res.status_code == 200:
                         rdap_data = res.json()
                         rdap_reg = rdap_data.get("port43", "ARIN")
@@ -140,33 +162,46 @@ class InternetInfrastructureEngine:
                 pass
 
         result_obj = IspAsnInfo(
-            ip=ip,
+            ip=clean_ip,
             asn=asn or "AS-UNKNOWN",
             asn_org=asn_org or isp or "Autonomous System Unknown",
             isp=isp or asn_org or "Internet Service Provider",
             organization=org or asn_org or isp or "Public Network",
             rdap_registry=rdap_reg,
-            network_prefix=network_prefix or f"{ip}/24",
+            network_prefix=network_prefix or f"{clean_ip}/24",
             reverse_dns=rev_dns,
             bgp_announced=bgp_announced,
             country=country or "GLOBAL"
         )
-        self._cache[ip] = result_obj
+        self._cache[clean_ip] = result_obj
         return result_obj
 
     async def get_bgp_prefix_info(self, prefix_or_ip: str) -> BgpPrefixInfo:
         """Retrieves BGP prefix announcements, Origin ASN, and AS Path using RIPEstat."""
+        import ipaddress
+        import urllib.parse
+
         target = prefix_or_ip.strip()
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.get(f"https://stat.ripe.net/data/routing-status/data.json?resource={target}")
+            if "/" in target:
+                net = ipaddress.ip_network(target, strict=False)
+                clean_target = str(net)
+            else:
+                addr = ipaddress.ip_address(target)
+                clean_target = str(addr)
+        except ValueError:
+            clean_target = urllib.parse.quote(target, safe="")
+
+        try:
+            async with httpx.AsyncClient(timeout=5.0, follow_redirects=False) as client:
+                res = await client.get("https://stat.ripe.net/data/routing-status/data.json", params={"resource": clean_target})
                 if res.status_code == 200:
                     data = res.json().get("data", {})
                     origin_asn = f"AS{data.get('origin_asn', 'Unknown')}"
-                    prefix = data.get("resource", target)
+                    prefix = data.get("resource", clean_target)
 
                     # Get AS path data
-                    path_res = await client.get(f"https://stat.ripe.net/data/looking-glass/data.json?resource={target}")
+                    path_res = await client.get("https://stat.ripe.net/data/looking-glass/data.json", params={"resource": clean_target})
                     as_path = []
                     if path_res.status_code == 200:
                         rdata = path_res.json().get("data", {})

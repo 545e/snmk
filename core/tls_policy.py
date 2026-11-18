@@ -100,6 +100,11 @@ def inspection_context(verify: Optional[bool] = None) -> ssl.SSLContext:
         verify = verification_enabled()
 
     context = ssl.create_default_context()
+    # Set minimum TLS version to TLSv1.2 to eliminate py/insecure-protocol alerts
+    try:
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+    except (AttributeError, ValueError):
+        pass
     if verify:
         context.check_hostname = True
         context.verify_mode = ssl.CERT_REQUIRED

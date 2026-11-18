@@ -25,7 +25,7 @@ def test_prompt_injection_neutralization():
     
     assert "ignore previous instructions" not in formatted
     assert "[FLAGGED_INJECTION_ATTEMPT_NEUTRALIZED]" in formatted
-    assert "example.com" in formatted
+    assert formatted.find("example.com") != -1
 
 
 def test_structured_vulnerability_output_schema():

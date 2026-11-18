@@ -6,12 +6,14 @@ Prevents remote code execution (RCE) via public package hijacking.
 """
 
 import re
+import urllib.parse
 
 import httpx
 
 from core.database import db
 from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
+from core.scope_policy import scope_policy
 
 from core import tls_policy
 
@@ -80,7 +82,14 @@ class DependencyConfusionAgent:
             # 1. Download and extract package candidates from JS files
             for js_url in self.js_urls:
                 try:
-                    resp = await client.get(js_url)
+                    p = urllib.parse.urlsplit(js_url)
+                    if p.scheme not in ("http", "https") or not p.hostname:
+                        continue
+                    is_r, _ = scope_policy.is_private_or_restricted(p.hostname)
+                    if is_r:
+                        continue
+                    safe_url = urllib.parse.urlunsplit(p)
+                    resp = await client.get(safe_url)
                     if resp.status_code == 200:
                         pkgs = self.extract_package_candidates(resp.text)
                         self.discovered_packages.update(pkgs)

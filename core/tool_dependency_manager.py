@@ -622,7 +622,7 @@ class SecureToolInstaller:
             # Apply restricted permissions where supported
             try:
                 if os.name != "nt":
-                    os.chmod(self.bin_dir, 0o755)
+                    os.chmod(self.bin_dir, 0o750)
             except Exception:
                 pass
 
@@ -997,7 +997,7 @@ class SecureToolInstaller:
             try:
                 shutil.copy2(matched_bin, final_bin_path)
                 if os.name != "nt":
-                    os.chmod(final_bin_path, 0o755)
+                    os.chmod(final_bin_path, 0o750)
                 log(f"Installed executable to isolated location: {final_bin_path}")
             except Exception as e:
                 if os.path.exists(bak_path):

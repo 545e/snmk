@@ -18,13 +18,13 @@ import os
 import re
 from bisect import bisect_right
 from typing import Any, Optional
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse, urlunparse
 
 import httpx
 
-from core.pattern_gating import GateFilter
-
 from core import tls_policy
+from core.pattern_gating import GateFilter
+from core.scope_policy import scope_policy
 
 # =====================================================================
 # 0. Line index helpers
@@ -217,18 +217,17 @@ class ShannonEntropyFilter:
 # =====================================================================
 class EndpointAndStorageExtractor:
     API_PATH_PATTERN = re.compile(
-        r"""["'`]((?:/(?:api|v\d+|rest|graphql|gql|internal|admin|oauth|auth|user|users|account|payment|webhook))[A-Za-z0-9_\-/.{}:]*)["'`]"""
+        r"""["'`]((?:/(?:api|v\d+|rest|graphql|gql|internal|admin|oauth|auth|user|users|account|payment|webhook))[^"'`\s<>]+)["'`]"""
     )
 
     CLOUD_STORAGE_PATTERN = re.compile(
-        r"https?://[A-Za-z0-9.\-]*(?:"
-        r"s3[.\-][A-Za-z0-9.\-]*amazonaws\.com|"
-        r"[A-Za-z0-9.\-]*\.s3\.amazonaws\.com|"
+        r"https?://[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*(?:"
+        r"\.s3(?:[.-][a-zA-Z0-9_\-]+)?\.amazonaws\.com|"
         r"storage\.googleapis\.com|"
-        r"[A-Za-z0-9.\-]*\.blob\.core\.windows\.net|"
-        r"[A-Za-z0-9.\-]*\.r2\.cloudflarestorage\.com|"
-        r"[A-Za-z0-9.\-]*\.digitaloceanspaces\.com"
-        r")(?:/[A-Za-z0-9_\-/.%]*)?",
+        r"\.blob\.core\.windows\.net|"
+        r"\.r2\.cloudflarestorage\.com|"
+        r"\.digitaloceanspaces\.com"
+        r")(?:/[^\s\"'>]*)?",
         re.IGNORECASE
     )
 
@@ -2014,13 +2013,35 @@ class GhostJsAnalyzer:
             "Accept": "*/*"
         }
 
+        parsed_target = urlparse(target_url)
+        if parsed_target.scheme not in ("http", "https") or not parsed_target.hostname:
+            return {
+                "target_url": target_url,
+                "error": "Invalid target URL scheme or host",
+                "secrets": [],
+                "api_endpoints": [],
+                "cloud_storage": [],
+                "source_maps": [],
+            }
+        is_restr, _ = scope_policy.is_private_or_restricted(parsed_target.hostname)
+        if is_restr:
+            return {
+                "target_url": target_url,
+                "error": "Target host belongs to private, loopback, or cloud metadata IP space",
+                "secrets": [],
+                "api_endpoints": [],
+                "cloud_storage": [],
+                "source_maps": [],
+            }
+        target_url = urlunparse(parsed_target)
+
         all_secrets = []
         all_endpoints = []
         all_cloud_storage = []
         all_source_maps = []
         scanned_assets = []
 
-        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=True, headers=headers)) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False, headers=headers)) as client:
             # 1. Fetch initial target
             try:
                 resp = await client.get(target_url)
@@ -2067,11 +2088,16 @@ class GhostJsAnalyzer:
                 async def fetch_and_scan_bundle(b_url: str):
                     async with sem:
                         try:
-                            b_resp = await client.get(b_url)
-                            if b_resp.status_code == 200 and b_resp.text:
-                                scanned_assets.append(b_url)
-                                b_res = self.scan_content(b_resp.text, source_url=b_url)
-                                return b_res
+                            bp = urlparse(b_url)
+                            if bp.scheme in ("http", "https") and bp.hostname:
+                                is_r, _ = scope_policy.is_private_or_restricted(bp.hostname)
+                                if not is_r:
+                                    safe_b_url = urlunparse(bp)
+                                    b_resp = await client.get(safe_b_url)
+                                    if b_resp.status_code == 200 and b_resp.text:
+                                        scanned_assets.append(safe_b_url)
+                                        b_res = self.scan_content(b_resp.text, source_url=safe_b_url)
+                                        return b_res
                         except Exception:
                             pass
                         return None

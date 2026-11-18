@@ -410,18 +410,16 @@ def download_kill_chain_report(
         raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
     ext = "md" if format == "markdown" else format
+    safe_name = os.path.basename(f"{report_id}.{ext}")
     output_dir = FilesystemPath(kill_chain_engine.reporter.output_dir).resolve()
-    file_path = (output_dir / f"{report_id}.{ext}").resolve()
+    file_path = (output_dir / safe_name).resolve()
 
-    # Defence in depth: even with the identifier validated, confirm that the
-    # resolved file is inside the report directory before serving it.
-    try:
-        file_path.relative_to(output_dir)
-    except ValueError:
+    # Defence in depth: confirm that the resolved file is inside the report directory before serving it.
+    if os.path.commonpath([str(output_dir), str(file_path)]) != str(output_dir):
         raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
     if not file_path.is_file():
-        raise HTTPException(status_code=404, detail=f"Report file {report_id}.{ext} not found on server.")
+        raise HTTPException(status_code=404, detail=f"Report file {safe_name} not found on server.")
 
     media_types = {
         "html": "text/html",

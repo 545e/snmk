@@ -222,6 +222,27 @@ def test_mysql_reachable_reports_persisted(store):
     assert working.writes
 
 
+def test_results_survive_new_instance_same_database(store):
+    """A fresh ScanPersistence instance (backend restart) reads prior records."""
+    store.create_scan("restart-1", "subdomain", "example.com")
+    store.record_subdomain("restart-1", "example.com", "www.example.com",
+                           discovery_source="crt.sh")
+    store.record_result("restart-1", "summary", {"discovered": 1})
+
+    restarted = ScanPersistence(sqlite_db=store._db, mysql_manager=None)
+    assert restarted.get_scan("restart-1")["target_url"] == "example.com"
+    assert len(restarted.get_subdomains("restart-1")) == 1
+    assert restarted.get_results("restart-1")[0]["result_data"] == '{"discovered": 1}'
+
+
+def test_user_isolation_on_subdomain_queries(store):
+    store.create_scan("iso-1", "subdomain", "example.com", user_id="alice")
+    store.record_subdomain("iso-1", "example.com", "a.example.com",
+                           user_id="alice", discovery_source="crt.sh")
+    assert len(store.get_subdomains("iso-1")) == 1
+    assert store.get_subdomains("iso-1")[0]["user_id"] == "alice"
+
+
 def test_global_store_is_singleton():
     from core.persistent_store import persistent_store as other
     assert persistent_store is other

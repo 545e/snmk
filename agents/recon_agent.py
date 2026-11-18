@@ -68,13 +68,17 @@ class ReconAgent:
         self.takeover_findings: list[VulnerabilityFinding] = []
 
     def _normalize_url(self, target: str):
-        if not target.startswith(("http://", "https://")):
-            t_lower = target.lower()
+        clean_target = (target or "").strip()
+        if not clean_target.startswith(("http://", "https://")):
+            t_lower = clean_target.lower()
             if any(h in t_lower for h in ["127.0.0.1", "localhost", "0.0.0.0", "[::1]"]):
-                target = f"http://{target}"
+                clean_target = f"http://{clean_target}"
             else:
-                target = f"https://{target}"
-        return urlparse(target)
+                clean_target = f"https://{clean_target}"
+        parsed = urlparse(clean_target)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError(f"Invalid target URL for reconnaissance: {target}")
+        return parsed
 
     async def log(self, message: str, level: str = "INFO"):
         event = LogEvent(scan_id=self.scan_id, agent="ReconAgent", level=level, message=message)
@@ -185,8 +189,19 @@ class ReconAgent:
     async def inspect_http_and_tech(self, recon: ReconResult):
         await self.log("Analyzing HTTP headers, security policies, and tech signatures...", "INFO")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=True)) as client:
-                resp = await client.get(self.base_url)
+            import ipaddress
+            host = (self.parsed.hostname or "").strip()
+            try:
+                ip_obj = ipaddress.ip_address(host)
+                if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or str(ip_obj) == "169.254.169.254":
+                    await self.log(f"Target host {host} is in restricted IP space; skipping external HTTP inspection.", "WARN")
+                    return
+            except ValueError:
+                pass
+
+            safe_base_url = f"{self.parsed.scheme}://{self.parsed.netloc}"
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False)) as client:
+                resp = await client.get(safe_base_url)
                 
                 # Security Headers Check
                 headers = dict(resp.headers)

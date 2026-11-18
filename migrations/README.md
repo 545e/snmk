@@ -7,4 +7,11 @@ No migration is executed by the application. An operator must explicitly:
   4. then apply it with `alembic upgrade head`.
 
 The working SQLite database is never modified by Alembic.
+
+Revision `0001_durable_persistence` creates the mirrored persistence tables
+(tool_executions, subdomains, vulnerability_findings, scan_results,
+scan_reports, scan_audit_logs, persistence_outbox) and extends `scans` with
+user_id / scan_type / configuration / total_findings / error_message.
+The SQLite equivalent is created at startup by
+`core.persistent_store.ScanPersistence.initialize_schema()`.
 """

@@ -7,16 +7,37 @@ or custom HMAC-signed webhooks.
 import hashlib
 import hmac
 import json
+import logging
+import urllib.parse
 from typing import Any
 
 import httpx
+
+from core.scope_policy import scope_policy
+
+logger = logging.getLogger("snmk.notifier")
+
+
+def _is_safe_webhook_url(url: str) -> bool:
+    """SSRF guard: verifies webhook URL uses HTTP(S) and targets non-restricted hosts."""
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed = urllib.parse.urlsplit(url.strip())
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return False
+        is_restr, _ = scope_policy.is_private_or_restricted(parsed.hostname)
+        return not is_restr
+    except Exception:
+        return False
 
 
 class NotificationDispatcher:
     @staticmethod
     async def send_slack_alert(webhook_url: str, title: str, severity: str, endpoint: str, details: str) -> bool:
         """Sends a rich Slack block-kit alert for high/critical findings."""
-        if not webhook_url:
+        if not _is_safe_webhook_url(webhook_url):
+            logger.warning("Rejected unsafe webhook URL for Slack alert")
             return False
 
         color_map = {
@@ -52,7 +73,8 @@ class NotificationDispatcher:
     @staticmethod
     async def send_custom_webhook(webhook_url: str, event_type: str, data: dict[str, Any], secret: str | None = None) -> bool:
         """Dispatches an HMAC-SHA256 signed JSON payload to an enterprise SIEM / SOAR endpoint."""
-        if not webhook_url:
+        if not _is_safe_webhook_url(webhook_url):
+            logger.warning("Rejected unsafe webhook URL for custom webhook")
             return False
 
         payload_bytes = json.dumps(data, default=str).encode("utf-8")

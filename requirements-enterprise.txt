@@ -1,0 +1,18 @@
+# Optional enterprise backend dependencies.
+#
+# The default SNMK deployment uses the working SQLite store declared in
+# requirements.txt and needs NONE of the packages below. Install this file
+# only when you have an explicitly configured MySQL server and intend to use
+# the mirrored persistence / Alembic migration path.
+#
+#   pip install -r requirements-enterprise.txt
+#   set SWA_DB_BACKEND=mysql
+#   set MYSQL_HOST=... & set MYSQL_USER=... & set MYSQL_PASSWORD=...
+#   alembic upgrade head
+#
+# Secrets must come from the environment or a secret manager - never from a
+# committed .env or source file.
+
+SQLAlchemy>=2.0
+PyMySQL>=1.1
+alembic>=1.13

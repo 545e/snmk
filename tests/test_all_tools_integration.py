@@ -48,4 +48,4 @@ def test_auto_authorizing_public_domain_scope():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "COMPLETED"
-    assert "starasia.org" in data["target"]
+    assert data["target"].endswith("starasia.org")

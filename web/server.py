@@ -2561,11 +2561,16 @@ async def run_amass_standalone(payload: AmassPayload):
         _name = str(_sub.get("subdomain") or "").strip().rstrip(".").lower()
         if not _name:
             continue
-        _source = _sub.get("source") or _sub.get("discovery_source") or "unknown"
+        # The engine emits ``sources`` (a list) - preserve multi-source
+        # attribution instead of collapsing everything to "unknown".
+        _raw_sources = _sub.get("sources") or _sub.get("source") or _sub.get("discovery_source")
+        _source = _raw_sources if _raw_sources else "unknown"
         if isinstance(_source, (list, tuple, set)):
             _sources.update(str(s) for s in _source)
+            _source_text = ", ".join(sorted(str(s) for s in _source))
         else:
             _sources.add(str(_source))
+            _source_text = str(_source)
         _state = persistent_store.record_subdomain(
             scan_id=scan_id,
             root_domain=getattr(engine, "base_domain", None) or clean_target,
@@ -2577,7 +2582,7 @@ async def run_amass_standalone(payload: AmassPayload):
             cname_records=_sub.get("cname_records") or [],
             dns_status=_sub.get("validation_status") or _sub.get("dns_status") or "UNKNOWN",
             http_status=_sub.get("status") if isinstance(_sub.get("status"), int) else None,
-            discovery_source=str(_source),
+            discovery_source=_source_text,
             discovery_type=_sub.get("discovery_type") or "passive",
             confidence=(
                 float(_sub["confidence"]) if isinstance(_sub.get("confidence"), (int, float))
@@ -4103,6 +4108,16 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
     if not url.startswith("http://") and not url.startswith("https://"):
 
         url = "https://" + url
+
+    import urllib.parse
+    from core.scope_policy import scope_policy
+    parsed_u = urllib.parse.urlsplit(url)
+    if parsed_u.scheme not in ("http", "https") or not parsed_u.hostname:
+        raise HTTPException(status_code=400, detail="Invalid target URL scheme or host")
+    is_restr, restr_reason = scope_policy.is_private_or_restricted(parsed_u.hostname)
+    if is_restr:
+        raise HTTPException(status_code=403, detail=f"Target Scope Refusal: {restr_reason}")
+    url = urllib.parse.urlunsplit(parsed_u)
 
     await enforce_scope(url, "waf-check")
 
