@@ -749,6 +749,8 @@ async def health_liveness():
 
 @app.get("/api/health/ready")
 
+@app.get("/api/ready")
+
 async def health_readiness():
 
     """Readiness probe: validates internal subsystems and database connectivity."""
@@ -5961,6 +5963,7 @@ async def get_tools_health_all(force_refresh: bool = False):
 
 
 @app.get("/api/tools/health/summary")
+@app.get("/api/system/tools/health")
 async def get_tools_health_summary(force_refresh: bool = False):
     """Returns dynamic real-time health indicator metrics for the top navigation bar."""
     from core.tool_dependency_manager import tool_dependency_manager

@@ -272,9 +272,19 @@ async function launchScan() {
     }
 
     try {
+        // The backend blocks loopback / private addresses unless the request
+        // explicitly opts into Authorized Safe (lab) Mode. The dashboard
+        // advertises that mode, so detect lab targets and include lab_mode.
+        // Without this, launching the displayed audit target (127.0.0.1)
+        // always returns a 403 SSRF scope refusal.
+        const _host = String(target).replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].toLowerCase();
+        const isLabTarget = _host === 'localhost' || _host === '::1' || _host === '127.0.0.1' ||
+            /^127\./.test(_host) || /^192\.168\./.test(_host) || /^10\./.test(_host) ||
+            /^172\.(1[6-9]|2\d|3[01])\./.test(_host);
         const payload = {
             target_url: target,
-            profile: selectedProfile || 'standard'
+            profile: selectedProfile || 'standard',
+            lab_mode: isLabTarget
         };
 
         let res = await fetch('/api/scans', {

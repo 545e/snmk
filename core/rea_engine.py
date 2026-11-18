@@ -122,14 +122,16 @@ class REAEngine:
 
     @staticmethod
     def _is_within_allowed_root(resolved: Path) -> bool:
-        resolved_str = os.path.abspath(str(resolved))
+        resolved_cands = [os.path.abspath(str(resolved)), os.path.realpath(str(resolved))]
         for root in REAEngine.allowed_roots():
-            root_str = os.path.abspath(str(root))
-            try:
-                if resolved_str.startswith(root_str) and os.path.commonpath([root_str, resolved_str]) == root_str:
-                    return True
-            except (ValueError, Exception):
-                continue
+            root_cands = [os.path.abspath(str(root)), os.path.realpath(str(root))]
+            for r_str in root_cands:
+                for target_str in resolved_cands:
+                    try:
+                        if target_str.startswith(r_str) and os.path.commonpath([r_str, target_str]) == r_str:
+                            return True
+                    except (ValueError, Exception):
+                        continue
         return False
 
     @staticmethod
