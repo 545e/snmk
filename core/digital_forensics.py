@@ -344,14 +344,14 @@ class StorageMediaInspector:
         p_real = os.path.realpath(str(p))
         if not p_real.startswith(root_real):
             raise ValueError(f"Path outside evidence root: {file_path}")
-        if not p.is_file():
+        if not os.path.isfile(p_real):
             raise FileNotFoundError(f"Forensic file not found: {file_path}")
 
         sha256 = hashlib.sha256()
         sha512 = hashlib.sha512()
         md5 = hashlib.md5()
 
-        with open(p, "rb") as f:
+        with open(p_real, "rb") as f:
             while chunk := f.read(1024 * 1024):  # 1MB buffer
                 sha256.update(chunk)
                 sha512.update(chunk)
@@ -361,7 +361,7 @@ class StorageMediaInspector:
             "sha256": sha256.hexdigest(),
             "sha512": sha512.hexdigest(),
             "md5": md5.hexdigest(),
-            "size_bytes": p.stat().st_size
+            "size_bytes": os.path.getsize(p_real)
         }
 
 
@@ -441,25 +441,21 @@ class PhotoRecCarver:
         curr_str = os.path.realpath(str(current))
         root_str = os.path.realpath(str(root))
         if not curr_str.startswith(root_str):
+            curr_str = root_str
             current = root
 
-        if not current.exists():
+        if not os.path.exists(curr_str):
+            curr_str = root_str
             current = root
 
-        parent = current.parent.resolve() if current.parent != current else None
-        # The parent is only offered when it is still inside the root.
-        if parent is not None:
-            try:
-                parent.relative_to(root)
-            except ValueError:
-                parent = None
+        parent_real = os.path.realpath(str(current.parent))
+        parent = parent_real if (parent_real.startswith(root_str) and parent_real != curr_str) else None
 
         items: List[Dict[str, Any]] = []
         try:
-            cur_real = os.path.realpath(str(current))
-            if not cur_real.startswith(root_str):
+            if not curr_str.startswith(root_str):
                 raise PermissionError("Access outside evidence root")
-            for entry in sorted(os.scandir(current), key=lambda e: (not e.is_dir(), e.name.lower())):
+            for entry in sorted(os.scandir(curr_str), key=lambda e: (not e.is_dir(), e.name.lower())):
                 try:
                     stat = entry.stat()
                     items.append({
@@ -475,9 +471,9 @@ class PhotoRecCarver:
             logger.debug("Directory browse error: %s", e)
 
         return {
-            "current_path": str(current),
-            "parent_path": str(parent) if parent else None,
-            "has_parent": parent is not None and str(parent) != str(current),
+            "current_path": curr_str,
+            "parent_path": parent,
+            "has_parent": parent is not None and parent != curr_str,
             "items": items,
             "item_count": len(items)
         }
@@ -494,14 +490,14 @@ class PhotoRecCarver:
         out_str = os.path.realpath(str(out_dir))
         if not out_str.startswith(root_str):
             raise ValueError("Destination directory outside evidence root")
-        out_dir.mkdir(parents=True, exist_ok=True)
+        os.makedirs(out_str, exist_ok=True)
 
         job = CarvingJob(
             job_id=job_id,
             source_target=source_target,
             partition_mode=partition_mode or "WHOLE",
             file_types=file_types or ["jpg", "png", "pdf", "docx", "zip", "sqlite"],
-            destination_dir=str(out_dir),
+            destination_dir=out_str,
             status="RUNNING",
             progress_pct=0.0,
             sectors_processed=0,
@@ -783,11 +779,11 @@ class ExifToolGpsEngine:
         p_str = os.path.realpath(str(p))
         if not p_str.startswith(root_str):
             raise ValueError(f"File outside evidence root: {file_path}")
-        if not p.is_file():
+        if not os.path.isfile(p_str):
             raise FileNotFoundError(f"File not found: {file_path}")
-        with open(p, "rb") as f:
+        with open(p_str, "rb") as f:
             data = f.read(65536)  # Read first 64KB for metadata
-        return self.extract_from_bytes(data, p.name)
+        return self.extract_from_bytes(data, os.path.basename(p_str))
 
 
 # =====================================================================
@@ -854,23 +850,23 @@ class ChainOfCustodyLedger:
         elif storage_path:
             # Never open a path built directly from user input. Only the
             # confined path (validated against the evidence root) may be read.
-            p = None
+            p_safe = None
             try:
                 confined = confine_to_evidence_root(storage_path)
                 confined_str = os.path.realpath(str(confined))
                 root_str = os.path.realpath(str(forensics_evidence_root()))
                 if not confined_str.startswith(root_str):
                     raise ValueError("Evidence path outside root")
-                if confined.is_file():
-                    p = confined
+                if os.path.isfile(confined_str):
+                    p_safe = confined_str
             except Exception:
-                p = None
-            if p is not None:
-                size = p.stat().st_size
+                p_safe = None
+            if p_safe is not None:
+                size = os.path.getsize(p_safe)
                 h_sha256 = hashlib.sha256()
                 h_sha512 = hashlib.sha512()
                 h_md5 = hashlib.md5()
-                with open(p, "rb") as f:
+                with open(p_safe, "rb") as f:
                     while chunk := f.read(1024 * 1024):
                         h_sha256.update(chunk)
                         h_sha512.update(chunk)
