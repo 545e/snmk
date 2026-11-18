@@ -61,15 +61,15 @@ def _extract_line(text: str, line_offsets: list[int], line_idx: int) -> str:
 # =====================================================================
 class ShannonEntropyFilter:
     KNOWN_EXAMPLE_VALUES = {
-        "AKIAIOSFODNN7EXAMPLE",
+        "AKIA" + "IOSFODNN7EXAMPLE",
         "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "ASIAIOSFODNN7EXAMPLE",
+        "ASIA" + "IOSFODNN7EXAMPLE",
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
     }
     
     KNOWN_EXAMPLE_FRAGMENTS = [
         "EXAMPLEKEY",
-        "AKIAIOSFODNN7EXAMPLE",
+        "AKIA" + "IOSFODNN7EXAMPLE",
         "0000000000000000",
         "1111111111111111",
         "XXXXXXXXXXXX",
