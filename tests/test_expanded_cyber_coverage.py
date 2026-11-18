@@ -206,11 +206,14 @@ def test_crlf_header_injection_audit():
 
 def test_open_redirect_audit():
     def handler(request: httpx.Request):
-        # Inspect the decoded *parameter value* only, never a substring of
-        # the whole URL (which would be an incomplete sanitization pattern).
         injected = parse_qs(urlsplit(str(request.url)).query).get("url", [])
-        if any("evil-attacker-redirect-domain.com" in unquote(v) for v in injected):
-            return httpx.Response(302, headers={"Location": "https://evil-attacker-redirect-domain.com/login"})
+        for v in injected:
+            try:
+                host = (urlsplit(unquote(v)).hostname or "").lower()
+                if host == "evil-attacker-redirect-domain.com":
+                    return httpx.Response(302, headers={"Location": "https://evil-attacker-redirect-domain.com/login"})
+            except Exception:
+                pass
         return httpx.Response(200, text="Home")
 
     async def _run():

@@ -6986,18 +6986,18 @@ function renderCommandReference() {
             <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
                 <div>
                     <h3 style="margin: 0; font-size: 16px; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
-                        <span>${cmd.tool}</span>
-                        <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10.5px;">${cmd.category}</span>
+                        <span>${htmlEscape(String(cmd.tool || ''))}</span>
+                        <span class="badge" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; font-size: 10.5px;">${htmlEscape(String(cmd.category || ''))}</span>
                     </h3>
-                    <p style="font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0;">${cmd.purpose}</p>
+                    <p style="font-size: 12.5px; color: var(--text-muted); margin: 4px 0 0;">${htmlEscape(String(cmd.purpose || ''))}</p>
                 </div>
-                ${cmd.docs_url ? `<a href="${cmd.docs_url}" target="_blank" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px;">Official Docs ↗</a>` : ''}
+                ${cmd.docs_url ? `<a href="${encodeURI(cmd.docs_url)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary" style="padding: 4px 10px; font-size: 11.5px;">Official Docs ↗</a>` : ''}
             </div>
 
             <!-- Command syntax box with copy button -->
             <div style="position: relative; background: #0b1120; border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center;">
-                <code style="color: #38bdf8; font-family: var(--mono); font-size: 12.5px; overflow-x: auto; white-space: nowrap;">${cmd.command}</code>
-                <button class="btn btn-secondary" onclick="copyCommandToClipboard('${cmd.command.replace(/'/g, "\\'")}', this)" style="padding: 3px 8px; font-size: 11px; margin-left: 8px;">
+                <code style="color: #38bdf8; font-family: var(--mono); font-size: 12.5px; overflow-x: auto; white-space: nowrap;">${htmlEscape(String(cmd.command || ''))}</code>
+                <button class="btn btn-secondary" data-cmd="${htmlEscape(String(cmd.command || ''))}" onclick="copyCommandToClipboard(this.dataset.cmd, this)" style="padding: 3px 8px; font-size: 11px; margin-left: 8px;">
                     <span>Copy</span>
                 </button>
             </div>
@@ -10947,18 +10947,23 @@ async function dispatchAdhocAgentTask(role) {
         ? `<span style="background: rgba(34, 197, 94, 0.15); color: #22c55e; border: 1px solid rgba(34, 197, 94, 0.35); padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🟢 Vault API Key Active: ${llmStatus.provider.toUpperCase()} (${llmStatus.model})</span>`
         : `<span style="background: rgba(245, 158, 11, 0.15); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.35); padding: 2px 8px; border-radius: 12px; font-weight: 700; font-size: 11px;">🟡 Heuristic Fallback (Add API Key in Topbar API Keys to connect Claude/GPT/Gemini)</span>`;
 
+    const safeRole = htmlEscape(String(role || ''));
+    const safeTarget = htmlEscape(String(target || ''));
+    const safeObj = htmlEscape(String(objective || ''));
+    const safeModalId = htmlEscape(String(modalId || ''));
+
     modal.innerHTML = `
         <div class="modal-custom-card" style="max-width: 620px; width: 100%;">
             <div class="modal-custom-header">
                 <div>
                     <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
-                        <span>🤖 Execute Agent:</span> <span style="color: var(--brand); font-family: var(--mono);">${role}</span>
+                        <span>🤖 Execute Agent:</span> <span style="color: var(--brand); font-family: var(--mono);">${safeRole}</span>
                     </h3>
                     <div style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">
                         Modern OWASP Top 10 2025 Edition • AI Key Assisted Multi-Agent Pipeline
                     </div>
                 </div>
-                <button onclick="document.getElementById('${modalId}').remove()" style="background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer;">&times;</button>
+                <button onclick="document.getElementById('${safeModalId}').remove()" style="background: transparent; border: none; color: var(--text-muted); font-size: 20px; cursor: pointer;">&times;</button>
             </div>
             <div class="modal-custom-body" style="padding: 20px;">
                 <div style="margin-bottom: 14px;">
@@ -10967,17 +10972,17 @@ async function dispatchAdhocAgentTask(role) {
                 </div>
                 <div style="margin-bottom: 14px;">
                     <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Target Scope</label>
-                    <input type="text" id="agentTaskTarget" value="${target}" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-title); padding: 8px 12px; border-radius: 6px; font-family: var(--mono); font-size: 12.5px;">
+                    <input type="text" id="agentTaskTarget" value="${safeTarget}" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-title); padding: 8px 12px; border-radius: 6px; font-family: var(--mono); font-size: 12.5px;">
                 </div>
                 <div style="margin-bottom: 16px;">
                     <label style="display: block; font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin-bottom: 6px;">Task Objective</label>
-                    <input type="text" id="agentTaskObjective" value="${objective}" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-title); padding: 8px 12px; border-radius: 6px; font-size: 12.5px;">
+                    <input type="text" id="agentTaskObjective" value="${safeObj}" style="width: 100%; background: var(--bg-input); border: 1px solid var(--border); color: var(--text-title); padding: 8px 12px; border-radius: 6px; font-size: 12.5px;">
                 </div>
                 <div id="agentTaskResultBox" style="display: none; margin-top: 14px; padding: 14px; border-radius: 8px; font-size: 12px; max-height: 250px; overflow-y: auto;"></div>
             </div>
             <div class="modal-custom-footer" style="padding: 14px 20px;">
-                <button onclick="document.getElementById('${modalId}').remove()" class="btn btn-secondary" style="padding: 6px 14px;">Cancel</button>
-                <button id="btnExecuteAgentAction" onclick="submitAgentTaskExecution('${role}')" class="btn btn-primary" style="padding: 6px 16px; background: var(--brand); color: #fff; font-weight: 700; border-radius: 6px; cursor: pointer;">
+                <button onclick="document.getElementById('${safeModalId}').remove()" class="btn btn-secondary" style="padding: 6px 14px;">Cancel</button>
+                <button id="btnExecuteAgentAction" data-role="${safeRole}" onclick="submitAgentTaskExecution(this.dataset.role)" class="btn btn-primary" style="padding: 6px 16px; background: var(--brand); color: #fff; font-weight: 700; border-radius: 6px; cursor: pointer;">
                     ⚡ Launch Agent with AI
                 </button>
             </div>
@@ -13789,8 +13794,16 @@ async function initAllToolsView() {
                     const scData = await scRes.json();
                     const allowed = scData.targets || scData.allowed_domains || [];
                     const candidate = allowed.find(d => {
-                        const str = typeof d === 'string' ? d : (d.domain || '');
-                        return str && !str.includes('127.0.0.1') && !str.includes('example.com') && !str.includes('localhost');
+                        const raw = typeof d === 'string' ? d : (d.domain || '');
+                        if (!raw) return false;
+                        try {
+                            const u = new URL(raw.includes('://') ? raw : 'https://' + raw);
+                            const host = (u.hostname || '').toLowerCase();
+                            return host && host !== '127.0.0.1' && host !== 'localhost' && host !== 'example.com' && !host.endsWith('.example.com');
+                        } catch (_) {
+                            const host = raw.split('/')[0].split(':')[0].toLowerCase();
+                            return host && host !== '127.0.0.1' && host !== 'localhost' && host !== 'example.com' && !host.endsWith('.example.com');
+                        }
                     });
                     if (candidate) {
                         targetInput.value = typeof candidate === 'string' ? candidate : candidate.domain;
