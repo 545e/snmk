@@ -28,6 +28,7 @@ Comprehensive, safe, non-destructive detection engine covering 27 injection cate
 25. Log Injection & Log Forging
 """
 
+import logging
 import re
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
@@ -81,7 +82,7 @@ class InjectionSuite:
                     remediation_patch="escaped_output = html.escape(user_input, quote=True)"
                 ))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
     async def audit_ssti(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
@@ -118,7 +119,7 @@ class InjectionSuite:
                     remediation_patch="template.render(user_data=safe_input) # Do NOT use render_template_string(user_data)"
                 ))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
     async def audit_command_injection(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
@@ -157,7 +158,7 @@ class InjectionSuite:
                     ))
                     break
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
     async def audit_path_traversal(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
@@ -201,7 +202,7 @@ class InjectionSuite:
                     ))
                     break
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
     async def audit_crlf_header_injection(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
@@ -238,7 +239,7 @@ class InjectionSuite:
                     remediation_patch="safe_header_val = re.sub(r'[\\r\\n]', '', user_input)"
                 ))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
     async def audit_open_redirect(self, client: httpx.AsyncClient, scan_id: str, url: str, param: str) -> list[VulnerabilityFinding]:
@@ -278,7 +279,7 @@ class InjectionSuite:
                     remediation_patch="if not url_is_relative(target): target = '/dashboard'"
                 ))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
 

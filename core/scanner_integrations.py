@@ -20,6 +20,7 @@ Strict Rules:
 - Enforces strict timeouts, output parsing, and error handling.
 """
 
+import logging
 import asyncio
 import json
 import os
@@ -385,7 +386,7 @@ class ScannerIntegrations:
                     defender_active = bool(d_data.get("AntivirusEnabled"))
                     defender_ver = str(d_data.get("AntivirusSignatureVersion"))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         inventory["microsoft_defender"] = {
             "id": "microsoft_defender",
@@ -1294,7 +1295,7 @@ class ScannerIntegrations:
                             remediation_patch='"lodash": "^4.17.21"'
                         ))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return findings
 

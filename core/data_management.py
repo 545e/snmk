@@ -4,6 +4,7 @@ Provides secure ingestion, validation, preview, schema inference, data leakage i
 sanitization, train/val/test splitting, and lifecycle tracking for security datasets.
 """
 
+import logging
 import csv
 import datetime
 import hashlib
@@ -211,7 +212,7 @@ class DataManagementEngine:
                     records.append(data)
                     fields = list(data.keys())
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         elif file_type == "txt":
             fields = ["text"]
@@ -312,7 +313,7 @@ class DataManagementEngine:
             try:
                 os.remove(storage_path)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return db.delete_dataset(dataset_id)
 
 

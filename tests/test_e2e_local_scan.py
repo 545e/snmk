@@ -8,6 +8,7 @@ Validates the complete workflow against an authorized local lab target (http://1
 - Report generation across HTML, JSON, SARIF 2.1.0, CSV, and Markdown
 """
 
+import logging
 import os
 import sys
 import time
@@ -86,7 +87,7 @@ class TestE2ELocalScan(unittest.TestCase):
                     try:
                         cls._server_proc.kill()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cls._server_log.flush()
                 cls._server_log.close()
@@ -94,7 +95,7 @@ class TestE2ELocalScan(unittest.TestCase):
                           errors="replace") as fh:
                     err = "\nSERVER OUTPUT:\n" + fh.read()[-4000:]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             raise RuntimeError(
                 "Failed to launch background SWA AI web server for E2E "
                 f"tests (port {port}, url {cls.base_url}, last error: {last_exc}).{err}"

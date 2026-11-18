@@ -225,7 +225,7 @@ class IntegrationRegistry:
                                 c["is_default"] = False
                                 conn.execute("UPDATE integrations SET config_json = ?, updated_at = ? WHERE id = ?", (json.dumps(c), now, ai_row["id"]))
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 conn.commit()
 
         config_json = json.dumps(config_obj)
@@ -278,7 +278,7 @@ class IntegrationRegistry:
             audit = AuditLog()
             audit.record("integration.save", iid, "SUCCESS", f"Configured {adapter.display_name} ({adapter.provider_id})", actor=actor)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return self.get_integration(iid)
 
@@ -320,7 +320,7 @@ class IntegrationRegistry:
             audit = AuditLog()
             audit.record("integration.rotate", integration_id, "SUCCESS", f"Rotated credentials for {integ.get('display_name')}", actor=actor)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return self.get_integration(integration_id)
 
@@ -347,7 +347,7 @@ class IntegrationRegistry:
                         chosen_id = r["id"]
                         break
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             
             return self._get_decrypted_credentials(chosen_id)
 
@@ -372,7 +372,7 @@ class IntegrationRegistry:
                         chosen = r
                         break
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             row_dict = dict(chosen)
             creds = self._get_decrypted_credentials(row_dict["id"])

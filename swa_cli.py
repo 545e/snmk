@@ -5,6 +5,7 @@ on-demand semi-automatic cyber tools, and the real-time background Web Applicati
 """
 
 
+import logging
 import sys
 import os
 import argparse
@@ -19,7 +20,7 @@ if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 # Ensure parent directory is in sys.path
@@ -85,7 +86,7 @@ async def run_cli_scan(args):
                     color = "\033[92m" if d["level"] == "SUCCESS" else ("\033[91m" if d["level"] in ["ERROR", "FINDING"] else "\033[93m" if d["level"] == "WARN" else "\033[90m")
                     print(f"{color}[{d.get('timestamp')}] [{d.get('agent')}] {d.get('message')}\033[0m")
             except asyncio.TimeoutError:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             except Exception:
                 break
 

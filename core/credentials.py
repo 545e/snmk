@@ -75,7 +75,7 @@ def _load_or_generate_master_key() -> bytes:
             try:
                 os.chmod(keyfile, 0o600)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     except Exception as e:
         logger.warning(f"Could not persist keyfile to {keyfile}: {e}")
 

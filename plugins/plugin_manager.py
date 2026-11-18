@@ -3,6 +3,7 @@ SWA AI Security Plugin Manager
 Central registry and execution manager for modular security audit plugins.
 """
 
+import logging
 import asyncio
 from typing import Any
 
@@ -157,7 +158,7 @@ class SecurityPluginManager:
             try:
                 db.save_finding(f)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return {
             "status": "COMPLETED",
@@ -186,7 +187,7 @@ class SecurityPluginManager:
             try:
                 db.save_finding(f)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return {
             "status": "COMPLETED",

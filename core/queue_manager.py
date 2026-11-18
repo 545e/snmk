@@ -3,6 +3,7 @@ SWA AI Async Queue & Event Bus Manager
 Handles concurrent background scan jobs and real-time WebSocket subscriber dispatch.
 """
 
+import logging
 import asyncio
 from typing import Any
 
@@ -114,7 +115,7 @@ class QueueManager:
                 loop = asyncio.get_running_loop()
                 loop.create_task(self.broadcast_event("SCAN_CANCELLED", {"scan_id": scan_id}))
             except RuntimeError:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             return True
         return False
 

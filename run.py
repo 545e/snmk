@@ -5,6 +5,7 @@ Execute this script to start the background Web UI on http://127.0.0.1:8000
 Automatically opens browser and manages port conflicts.
 """
 
+import logging
 import sys
 import os
 import socket
@@ -18,7 +19,7 @@ if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
         sys.stderr.reconfigure(encoding="utf-8")
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -51,7 +52,7 @@ def open_browser(url: str, delay: float = 1.2):
             try:
                 webbrowser.open(url)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     threading.Thread(target=_open, daemon=True).start()
 
 if __name__ == "__main__":
@@ -88,7 +89,7 @@ if __name__ == "__main__":
         with open(pid_file, "w", encoding="utf-8") as f:
             f.write(str(os.getpid()))
     except Exception:
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     try:
         # Start Uvicorn
@@ -98,4 +99,4 @@ if __name__ == "__main__":
             try:
                 os.remove(pid_file)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)

@@ -7,6 +7,7 @@ Implements all 17 required report sections and detailed finding specifications.
 
 from __future__ import annotations
 
+import logging
 import csv
 import datetime
 import json
@@ -136,7 +137,7 @@ class KillChainReportGenerator:
                 generated_files["pdf"] = pdf_path
             except Exception:
                 # If reportlab encounters an issue, fallback record is kept
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         summary_dict = {
             "total_findings": len(findings),

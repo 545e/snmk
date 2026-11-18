@@ -7,6 +7,7 @@ The table is created additively (CREATE TABLE IF NOT EXISTS) — existing
 databases are never altered destructively.
 """
 
+import logging
 import threading
 from datetime import datetime, timezone
 UTC = getattr(datetime, "UTC", timezone.utc)
@@ -144,6 +145,6 @@ audit = AuditLog()
 try:
     audit.ensure_table()
 except Exception:  # pragma: no cover - database may be unavailable at import
-    pass
+    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 __all__ = ["AuditLog", "audit"]

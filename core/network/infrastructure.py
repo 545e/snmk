@@ -98,7 +98,7 @@ class InternetInfrastructureEngine:
         try:
             rev_dns = socket.gethostbyaddr(clean_ip)[0]
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         asn = None
         asn_org = None
@@ -159,7 +159,7 @@ class InternetInfrastructureEngine:
                         rdap_reg = rdap_data.get("port43", "ARIN")
                         isp = rdap_data.get("name") or "Public Internet Endpoint"
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         result_obj = IspAsnInfo(
             ip=clean_ip,

@@ -8,6 +8,7 @@ Tests:
 - Extended Scanner Integrations Inventory
 """
 
+import logging
 import pytest
 import os
 import asyncio
@@ -213,7 +214,7 @@ def test_open_redirect_audit():
                 if host == "evil-attacker-redirect-domain.com":
                     return httpx.Response(302, headers={"Location": "https://evil-attacker-redirect-domain.com/login"})
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return httpx.Response(200, text="Home")
 
     async def _run():

@@ -10,6 +10,7 @@ Hard Rules:
 - Full structured audit logging with timestamp, target, and purpose.
 """
 
+import logging
 import asyncio
 import datetime
 import json
@@ -148,7 +149,7 @@ class ScopedReconAssistant:
                 host_info = await loop.run_in_executor(None, socket.gethostbyname_ex, self.hostname)
                 dns_obs["canonical_name"] = host_info[0]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
             dns_obs["error"] = str(e)
         self.observations.append(dns_obs)
@@ -211,7 +212,7 @@ class ScopedReconAssistant:
                     "disallow_entries": [line.strip() for line in r_robots.text.splitlines() if line.lower().startswith("disallow:")]
                 })
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             # sitemap.xml
             try:
@@ -222,7 +223,7 @@ class ScopedReconAssistant:
                     "content_length": len(r_sitemap.content)
                 })
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _active_rate_limited_enumeration(self, base_url: str):
         """Active path enumeration with hard-coded 1.0s delay between requests."""

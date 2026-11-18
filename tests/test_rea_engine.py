@@ -5,6 +5,7 @@ path traversal & sensitive OS file protection, explicit authorization enforcemen
 and native fallback inspection for SQLite, JavaScript, and binary artifacts.
 """
 
+import logging
 import asyncio
 import os
 import sqlite3
@@ -33,7 +34,7 @@ class TestREAEngine(unittest.TestCase):
         try:
             self.temp_dir.cleanup()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def test_check_availability_schema(self):
         status = REAEngine.check_availability()

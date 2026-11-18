@@ -89,7 +89,7 @@ def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
             if res.nameservers:
                 dns_servers = list(res.nameservers)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # Optional slow fallback if gateway was not detected
         if not gateway_ip:
@@ -118,7 +118,7 @@ def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
                     elif isinstance(servers, str) and servers:
                         dns_servers = [servers]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     else:
         # Linux / Unix / macOS
         try:
@@ -127,7 +127,7 @@ def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
                     if line.startswith("nameserver"):
                         dns_servers.append(line.split()[1].strip())
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         try:
             proc = subprocess.run(["ip", "route", "show", "default"], capture_output=True, text=True, timeout=5)
@@ -136,7 +136,7 @@ def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
                 gateway_ip = match.group(1)
                 iface_alias = match.group(2)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     # Fallback DNS if none discovered
     if not dns_servers:

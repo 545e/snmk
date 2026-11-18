@@ -29,6 +29,7 @@ Safety controls
 
 from __future__ import annotations
 
+import logging
 import importlib
 import importlib.metadata
 import json
@@ -396,7 +397,7 @@ class CrewCoordinator:
             payload = [t.__dict__ | {"status": t.status.value} for t in self.history[-100:]]
             HISTORY_PATH.write_text(json.dumps(payload, indent=2, default=str), encoding="utf-8")
         except OSError:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def status(self) -> dict[str, Any]:
         from collections import Counter

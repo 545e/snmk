@@ -4,6 +4,7 @@ Executes hardware-aware training jobs, manages checkpoint artifacts, tracks reso
 and trains verifiable security classification and vulnerability detection models.
 """
 
+import logging
 import asyncio
 import datetime
 import json
@@ -76,7 +77,7 @@ class AITrainingEngine:
             import psutil
             info["total_ram_gb"] = round(psutil.virtual_memory().total / (1024**3), 2)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         try:
             import torch
@@ -89,7 +90,7 @@ class AITrainingEngine:
                 info["mps_available"] = True
                 info["device_name"] = "Apple Silicon Neural Engine"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return info
 
     async def start_training(self, config: TrainingConfig) -> TrainingJob:

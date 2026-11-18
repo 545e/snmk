@@ -763,7 +763,7 @@ class UniversalScannerEngine:
                             cvss_score=7.8
                         ))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # 3. Plain Text / Markdown / RTF
         else:

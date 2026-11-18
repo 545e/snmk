@@ -1240,7 +1240,7 @@ Provide a concise, expert, directly actionable response. If the user asks about 
 
             # Fall back gracefully to deterministic heuristic response
 
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -1573,7 +1573,7 @@ async def list_scans():
                     db.update_scan_status(s.id, ScanStatus.CANCELLED)
                     s.status = ScanStatus.CANCELLED
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     return scans
 
 
@@ -2018,7 +2018,7 @@ async def delete_vuln_assessment_report(report_id: str):
         try:
             os.remove(rep["file_path"])
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     if hasattr(db, "delete_vuln_assessment_report"):
         db.delete_vuln_assessment_report(report_id)
     return {"status": "SUCCESS", "message": f"Report {report_id} deleted"}
@@ -5589,7 +5589,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                     try:
                         db.save_finding(dmarc_finding)
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
             logger.debug(f"DNS lookup notice: {e}")
 
@@ -5619,7 +5619,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                     try:
                         db.save_finding(port_finding)
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
             logger.debug(f"Port prober notice: {e}")
 
@@ -5645,7 +5645,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                 try:
                     db.save_finding(ssl_finding)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
             logger.debug(f"SSL inspector notice: {e}")
 
@@ -5675,7 +5675,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                         try:
                             db.save_finding(h_finding)
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
             logger.debug(f"Security headers notice: {e}")
     except Exception as e:
@@ -5745,7 +5745,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             db.save_finding(baseline_finding)
             findings = [baseline_finding]
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     # Automatically generate detailed Nessus-style report
     report_data = {}
@@ -7476,7 +7476,7 @@ def _get_stored_ai_key() -> str:
 
     except Exception:
 
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     return raw
 
@@ -8296,7 +8296,7 @@ async def ai_status(probe: bool = False):
 
     except Exception:
 
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     return payload
 

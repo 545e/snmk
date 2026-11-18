@@ -176,7 +176,7 @@ class AlertManager:
             tmp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
             tmp.replace(self.path)
         except OSError:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     # -- deduplication -----------------------------------------------------
     @staticmethod

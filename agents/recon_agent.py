@@ -4,6 +4,7 @@ Autonomous OSINT, DNS analysis, Port Scanning, Tech Stack Fingerprinting,
 SSL Inspection, and Sensitive Asset Discovery.
 """
 
+import logging
 import asyncio
 import re
 import socket
@@ -279,7 +280,7 @@ class ReconAgent:
                     "INFO"
                 )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def discover_sensitive_paths(self, recon: ReconResult):
         await self.log("Scanning for sensitive files, backups, and config disclosures (Concurrent)...", "INFO")
@@ -318,7 +319,7 @@ class ReconAgent:
                             )
                             await queue_manager.emit_finding(finding)
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             tasks = [probe_single_path(p, t, s, pat) for p, t, s, pat in SENSITIVE_PATHS]
             await asyncio.gather(*tasks, return_exceptions=True)

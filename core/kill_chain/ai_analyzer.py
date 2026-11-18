@@ -7,6 +7,7 @@ Answers the seven SOC questions and strictly distinguishes confidence levels.
 
 from __future__ import annotations
 
+import logging
 import datetime
 from typing import Any
 
@@ -43,7 +44,7 @@ class KillChainAIAnalyzer:
                 if ai_response:
                     return ai_response
             except Exception:
-                pass  # Fall back directly to deterministic analysis
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)  # Fall back directly to deterministic analysis
 
         # Deterministic fallback analysis
         return self._run_deterministic_analysis(finding, evidence, context)

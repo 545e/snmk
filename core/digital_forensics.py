@@ -286,7 +286,7 @@ class StorageMediaInspector:
                     smart_status="OK"
                 ))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return devices
 
     def _discover_local_images(self) -> List[StorageDevice]:
@@ -313,7 +313,7 @@ class StorageMediaInspector:
                             smart_status="OK"
                         ))
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return devices
 
     def hash_evidence_file(self, file_path: str) -> Dict[str, str]:
@@ -401,7 +401,7 @@ class PhotoRecCarver:
         try:
             root.mkdir(parents=True, exist_ok=True)
         except OSError:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         if not target_path or target_path.strip() in ("", "."):
             current = root

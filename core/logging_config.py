@@ -137,7 +137,7 @@ class LokiLoggingHandler(logging.Handler):
             requests.post(self.loki_url, json=payload, timeout=2.0)
         except Exception:  # noqa: BLE001, S110
             # Silent fallback when Loki is unreachable in offline mode
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def _flusher_loop(self) -> None:
         while not self._stop_event.is_set():

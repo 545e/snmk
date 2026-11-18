@@ -4,6 +4,7 @@ Crawls target web application, extracts HTML forms, links, script endpoints,
 and discovers REST/GraphQL/OpenAPI endpoints for vulnerability probing.
 """
 
+import logging
 import asyncio
 from urllib.parse import parse_qs, urljoin, urlparse
 
@@ -154,7 +155,7 @@ class AttackSurfaceAgent:
                                 await self.log(f"CRITICAL SECRET LEAK: {sec['name']} exposed in {current_url} (line {sec['line']})", "FINDING")
 
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return next_links
 
             # Breadth-first concurrent batch crawling
@@ -187,7 +188,7 @@ class AttackSurfaceAgent:
                                 is_api=True
                             )
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             api_tasks = [probe_api_route(p) for p in COMMON_API_PATHS]
             await asyncio.gather(*api_tasks, return_exceptions=True)

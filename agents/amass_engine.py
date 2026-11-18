@@ -34,6 +34,7 @@ Architecture:
    - Inspects CNAME chains against 17+ cloud providers (AWS S3, GitHub Pages, Heroku, Azure, CloudFront, Netlify, etc.)
 """
 
+import logging
 import asyncio
 import datetime
 import html
@@ -322,7 +323,7 @@ class AmassSubdomainEngine:
             if extracted.domain and extracted.suffix:
                 return f"{extracted.domain}.{extracted.suffix}"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # Built-in robust fallback
         parts = d.split(".")
@@ -389,7 +390,7 @@ class AmassSubdomainEngine:
                 self.is_cancelled = True
                 return True
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return False
 
     async def log(self, message: str, level: str = "INFO"):
@@ -460,14 +461,14 @@ class AmassSubdomainEngine:
                 for r in ans:
                     ips.add(str(r))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             try:
                 cname_ans = await resolver.resolve(rnd_sub, "CNAME")
                 for r in cname_ans:
                     self.wildcard_cnames.add(str(r).rstrip("."))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             if ips:
                 wildcard_hits.append(ips)
@@ -622,7 +623,7 @@ class AmassSubdomainEngine:
                         await self.log(f"[crt.sh] Ingested {count} certificate records for {self.base_domain}", "INFO")
                         return
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # HTML regex fallback if crt.sh JSON endpoint times out or errors
         try:
@@ -633,7 +634,7 @@ class AmassSubdomainEngine:
                     for m in matches:
                         self._register(m, "crt.sh-html")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_hackertarget(self):
         """Query HackerTarget passive host search registry."""
@@ -648,7 +649,7 @@ class AmassSubdomainEngine:
                         if parts:
                             self._register(parts[0], "HackerTarget")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_alienvault_otx(self):
         """Query AlienVault OTX Passive DNS threat indicators."""
@@ -664,7 +665,7 @@ class AmassSubdomainEngine:
                         if h:
                             self._register(h, "AlienVault-OTX")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_certspotter(self):
         """Query SSLMate CertSpotter CT log issuances."""
@@ -681,7 +682,7 @@ class AmassSubdomainEngine:
                         for dns_name in item.get("dns_names", []):
                             self._register(dns_name, "CertSpotter")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_wayback(self):
         """Query Internet Archive Wayback Machine CDX API."""
@@ -701,7 +702,7 @@ class AmassSubdomainEngine:
                             if match:
                                 self._register(match.group(1), "WaybackCDX")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_threatminer(self):
         """Query ThreatMiner cyber threat intelligence API."""
@@ -714,7 +715,7 @@ class AmassSubdomainEngine:
                     for sub in data.get("results", []):
                         self._register(sub, "ThreatMiner")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_urlscan(self):
         """Query URLScan.io index for recorded domain appearances."""
@@ -729,7 +730,7 @@ class AmassSubdomainEngine:
                         if page_domain:
                             self._register(page_domain, "URLScan")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_subdomain_center(self):
         """Query Subdomain Center API."""
@@ -744,7 +745,7 @@ class AmassSubdomainEngine:
                         for s in subs:
                             self._register(s, "SubdomainCenter")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_anubis(self):
         """Query Anubis DB threat intelligence."""
@@ -759,7 +760,7 @@ class AmassSubdomainEngine:
                         for sub in entries:
                             self._register(sub, "Anubis")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _query_rapiddns(self):
         """Query RapidDNS public DNS records."""
@@ -772,7 +773,7 @@ class AmassSubdomainEngine:
                     for m in matches:
                         self._register(m, "RapidDNS")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     async def _run_amass_cli(self):
         """Invokes external OWASP Amass binary if present on host."""
@@ -845,7 +846,7 @@ class AmassSubdomainEngine:
                     if sub and res.get("ips"):
                         self._register(sub, "NativeCPP_FastScan")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         resolver = self._create_resolver()
         sem = asyncio.Semaphore(self.concurrency)
@@ -1007,14 +1008,14 @@ class AmassSubdomainEngine:
                         ip_list = [str(r) for r in ans_a]
                         dns_confirmed = True
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                     try:
                         ans_aaaa = await resolver.resolve(sub, "AAAA")
                         aaaa_list = [str(r) for r in ans_aaaa]
                         dns_confirmed = True
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                     try:
                         ans_cname = await resolver.resolve(sub, "CNAME")
@@ -1024,7 +1025,7 @@ class AmassSubdomainEngine:
                             aliases = cnames
                             dns_confirmed = True
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                 # Socket fallback if resolver produced no answers
                 if not ip_list and not aaaa_list:
@@ -1046,7 +1047,7 @@ class AmassSubdomainEngine:
                                 ip_list = ips
                                 dns_confirmed = True
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                 # 2. Wildcard classification check
                 wildcard_suspected = False
@@ -1089,7 +1090,7 @@ class AmassSubdomainEngine:
                                 response_body = resp.text[:4000]
                                 http_responsive = True
                             except Exception:
-                                pass
+                                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                 # Extract HTML <title> if present
                 if response_body:
@@ -1164,7 +1165,7 @@ class AmassSubdomainEngine:
                     from core.database import db
                     db.save_asset(entry)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                 if status_code:
                     src_tag = "+".join(sources[:2])

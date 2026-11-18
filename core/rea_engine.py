@@ -237,7 +237,7 @@ class REAEngine:
                     return "javascript"
                 return "javascript"
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # Binary fallback heuristic
         return "binary"
@@ -426,7 +426,7 @@ class REAEngine:
             if isinstance(candidate, dict):
                 return candidate
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         best: Optional[Dict[str, Any]] = None
         for line in stdout_text.splitlines():
@@ -603,7 +603,7 @@ class REAEngine:
                 try:
                     conn.close()
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return info
 
     @classmethod

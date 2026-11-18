@@ -18,6 +18,7 @@ Thread-safe SQLite storage for scans, vulnerability findings, logs, and system s
 
 
 
+import logging
 import contextlib
 import datetime
 import json
@@ -112,7 +113,7 @@ class Database:
                     conn.execute("PRAGMA journal_mode = WAL;")
                 Database._wal_configured = True
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             self._local.conn = conn
         try:
             with conn:
@@ -124,7 +125,7 @@ class Database:
             try:
                 conn.close()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             self._local.conn = None
             raise
 
@@ -478,7 +479,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -498,7 +499,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -518,7 +519,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -538,7 +539,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -558,7 +559,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -578,7 +579,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -598,7 +599,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -618,7 +619,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -638,7 +639,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -658,7 +659,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -678,7 +679,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -698,7 +699,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -1258,7 +1259,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -1278,7 +1279,7 @@ class Database:
 
 
 
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -3242,139 +3243,139 @@ class Database:
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cvss_created ON findings (cvss_score DESC, created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_scan_cvss_created ON findings (scan_id, cvss_score DESC, created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_lifecycle ON findings (lifecycle_status)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_remediation ON findings (remediation_status)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_poc ON findings (poc_verification_state)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cwe ON findings (cwe_id)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_cve ON findings (cve_id)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_findings_owasp ON findings (owasp_category)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_logs_scan_id_id ON logs (scan_id, id)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_scans_target_url ON scans (target_url, created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_remediation_scan_updated ON remediation_tickets (scan_id, updated_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_scan_started ON agent_tasks (scan_id, started_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_agent_tasks_role_started ON agent_tasks (agent_role, started_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_exports_created ON cyber_exports (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_runs_created ON cyber_test_runs (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_run ON cyber_test_results (run_id, created_at ASC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_test_results_created ON cyber_test_results (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_cyber_deployments_created ON cyber_deployments (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_approval_status_created ON approval_requests (status, created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_template_created ON report_records (template_type, created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_report_records_created ON report_records (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_llm_security_tests_run ON llm_security_tests (run_id, created_at ASC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_datasets_created ON datasets (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_training_created ON ai_training_jobs (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_ai_evaluations_created ON ai_evaluations (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_created ON vulnerability_assessment_reports (created_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_var_scan ON vulnerability_assessment_reports (scan_id)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_projects_workspace ON projects (workspace_id, created_at ASC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_drift_detected ON asset_drift_events (detected_at DESC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_responsive ON assets (http_responsive DESC, subdomain ASC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_assets_parent_responsive ON assets (parent_domain, http_responsive DESC, subdomain ASC)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_status ON agents_inventory (status)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_agents_inventory_tier_name ON agents_inventory (tier, name)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             try:
                 cursor.execute("CREATE INDEX IF NOT EXISTS idx_threat_indicators_value ON threat_indicators (indicator_value)")
             except sqlite3.Error:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 
@@ -10219,7 +10220,7 @@ class Database:
                 try:
                     res["logs"] = json.loads(res["logs"])
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             return res
 
     def list_tool_install_jobs(self, tool_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:
@@ -10243,7 +10244,7 @@ class Database:
                     try:
                         item["logs"] = json.loads(item["logs"])
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 jobs.append(item)
             return jobs
 
@@ -10302,7 +10303,7 @@ class Database:
                     item["checks_failed"] = json.loads(item["checks_failed"])
                     item["diagnostics"] = json.loads(item["diagnostics"])
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 snapshots[item["tool_id"]] = item
             return snapshots
 
@@ -10322,7 +10323,7 @@ class Database:
                     item["checks_passed"] = json.loads(item["checks_passed"])
                     item["checks_failed"] = json.loads(item["checks_failed"])
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 history.append(item)
             return history
 

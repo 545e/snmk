@@ -103,7 +103,7 @@ class RouteAnalysisEngine:
                             hop.asn = infra.asn
                             hop.isp = infra.isp
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                     elif not is_timeout and is_private_ip(hop_ip):
                         hop.isp = "Local LAN / Gateway Router"
                         hop.city = "Private Subnet"

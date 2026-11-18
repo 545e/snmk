@@ -1444,7 +1444,7 @@ class AgentRegistry:
                     from core.database import db
                     db.save_agent_task(task_record)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return task_record
 
             # Record completion.  An agent whose handler raised is reported as
@@ -1483,7 +1483,7 @@ class AgentRegistry:
                 db.save_agent_task(task_record)
             except Exception:
                 # Task history persistence is best-effort and non-blocking
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             return task_record
 
@@ -1546,7 +1546,7 @@ class AgentRegistry:
                     else:
                         log_fn(msg, lvl)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             logger.info(f"[{lvl}] {msg}")
 
         await _log(f"Dispatching {len(discovered)} registered agents against target: {target} (bounded concurrency, real execution)")

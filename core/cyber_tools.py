@@ -12,6 +12,7 @@ Comprehensive suite of interactive and semi-automatic cybersecurity tools:
 - Authorized Penetration Testing Shell & Payload Reference Generator
 """
 
+import logging
 import asyncio
 import base64
 import datetime
@@ -103,7 +104,7 @@ class DNSLookupTool:
                         results["email_security"]["dmarc_record"] = txt
                         break
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         except ImportError:
             # Pure standard library fallback using socket
@@ -389,7 +390,7 @@ class SSLCertificateTool:
                 san_ext = parsed_cert.extensions.get_extension_for_oid(x509.ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
                 sans = san_ext.value.get_values_for_type(x509.DNSName)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         except Exception:
             # Fallback to standard ssl dict parsing if verified or available
@@ -471,7 +472,7 @@ class PortProberTool:
                     raw = await asyncio.wait_for(reader.read(256), timeout=0.8)
                     banner = raw.decode("utf-8", errors="ignore").strip().splitlines()[0] if raw else ""
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 writer.close()
                 await writer.wait_closed()
 
@@ -518,7 +519,7 @@ class WhoisIpTool:
                 addr_info = await loop.getaddrinfo(target, None)
                 resolved_ip = addr_info[0][4][0]
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         intel = {
             "query": target,
@@ -551,9 +552,9 @@ class WhoisIpTool:
                                             intel["isp"] = vcard[3]
                                             break
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return intel
 

@@ -4,6 +4,7 @@ Validates target inputs (IPv4, IPv6, FQDNs), enforces authorized allowlists,
 guards against SSRF / cloud metadata access, and protects against DNS rebinding.
 """
 
+import logging
 import ipaddress
 import json
 import os
@@ -89,7 +90,7 @@ class ScopePolicy:
                         self.allowed_domains = new_domains
                 self._last_mtime = mtime
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def check_reload(self):
         """Reloads targets.json if the file was modified on disk."""
@@ -99,7 +100,7 @@ class ScopePolicy:
                 if mtime != self._last_mtime:
                     self._load_config()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def _matches_allowlist(self, hostname: str) -> bool:
         """
@@ -161,7 +162,7 @@ class ScopePolicy:
                     json.dump(records, f, indent=2)
                 self._last_mtime = os.path.getmtime(self.config_path)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return True
 
     def _normalize_hostname(self, target: str) -> str:
@@ -170,7 +171,7 @@ class ScopePolicy:
             ip = ipaddress.ip_address(t)
             return str(ip)
         except ValueError:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         if "://" in t:
             parsed = urlparse(t)
@@ -297,7 +298,7 @@ class ScopePolicy:
             try:
                 is_loopback = ipaddress.ip_address(hostname).is_loopback or hostname == "0.0.0.0"
             except ValueError:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         is_lab = (
             hostname in _LAB_HOST_SET
@@ -504,7 +505,7 @@ def _is_builtin_lab_host(hostname: str) -> bool:
         if ipaddress.ip_address(clean).is_loopback:
             return True
     except ValueError:
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     return any(clean.endswith(sfx) for sfx in _LAB_HOST_SUFFIXES)
 
 

@@ -6,6 +6,7 @@ tailored to all seven stages of the Lockheed Martin Cyber Kill Chain.
 
 from __future__ import annotations
 
+import logging
 import datetime
 import uuid
 from typing import Any
@@ -134,7 +135,7 @@ class IncidentManager:
             try:
                 stages.append(KillChainStageEnum(s.lower()))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         sev_str = severity.upper()
         sev = SeverityEnum[sev_str] if sev_str in SeverityEnum.__members__ else SeverityEnum.HIGH

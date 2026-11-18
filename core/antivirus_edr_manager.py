@@ -10,6 +10,7 @@ Evaluates API, CLI, and enterprise management feasibility honestly.
 Specifically notes that consumer suites like TotalAV provide no public programmatic API or CLI.
 """
 
+import logging
 import json
 import os
 import shutil
@@ -296,7 +297,7 @@ class AntivirusEDRManager:
                     telemetry["signature_version"] = str(data.get("AntivirusSignatureVersion", "Unknown"))
                     telemetry["engine_version"] = str(data.get("AMEngineVersion", "Unknown"))
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             # 2. Check MpCmdRun.exe
             defender_path = r"C:\Program Files\Windows Defender\MpCmdRun.exe"

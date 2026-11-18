@@ -512,6 +512,6 @@ async def map_websocket_stream(websocket: WebSocket):
             })
             await asyncio.sleep(1.0)
     except WebSocketDisconnect:
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     except Exception as e:
         logger.debug(f"WebSocket closed: {e}")

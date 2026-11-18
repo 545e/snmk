@@ -12,6 +12,7 @@ Features:
 - Active JS Bundle Fetcher with concurrent asynchronous resolution
 """
 
+import logging
 import asyncio
 import math
 import os
@@ -2117,7 +2118,7 @@ class GhostJsAnalyzer:
                                         b_res = self.scan_content(b_resp.text, source_url=safe_b_url)
                                         return b_res
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                         return None
 
                 if bundle_list:

@@ -4,6 +4,7 @@ Verifies WAL database health, online backup integrity, healthcheck API routes,
 cross-platform installation script availability, and deployment profiles.
 """
 
+import logging
 import os
 import sqlite3
 import tempfile
@@ -54,7 +55,7 @@ class TestDeploymentReadiness(unittest.TestCase):
             try:
                 tmp_dir.cleanup()
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def test_health_and_readiness_endpoints(self):
         """Verifies /health and /ready REST endpoints for monitoring and orchestrators."""

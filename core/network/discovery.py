@@ -119,7 +119,7 @@ class DeviceDiscoveryEngine:
                             if ipaddress.IPv4Address(ip_candidate) not in net:
                                 continue
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
                     is_gw = (ip_candidate == gateway_ip)
                     dev_type = "Default Gateway Router" if is_gw else "Local Endpoint"

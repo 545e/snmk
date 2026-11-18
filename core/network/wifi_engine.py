@@ -93,7 +93,7 @@ class WifiIntelligenceEngine:
                 try:
                     rssi = int(fields["Rssi"])
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             if rssi is None and signal_pct > 0:
                 # Standard approximation: dBm = (signal_pct / 2) - 100
                 rssi = int((signal_pct / 2.0) - 100)
@@ -138,7 +138,7 @@ class WifiIntelligenceEngine:
                             quality_assessment="Good" if signal >= 50 else "Fair"
                         )
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return None
 
     def _get_macos_wifi(self) -> WifiIntelligence | None:

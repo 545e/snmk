@@ -4,6 +4,7 @@ Coordinates multi-phase security assessments, drives background execution,
 and synchronizes live state with the database and real-time event bus.
 """
 
+import logging
 import asyncio
 import datetime
 import time
@@ -262,7 +263,7 @@ class SWAOrchestrator:
             try:
                 db.update_scan_counts(self.scan_id, force=True)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
             await self.log(f"Scan encountered an unexpected error: {e!s}", "ERROR")
             db.update_scan_status(self.scan_id, ScanStatus.FAILED)
@@ -270,7 +271,7 @@ class SWAOrchestrator:
             try:
                 db.update_scan_counts(self.scan_id, force=True)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             db.update_scan_progress(self.scan_id, 100, "Failed", error=str(e))
         finally:
             if self.scan_id in queue_manager.active_tasks:
@@ -335,7 +336,7 @@ class SWAOrchestrator:
                 "target_authorized": True
             })
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         await self.log(f"Assessment completed in {duration}s. Found {findings_count} verified vulnerabilities.", "SUCCESS")
         await queue_manager.broadcast_event("SCAN_COMPLETED", {

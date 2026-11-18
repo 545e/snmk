@@ -375,7 +375,7 @@ class ScanPersistence:
                     try:
                         conn.rollback()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 if attempt < 2:
                     time.sleep(0.2 * (attempt + 1))
             finally:
@@ -383,7 +383,7 @@ class ScanPersistence:
                     try:
                         conn.close()
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         raise RuntimeError(f"MySQL write failed: {type(last_error).__name__}: {last_error}")
 
     def _state(self, local_ok: bool, sql: str, params: Iterable[Any]) -> PersistenceState:

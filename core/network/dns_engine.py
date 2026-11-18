@@ -105,7 +105,7 @@ class DnsIntelligenceEngine:
                         response_time_ms=latency
                     ))
             except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.exception.Timeout):
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             except Exception as e:
                 logger.debug(f"DNS query {rtype} for {target} error: {e}")
 

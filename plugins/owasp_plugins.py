@@ -13,6 +13,7 @@ Complete coverage of OWASP 2025 Top 10 & API Security categories:
 - A10: Server-Side Request Forgery (SSRF)
 """
 
+import logging
 import asyncio
 import re
 from typing import Any
@@ -165,7 +166,7 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
                 findings.append(f)
                 if log_callback: await log_callback(f"[A01] Found Insecure CORS on {test_url}", "FINDING")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # 2. Administrative Pathway & Information Disclosure via robots.txt
         try:
@@ -201,7 +202,7 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
                     findings.append(f)
                     if log_callback: await log_callback(f"[A01] robots.txt disclosed administrative routes: {sensitive_disallow[:3]}", "FINDING")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # 2. Path Traversal (LFI) check on parameter endpoints (Parallelized)
         sem = asyncio.Semaphore(10)
@@ -235,7 +236,7 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
                             remediation_patch="import os\nsafe_filename = os.path.basename(user_input)\nfilepath = os.path.join(SAFE_DIR, safe_filename)"
                         )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return None
 
         lfi_tasks = []
@@ -293,7 +294,7 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
                                 remediation_patch="if not target_url.startswith('/') or target_url.startswith('//'):\n    raise ValueError('External redirects prohibited')"
                             )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return None
 
         redirect_params = ["url", "redirect", "next", "return", "dest", "target", "goto", "continue", "r", "out"]
@@ -366,7 +367,7 @@ class PluginA02_CryptographicFailures(BaseSecurityPlugin):
                     findings.append(f)
                     if log_callback: await log_callback(f"[A02] Cleartext HTTP 80 accepted on {http_url}", "FINDING")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # Zero False Positive: Local loopback addresses (127.0.0.1, localhost) run HTTP by design during local testing
         is_loopback = (parsed.hostname in ("127.0.0.1", "localhost", "::1")) or (parsed.hostname and parsed.hostname.endswith(".local"))
@@ -428,7 +429,7 @@ class PluginA02_CryptographicFailures(BaseSecurityPlugin):
                     if log_callback: await log_callback(f"[A02] Cookie {c_name} missing {missing_flags}", "FINDING")
                     break
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return findings
 
@@ -482,7 +483,7 @@ class PluginA03_Injection(BaseSecurityPlugin):
                                 remediation_patch="cursor.execute('SELECT * FROM tbl WHERE param = %s', (safe_param,))"
                             )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return None
 
         async def check_ssti_probe(ep, param, query_params, parsed):
@@ -515,7 +516,7 @@ class PluginA03_Injection(BaseSecurityPlugin):
                             remediation_patch="# Safe template rendering\nreturn render_template('page.html', user_val=user_input)"
                         )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return None
 
         async def check_xss_probe(ep, param, x_probe, query_params, parsed):
@@ -548,7 +549,7 @@ class PluginA03_Injection(BaseSecurityPlugin):
                             remediation_patch="import html\nsafe_output = html.escape(user_input)"
                         )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return None
 
         tasks = []
@@ -637,7 +638,7 @@ class PluginA04_InsecureDesign(BaseSecurityPlugin):
                         if log_callback: await log_callback(f"[A04] Authentication endpoint missing rate limiting: {ep.url}", "FINDING")
                         break
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return findings
 
 
@@ -843,7 +844,7 @@ class PluginA05_SecurityMisconfiguration(BaseSecurityPlugin):
                 )
                 findings.append(f)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # 2. HTTP TRACE Method Check
         try:
@@ -869,7 +870,7 @@ class PluginA05_SecurityMisconfiguration(BaseSecurityPlugin):
                 )
                 findings.append(f)
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # 3. Stack Trace / Debug Mode Exposure
         for ep in endpoints[:4]:
@@ -939,7 +940,7 @@ class PluginA05_SecurityMisconfiguration(BaseSecurityPlugin):
                 findings.append(f_gql)
                 if log_callback: await log_callback(f"[A05] GraphQL Introspection enabled on {gql_url}", "FINDING")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return findings
 
@@ -1055,7 +1056,7 @@ class PluginA06_VulnerableComponents(BaseSecurityPlugin):
                     findings.append(f)
                     if log_callback: await log_callback(f"[A06] CMS generator tag disclosed: {cms_name}", "FINDING")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return findings
 
@@ -1181,9 +1182,9 @@ class PluginA07_AuthFailures(BaseSecurityPlugin):
                                 findings.append(f_jwt)
                                 if log_callback: await log_callback(f"[A07] Critical: Insecure JWT 'alg: none' on {ep.url}", "FINDING")
                         except Exception:
-                            pass
+                            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return findings
 
@@ -1243,7 +1244,7 @@ class PluginA08_IntegrityFailures(BaseSecurityPlugin):
                     findings.append(f)
                     if log_callback: await log_callback(f"[A08] Found external scripts without SRI: {unprotected_external[0]}", "FINDING")
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return findings
 
@@ -1349,7 +1350,7 @@ class PluginA10_SSRF(BaseSecurityPlugin):
                             remediation_patch="import ipaddress, socket\n# Resolve hostname and reject private IP ranges\nip = socket.gethostbyname(parsed_url.hostname)\nif ipaddress.ip_address(ip).is_private:\n    raise ValueError('Private IP access denied')"
                         )
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
                 return None
 
         ssrf_tasks = []

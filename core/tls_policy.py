@@ -37,6 +37,7 @@ verifies before reporting.
 
 from __future__ import annotations
 
+import logging
 import os
 import ssl
 from typing import Any, Dict, Optional
@@ -111,7 +112,7 @@ def inspection_context(verify: Optional[bool] = None) -> ssl.SSLContext:
     try:
         context.minimum_version = ssl.TLSVersion.TLSv1_2
     except (AttributeError, ValueError):
-        pass
+        logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     if verify:
         context.check_hostname = True
         context.verify_mode = ssl.CERT_REQUIRED

@@ -244,7 +244,7 @@ Return ONLY valid JSON with:
                 agent_memory_store.record_turn(session_id=session_id, agent_id="reasoning_agent", role="user", content=prompt, project_id=project_id)
                 agent_memory_store.record_turn(session_id=session_id, agent_id="reasoning_agent", role="assistant", content=response, project_id=project_id)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return response
 

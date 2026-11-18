@@ -6,6 +6,7 @@ findings, evidence, threat indicators, security controls, and incidents.
 
 from __future__ import annotations
 
+import logging
 import datetime
 import hashlib
 import json
@@ -629,7 +630,7 @@ def _row_to_incident(row: sqlite3.Row) -> IncidentRecord:
         try:
             stages.append(KillChainStageEnum(s))
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     return IncidentRecord(
         id=row["id"],

@@ -155,7 +155,7 @@ class PcapForensicsEngine:
                 try:
                     os.remove(temp_path)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
 
 pcap_engine = PcapForensicsEngine()

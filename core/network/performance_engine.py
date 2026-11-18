@@ -103,7 +103,7 @@ class NetworkPerformanceEngine:
                     if res.status_code == 200 and dur > 0:
                         download_mbps = round((len(res.content) * 8) / (dur * 1_000_000), 2)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # 3. Upload Throughput
         upload_mbps = 0.0

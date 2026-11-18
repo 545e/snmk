@@ -6,6 +6,7 @@ directed acyclic graph (DAG) topological resolution, 5-level tiered
 health verification, and real-time operational status monitoring.
 """
 
+import logging
 import asyncio
 import datetime
 import hashlib
@@ -607,7 +608,7 @@ class SecureToolInstaller:
                 from core.database import db
                 db.save_tool_install_job(self._active_jobs[job_id])
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             return True
         return False
 
@@ -624,7 +625,7 @@ class SecureToolInstaller:
                 if os.name != "nt":
                     os.chmod(self.bin_dir, 0o700)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def _validate_source_url(self, url: str) -> None:
         parsed = urllib.parse.urlparse(url)
@@ -711,13 +712,13 @@ class SecureToolInstaller:
                     from core.database import db
                     db.save_tool_install_job(job_record)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             try:
                 from core.database import db
                 db.save_tool_install_job(job_record)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             try:
                 # 1. Adapter Dispatch
@@ -835,7 +836,7 @@ class SecureToolInstaller:
                 shutil.copy2(candidate, dest)
                 log(f"Linked binary to isolated sandbox: {dest}")
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         job_record["status"] = InstallStatus.HEALTHY
         return {
@@ -1010,7 +1011,7 @@ class SecureToolInstaller:
                 try:
                     os.remove(bak_path)
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         job_record["status"] = InstallStatus.HEALTHY
         log(f"Verification complete: {item.name} is installed and operational.")
@@ -1589,7 +1590,7 @@ class ToolHealthEngine:
             for diag in snapshot.values():
                 db.save_tool_health_snapshot(diag.dict())
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         return snapshot, summary
 
@@ -1699,7 +1700,7 @@ class ToolDependencyManager:
                 from core.database import db
                 job = db.get_tool_install_job(job_id)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return job
 
     def list_jobs(self, tool_id: str | None = None, limit: int = 50) -> list[dict[str, Any]]:

@@ -21,6 +21,7 @@ Covered areas:
    (DSA-CYB-06 / DSA-CYB-20).
 """
 
+import logging
 import asyncio
 import json
 import os
@@ -230,7 +231,7 @@ class TestREAStableContract(unittest.TestCase):
         try:
             self.temp_dir.cleanup()
         except Exception:
-            pass
+            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
     def _make_sqlite(self):
         path = os.path.join(self.temp_dir.name, "contract.db")

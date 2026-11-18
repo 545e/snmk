@@ -5,6 +5,7 @@ Objective: Identify information gathering, adversary footprinting, and external 
 
 from __future__ import annotations
 
+import logging
 import datetime
 import uuid
 from typing import Any
@@ -103,7 +104,7 @@ class ReconnaissanceAnalyzer(BaseStageAnalyzer):
                 try:
                     port_ints.append(int(p if isinstance(p, (int, str)) else p.get("port", 0)))
                 except Exception:
-                    pass
+                    logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
             ev_ports = self.create_evidence(
                 artifact_type="OPEN_PORT_SCAN",

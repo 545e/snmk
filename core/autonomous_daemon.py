@@ -5,6 +5,7 @@ tracks attack surface deltas, verifies takeover vulnerabilities,
 and maintains persistent historical state.
 """
 
+import logging
 import asyncio
 import datetime
 import json
@@ -52,7 +53,7 @@ class AutonomousCyberDaemon:
                 with open(self.state_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except Exception:
-                pass
+                logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         return {}
 
     def save_current_state(self, state: dict[str, Any]):
