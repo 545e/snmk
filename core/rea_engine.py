@@ -122,11 +122,13 @@ class REAEngine:
 
     @staticmethod
     def _is_within_allowed_root(resolved: Path) -> bool:
+        resolved_str = str(resolved.resolve())
         for root in REAEngine.allowed_roots():
+            root_str = str(root.resolve())
             try:
-                resolved.relative_to(root)
-                return True
-            except ValueError:
+                if os.path.commonpath([root_str, resolved_str]) == root_str:
+                    return True
+            except (ValueError, Exception):
                 continue
         return False
 
@@ -175,16 +177,21 @@ class REAEngine:
             "native_fallback_available": True
         }
 
-    @staticmethod
-    def validate_target_path(path_str: str) -> Tuple[bool, str, Optional[str]]:
+    @classmethod
+    def validate_target_path(cls, path_str: str) -> Tuple[bool, str, Optional[str]]:
         """
         Validates the target path strictly to prevent path traversal or reading sensitive OS files.
         Returns: (is_valid, sanitized_path, error_message)
         """
-        if not path_str or not path_str.strip():
+        if not path_str or not isinstance(path_str, str) or not path_str.strip():
             return False, "", "Target path is empty."
 
-        clean = path_str.strip().strip("'\"")
+        clean = os.path.normpath(path_str.strip().strip("'\""))
+
+        # Reject path traversal sequence tokens
+        parts = clean.replace("\\", "/").split("/")
+        if ".." in parts:
+            return False, "", "Directory traversal sequences are blocked."
 
         # Reject null bytes
         if "\0" in clean:
@@ -201,13 +208,13 @@ class REAEngine:
         except Exception as e:
             return False, "", f"Malformed path format: {str(e)}"
 
+        # Report a missing target before the allowlist decision so callers get
+        # the actionable "does not exist" message (the historical contract).
         if not resolved.exists():
             return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
 
-        # Allowlist: the analyser may only read from the roots the operator
-        # has made available.
-        if not REAEngine._is_within_allowed_root(resolved):
-            roots = ", ".join(str(root) for root in REAEngine.allowed_roots())
+        if not cls._is_within_allowed_root(resolved):
+            roots = ", ".join(str(root) for root in cls.allowed_roots())
             return False, str(resolved), (
                 f"Target is outside the allowed analysis roots ({roots}). "
                 f"Set SWA_REA_ALLOWED_ROOTS to widen them."
@@ -215,19 +222,25 @@ class REAEngine:
 
         return True, str(resolved), None
 
-    @staticmethod
-    def infer_target_type(path_str: str) -> str:
+    @classmethod
+    def infer_target_type(cls, path_str: str) -> str:
         """Infers target analysis type from file extension or directory structure."""
-        p = Path(path_str)
-        if p.is_dir():
-            if (p / "package.json").exists() or any(p.glob("*.js")):
+        try:
+            # Pure inference helper: it only inspects the name/extension.
+            # Do not require the allowlist here, otherwise a plain filename
+            # such as "sample.js" is misclassified as binary.
+            p = Path(path_str)
+            if p.is_dir():
+                if (p / "package.json").is_file() or any(p.glob("*.js")):
+                    return "javascript"
                 return "javascript"
-            return "javascript"
 
-        ext = p.suffix.lower()
-        for t_type, meta in SUPPORTED_TARGET_TYPES.items():
-            if ext in meta["extensions"]:
-                return t_type
+            ext = p.suffix.lower()
+            for t_type, meta in SUPPORTED_TARGET_TYPES.items():
+                if ext in meta["extensions"]:
+                    return t_type
+        except Exception:
+            return "binary"
 
         # Binary fallback heuristic
         return "binary"
@@ -251,7 +264,10 @@ class REAEngine:
         if not is_valid:
             raise ValueError(f"Invalid target path: {err}")
 
-        target_p = Path(clean_path)
+        target_p = Path(clean_path).resolve()
+        if not self._is_within_allowed_root(target_p):
+            raise ValueError("Target path is outside allowed analysis roots.")
+
         inferred_type = target_type if (target_type and target_type in SUPPORTED_TARGET_TYPES) else self.infer_target_type(clean_path)
         
         job_id = f"rea_{uuid.uuid4().hex[:8]}"
@@ -492,10 +508,14 @@ class REAEngine:
 
     async def _run_native_inspection(self, path: Path, target_type: str) -> Dict[str, Any]:
         """Provides safe, pure-Python static structure inspection when REA CLI is not installed."""
+        if not self._is_within_allowed_root(path):
+            raise PermissionError("Target artifact is outside allowed roots")
+
         if not path.is_file():
+            entries = list(path.iterdir()) if path.is_dir() else []
             return {
-                "metadata": {"type": "directory", "entry_count": len(list(path.iterdir()))},
-                "summary": f"Directory analysis of {path.name}: {len(list(path.iterdir()))} items found."
+                "metadata": {"type": "directory", "entry_count": len(entries)},
+                "summary": f"Directory analysis of {path.name}: {len(entries)} items found."
             }
 
         # Calculate file hashes
@@ -533,9 +553,11 @@ class REAEngine:
 
         return {"metadata": meta, "findings": findings, "summary": summary}
 
-    @staticmethod
-    def _inspect_sqlite(path: Path) -> Dict[str, Any]:
+    @classmethod
+    def _inspect_sqlite(cls, path: Path) -> Dict[str, Any]:
         """Safely inspects SQLite structure using read-only connection URI."""
+        if not cls._is_within_allowed_root(path):
+            return {"format": "Unknown"}
         info = {}
         conn = None
         try:
@@ -573,9 +595,11 @@ class REAEngine:
                     pass
         return info
 
-    @staticmethod
-    def _inspect_binary_headers(path: Path) -> Dict[str, Any]:
+    @classmethod
+    def _inspect_binary_headers(cls, path: Path) -> Dict[str, Any]:
         """Inspects PE or ELF binary headers safely."""
+        if not cls._is_within_allowed_root(path):
+            return {"format": "Unknown"}
         with open(path, "rb") as f:
             header_bytes = f.read(1024)
 
@@ -619,9 +643,11 @@ class REAEngine:
 
         return {"format": "Generic Binary", "magic_hex": header_bytes[:8].hex()}
 
-    @staticmethod
-    def _inspect_javascript(path: Path) -> Dict[str, Any]:
+    @classmethod
+    def _inspect_javascript(cls, path: Path) -> Dict[str, Any]:
         """Inspects JavaScript / JSON bundle text structure."""
+        if not cls._is_within_allowed_root(path):
+            return {"format": "JavaScript Inspection Error", "error": "Access blocked"}
         try:
             with open(path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read(500000)
@@ -669,9 +695,11 @@ class REAEngine:
         except Exception as e:
             return {"format": "JavaScript Inspection Error", "error": str(e)}
 
-    @staticmethod
-    def _inspect_pcap_headers(path: Path) -> Dict[str, Any]:
+    @classmethod
+    def _inspect_pcap_headers(cls, path: Path) -> Dict[str, Any]:
         """Inspects pcap magic header."""
+        if not cls._is_within_allowed_root(path):
+            return {"format": "Unknown"}
         with open(path, "rb") as f:
             magic = f.read(4)
 
@@ -684,9 +712,11 @@ class REAEngine:
 
         return {"format": "Unknown Capture Format", "magic_hex": magic.hex()}
 
-    @staticmethod
-    def _inspect_dotnet(path: Path) -> Dict[str, Any]:
+    @classmethod
+    def _inspect_dotnet(cls, path: Path) -> Dict[str, Any]:
         """Inspects .NET CLR metadata presence."""
+        if not cls._is_within_allowed_root(path):
+            return {"format": "Unknown"}
         with open(path, "rb") as f:
             data = f.read(4096)
 
