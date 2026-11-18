@@ -238,7 +238,8 @@ class REAEngine:
         target_path: str,
         target_type: Optional[str] = None,
         authorized: bool = False,
-        timeout_sec: int = 30
+        timeout_sec: int = 30,
+        force_native: bool = False,
     ) -> Dict[str, Any]:
         """
         Executes safe analysis on an authorized target artifact.
@@ -304,7 +305,7 @@ class REAEngine:
         bin_path = self.get_binary_path()
         job_record["rea_cli_installed"] = bool(bin_path)
 
-        if bin_path:
+        if bin_path and not force_native:
             cli_result, cli_error = await self._run_rea_cli(
                 bin_path, target_p, inferred_type, timeout_sec
             )

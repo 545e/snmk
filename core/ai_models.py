@@ -11,7 +11,8 @@ import logging
 import os
 import sqlite3
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = getattr(datetime, "UTC", timezone.utc)
 from typing import Any
 
 from core.database import db

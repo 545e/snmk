@@ -42,6 +42,8 @@ from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+
+UTC = getattr(datetime, "UTC", UTC)
 from enum import Enum
 from pathlib import Path
 from typing import Any

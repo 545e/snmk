@@ -11,7 +11,8 @@ import json
 import logging
 import sqlite3
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = getattr(datetime, "UTC", timezone.utc)
 from typing import Any
 
 from core.credentials import credentials_vault, mask_secret

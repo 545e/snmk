@@ -125,7 +125,7 @@ class TestTLSVerificationPolicy(unittest.TestCase):
 
         for path in root.rglob("*.py"):
             if any(
-                part in (".venv", ".git", "__pycache__", "node_modules")
+                part in (".venv", "venv", ".git", "__pycache__", "node_modules")
                 for part in path.parts
             ):
                 continue

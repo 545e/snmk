@@ -16,7 +16,9 @@ import threading
 import uuid
 from collections.abc import Callable
 from dataclasses import asdict, dataclass, field
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+UTC = getattr(datetime, "UTC", timezone.utc)  # noqa: UP017
 from enum import Enum
 from pathlib import Path
 from typing import Any

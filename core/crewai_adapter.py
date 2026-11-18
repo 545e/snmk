@@ -81,14 +81,27 @@ class SNMKCrewAIAgent:
         start = time.perf_counter()
         logger.info(f"Agent [{self.role}] starting task: {task.description[:80]}...")
         
-        # Synthetic reasoning & execution via SNMK tool registry and agent memory
-        output_summary = f"[{self.role}] Executed task successfully: {task.description[:120]}. Satisfied requirement: {task.expected_output[:80]}."
-        
+        # This adapter is the planning / orchestration layer. It deliberately
+        # does NOT invent scanner output: no security tool is invoked here.
+        # Real execution and evidence come from the Tool Execution Manager and
+        # are persisted by core.persistent_store. The envelope below describes
+        # the plan only, so no tool output, subdomain, CVE or finding is
+        # fabricated by the agent.
+        output_summary = (
+            f"[{self.role}] Orchestration plan recorded for task: "
+            f"{task.description[:120]}. Expected output: {task.expected_output[:80]}. "
+            "No security tool was executed by this agent; no findings, tool "
+            "output or scan evidence are asserted."
+        )
+
         elapsed = round(time.perf_counter() - start, 3)
         result = {
             "task_id": task.task_id,
             "agent_role": self.role,
             "status": "COMPLETED",
+            "execution_mode": "synthetic_planning",
+            "evidence": "none; no tool invocation",
+            "tools_executed": [],
             "output": output_summary,
             "duration_sec": elapsed,
             "tools_used": self.tools

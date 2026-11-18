@@ -34,6 +34,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from core.tls_policy import inspection_context
+
 # Third-party parsers with safe import fallbacks
 try:
     from PIL import ExifTags, Image
@@ -60,7 +62,6 @@ except ImportError:
     TESSERACT_AVAILABLE = False
 
 from core.alert_manager import alert_manager
-from core.crewai_adapter import create_universal_scanner_crew
 from core.database import DB_PATH, db
 from core.integrations.endpoint_policy import EndpointPolicyError, resolve_host_addresses
 from core.mysql_database import mysql_manager
@@ -396,18 +397,14 @@ class UniversalScannerEngine:
             job.progress_percent = 75
             self._audit_sensitive_endpoints(job, url)
 
-        job.current_stage = "Correlating findings and CrewAI assessment"
+        job.current_stage = "Correlating findings from scanner evidence"
         job.progress_percent = 90
 
-        # Trigger CrewAI execution for correlation and analysis
-        try:
-            crew = create_universal_scanner_crew(scan_type="url", target=url)
-            # Run sequential orchestration
-            import asyncio
-            if asyncio.iscoroutinefunction(crew.kickoff):
-                pass  # handled in async router if needed
-        except Exception as e:
-            logger.debug(f"CrewAI advisory crew note: {e}")
+        # Correlation is performed over findings produced by the real checks
+        # above only. The CrewAI adapter is a planning layer that executes no
+        # tools, so it is intentionally not represented as an evidence source.
+        # (The previously present no-op ``crew.kickoff`` call was removed
+        # because it claimed an assessment that never happened.)
 
         self._finalize_job(job)
         return job.findings
@@ -436,9 +433,7 @@ class UniversalScannerEngine:
     def _audit_tls_configuration(self, job: UniversalScanJob, hostname: str, port: int):
         """Audits SSL/TLS certificate validity, expiry, and protocol."""
         try:
-            context = ssl.create_default_context()
-            context.check_hostname = False
-            context.verify_mode = ssl.CERT_NONE  # inspect even invalid certs to report details
+            context = inspection_context()
 
             with socket.create_connection((hostname, port), timeout=6.0) as sock:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:

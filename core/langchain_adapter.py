@@ -83,8 +83,14 @@ class SNMKChatModel:
             res = await self._client.generate(sanitized_prompt)
             return res.get("text", "") or res.get("response", "")
         except Exception as exc:  # noqa: BLE001
-            logger.warning(f"LLM generation failed: {exc}. Using secure heuristic fallback.")
-            return "Autonomous security analysis: assessed target. Zero credentials exposed. Latency: 42ms."
+            logger.warning("LLM generation failed (%s); returning an explicit "
+                           "no-analysis result instead of fabricated findings.", type(exc).__name__)
+            return (
+                "LLM analysis unavailable: no assessment was performed and no "
+                f"findings are asserted. Cause: {type(exc).__name__}. Configure "
+                "SWA_AI_PROVIDER and SWA_AI_API_KEY (or a local Ollama endpoint) "
+                "to enable real model inference."
+            )
 
     def invoke(self, prompt: str, **kwargs: Any) -> str:
         """Synchronous invocation wrapper."""

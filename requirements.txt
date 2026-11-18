@@ -18,3 +18,4 @@ reportlab>=4.0.0
 scapy>=2.5.0
 playwright>=1.40.0
 prometheus-client>=0.20.0
+pymysql>=1.1.0

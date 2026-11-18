@@ -2431,24 +2431,76 @@ async def run_amass_standalone(payload: AmassPayload):
     clean_target = raw_target.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
     await enforce_scope(clean_target, "subdomains")
 
-    if clean_target in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
-        subdomains = [
-            {"subdomain": clean_target, "ip": "127.0.0.1", "source": "local_loopback", "status": 200, "dns_confirmed": True, "validation_status": "active"},
-            {"subdomain": f"api.{clean_target}", "ip": "127.0.0.1", "source": "local_loopback", "status": 200, "dns_confirmed": True, "validation_status": "active"}
-        ]
+    # A bare IP address (including loopback) is not a registrable domain.
+    # Passive certificate-transparency / OSINT discovery cannot yield real
+    # subdomains for it.  Report that honestly instead of inventing entries,
+    # and persist the no-op so the record is auditable.
+    import ipaddress
+    try:
+        ipaddress.ip_address(clean_target)
+        is_ip_literal = True
+    except ValueError:
+        is_ip_literal = False
+
+    if is_ip_literal or clean_target.lower() == "localhost":
+        import uuid
+        from core.persistent_store import persistent_store
+
+        note = (
+            "Subdomain discovery requires a registrable domain. The supplied "
+            "target is an IP address or loopback name, so no enumeration was "
+            "performed and no subdomains are reported."
+        )
+        scan_id = f"amass_{uuid.uuid4().hex[:8]}"
+        persistent_store.create_scan(
+            scan_id=scan_id,
+            scan_type="subdomain",
+            target=clean_target,
+            configuration={
+                "recursive": payload.recursive,
+                "concurrency": payload.concurrency,
+            },
+        )
+        persistent_store.record_tool_execution(
+            scan_id=scan_id,
+            tool_name="amass_engine",
+            tool_id="recon_subdomain_amass",
+            execution_status="COMPLETED",
+            arguments={"target": clean_target},
+            error_message=note,
+            started_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            completed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            exit_code=0,
+        )
+        persistent_store.record_result(
+            scan_id, "subdomains", {"subdomains": [], "note": note, "discovery_sources": []}
+        )
+        persistent_store.update_scan(
+            scan_id,
+            status="COMPLETED",
+            completed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            duration_seconds=0.0,
+            total_findings=0,
+        )
+        persistent_store.add_report(scan_id, "json", f"/api/scans/{scan_id}/results")
         return {
             "domain": clean_target,
             "apex_domain": clean_target,
-            "count": len(subdomains),
-            "discovered_count": len(subdomains),
-            "resolved_count": len(subdomains),
+            "count": 0,
+            "discovered_count": 0,
+            "resolved_count": 0,
             "wildcard_filtered_count": 0,
             "failed_resolution_count": 0,
-            "live_count": len(subdomains),
+            "live_count": 0,
             "wildcard_detected": False,
             "takeover_count": 0,
-            "subdomains": subdomains,
-            "takeover_findings": []
+            "subdomains": [],
+            "takeover_findings": [],
+            "discovery_sources": [],
+            "failed_providers": [],
+            "scan_id": scan_id,
+            "discovery_mode": "not_applicable",
+            "note": note,
         }
 
     import uuid
@@ -2459,7 +2511,18 @@ async def run_amass_standalone(payload: AmassPayload):
 
     scan_id = f"amass_{uuid.uuid4().hex[:8]}"
 
+    from core.persistent_store import persistent_store
 
+    _scan_started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    persistent_store.create_scan(
+        scan_id=scan_id,
+        scan_type="subdomain",
+        target=clean_target,
+        configuration={
+            "recursive": payload.recursive if payload.recursive is not None else True,
+            "concurrency": payload.concurrency or 25,
+        },
+    )
 
     engine = AmassSubdomainEngine(
 
@@ -2487,6 +2550,90 @@ async def run_amass_standalone(payload: AmassPayload):
 
     subdomains, takeovers = await engine.run()
 
+    # Persist every real discovery incrementally.  Each write is independent:
+    # a failure in one record cannot discard results from the other providers.
+    _finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    _states: set[str] = set()
+    _sources: set[str] = set()
+    for _sub in subdomains:
+        if not isinstance(_sub, dict):
+            continue
+        _name = str(_sub.get("subdomain") or "").strip().rstrip(".").lower()
+        if not _name:
+            continue
+        _source = _sub.get("source") or _sub.get("discovery_source") or "unknown"
+        if isinstance(_source, (list, tuple, set)):
+            _sources.update(str(s) for s in _source)
+        else:
+            _sources.add(str(_source))
+        _state = persistent_store.record_subdomain(
+            scan_id=scan_id,
+            root_domain=getattr(engine, "base_domain", None) or clean_target,
+            subdomain=_name,
+            user_id="operator",
+            ip_addresses=_sub.get("ip_addresses") or (
+                [_sub["ip"]] if _sub.get("ip") else []
+            ),
+            cname_records=_sub.get("cname_records") or [],
+            dns_status=_sub.get("validation_status") or _sub.get("dns_status") or "UNKNOWN",
+            http_status=_sub.get("status") if isinstance(_sub.get("status"), int) else None,
+            discovery_source=str(_source),
+            discovery_type=_sub.get("discovery_type") or "passive",
+            confidence=float(_sub.get("confidence") or 0.0),
+            verification_timestamp=_finished,
+        )
+        _states.add(_state.value)
+
+    for _tf in takeovers:
+        _tf_data = _tf.model_dump() if hasattr(_tf, "model_dump") else (
+            dict(_tf) if isinstance(_tf, dict) else {"detail": str(_tf)}
+        )
+        persistent_store.record_finding(
+            scan_id=scan_id,
+            finding_title=str(_tf_data.get("title") or _tf_data.get("subdomain") or "Subdomain takeover indicator"),
+            severity=str(_tf_data.get("severity") or "HIGH"),
+            description=str(_tf_data.get("description") or _tf_data.get("evidence") or ""),
+            evidence=str(_tf_data.get("evidence") or ""),
+            remediation=str(_tf_data.get("remediation") or ""),
+            scanner_name="subdomain_takeover_check",
+        )
+
+    _tool_state = persistent_store.record_tool_execution(
+        scan_id=scan_id,
+        tool_name="amass_engine",
+        tool_id="recon_subdomain_amass",
+        execution_status="COMPLETED" if subdomains else "PARTIAL_SUCCESS",
+        arguments={
+            "target": clean_target,
+            "recursive": payload.recursive if payload.recursive is not None else True,
+            "concurrency": payload.concurrency or 25,
+        },
+        started_at=_scan_started,
+        completed_at=_finished,
+        exit_code=0,
+    )
+    _states.add(_tool_state.value)
+    _states.add(persistent_store.record_result(
+        scan_id, "subdomains", {"subdomains": subdomains, "takeovers": len(takeovers)}
+    ).value)
+    _states.add(persistent_store.add_report(
+        scan_id, "json", f"/api/scans/{scan_id}/results"
+    ).value)
+    persistent_store.update_scan(
+        scan_id,
+        status="COMPLETED" if subdomains else "PARTIAL_SUCCESS",
+        started_at=_scan_started,
+        completed_at=_finished,
+        duration_seconds=0.0,
+        total_findings=len(takeovers),
+    )
+    persistent_store.record_audit("operator", scan_id, "SUBDOMAIN_SCAN_COMPLETED", {
+        "target": clean_target,
+        "discovered": len(subdomains),
+        "takeovers": len(takeovers),
+        "persistence": sorted(_states),
+    })
+
     metrics = getattr(engine, "metrics", {})
 
     return {
@@ -2512,7 +2659,13 @@ async def run_amass_standalone(payload: AmassPayload):
 
         "subdomains": subdomains,
 
-        "takeover_findings": [f.model_dump() if hasattr(f, "model_dump") else f.__dict__ for f in takeovers]
+        "takeover_findings": [f.model_dump() if hasattr(f, "model_dump") else f.__dict__ for f in takeovers],
+
+        "scan_id": scan_id,
+        "discovery_sources": sorted(_sources),
+        "failed_providers": list(metrics.get("failed_providers", [])),
+        "persistence_status": sorted(_states) or ["LOCAL_ONLY"],
+        "results_endpoint": f"/api/scans/{scan_id}/results"
 
     }
 
@@ -2520,6 +2673,175 @@ async def run_amass_standalone(payload: AmassPayload):
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Durable persistence read APIs
+#
+# These endpoints read only from the authoritative SQLite store populated by
+# core.persistent_store.  They exist so results survive refreshes, logouts and
+# backend restarts, and so tool/subdomain/finding history is retrievable.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/subdomains")
+@app.get("/api/subdomains/{scan_id}")
+async def get_persisted_subdomains(
+    scan_id: str | None = None,
+    user_id: str = "operator",
+    root_domain: str | None = None,
+    discovery_type: str | None = None,
+    limit: int = 500,
+    offset: int = 0,
+):
+    from core.persistent_store import persistent_store
+
+    rows = persistent_store.get_subdomains(scan_id) if scan_id else []
+    if not scan_id:
+        # Cross-scan history: query the authoritative local store directly.
+        with db.get_connection() as conn:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT * FROM subdomains ORDER BY last_seen DESC LIMIT ? OFFSET ?",
+                (min(max(limit, 1), 5000), max(offset, 0)),
+            ).fetchall()]
+    if root_domain:
+        rows = [r for r in rows if r.get("root_domain") == root_domain]
+    if discovery_type:
+        rows = [r for r in rows if r.get("discovery_type") == discovery_type]
+    rows = [r for r in rows if (r.get("user_id") or "operator") == user_id]
+    for row in rows:
+        for key in ("ip_addresses", "cname_records"):
+            if isinstance(row.get(key), str):
+                try:
+                    row[key] = json.loads(row[key])
+                except (TypeError, ValueError):
+                    row[key] = []
+    return {
+        "scan_id": scan_id,
+        "count": len(rows),
+        "subdomains": rows[: min(max(limit, 1), 5000)],
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/scans/{scan_id}/results")
+async def get_persisted_scan_results(scan_id: str):
+    from core.persistent_store import persistent_store
+
+    scan = persistent_store.get_scan(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
+    return {
+        "scan_id": scan_id,
+        "scan": scan,
+        "results": persistent_store.get_results(scan_id),
+        "findings": persistent_store.get_findings(scan_id),
+        "reports": persistent_store.get_reports(scan_id),
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/scans/{scan_id}/tools")
+async def get_persisted_scan_tools(scan_id: str):
+    from core.persistent_store import persistent_store
+
+    return {
+        "scan_id": scan_id,
+        "count": len(persistent_store.get_tool_executions(scan_id)),
+        "tool_executions": persistent_store.get_tool_executions(scan_id),
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/scans/{scan_id}/reports")
+async def get_persisted_scan_reports(scan_id: str):
+    from core.persistent_store import persistent_store
+
+    return {
+        "scan_id": scan_id,
+        "reports": persistent_store.get_reports(scan_id),
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/reports/export")
+async def export_latest_report(format: str = "json", scan_id: str | None = None):
+    """Export a report built from persisted records (never from frontend state).
+
+    ``format=json`` returns the structured record; ``format=csv`` returns a
+    flat finding list.  When ``scan_id`` is omitted the most recently updated
+    scan is used.
+    """
+    from fastapi.responses import PlainTextResponse
+
+    from core.persistent_store import persistent_store
+
+    with db.get_connection() as conn:
+        if scan_id:
+            row = conn.execute("SELECT id FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id FROM scans ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="No scan records available to export")
+    sid = row[0]
+    findings = persistent_store.get_findings(sid)
+    subdomains = persistent_store.get_subdomains(sid)
+    if format.lower() == "csv":
+        lines = ["scan_id,title,severity,scanner,evidence"]
+        for f in findings:
+            cells = [
+                sid,
+                f.get("finding_title", ""),
+                f.get("severity", ""),
+                f.get("scanner_name", ""),
+                f.get("evidence", ""),
+            ]
+            lines.append(",".join('"' + str(c).replace('"', '""') + '"' for c in cells))
+        return PlainTextResponse("\n".join(lines), media_type="text/csv")
+    if format.lower() == "json":
+        return {
+            "scan_id": sid,
+            "scan": persistent_store.get_scan(sid),
+            "findings": findings,
+            "subdomains": subdomains,
+            "tool_executions": persistent_store.get_tool_executions(sid),
+            "reports": persistent_store.get_reports(sid),
+            "generated_from": "persistent_store",
+        }
+    raise HTTPException(status_code=400, detail=f"Unsupported report format: {format}")
+
+
+@app.get("/api/persistence/status")
+async def get_persistence_status():
+    """Reports which backend is authoritative and how many writes are pending."""
+    from core.persistent_store import persistent_store
+
+    with db.get_connection() as conn:
+        tables = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()[0]
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM persistence_outbox WHERE status='PENDING'"
+        ).fetchone()[0]
+    return {
+        "authoritative_backend": "sqlite_wal",
+        "mirrored_backend": "mysql" if persistent_store._mysql_active() else None,
+        "persistent_tables": tables,
+        "pending_mysql_writes": pending,
+        "note": (
+            "SQLite is the authoritative store. MySQL is a mirror enabled via "
+            "SWA_DB_BACKEND=mysql; failed MySQL writes stay PENDING in the outbox "
+            "and are never reported as successful persistence."
+        ),
+    }
+
+
+@app.post("/api/persistence/outbox/flush")
+async def flush_persistence_outbox():
+    from core.persistent_store import persistent_store
+
+    return persistent_store.flush_outbox()
 
 
 class DefenseGeneratePayload(BaseModel):
@@ -4820,6 +5142,20 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
     t_start = time.time()
 
+    import uuid
+    from core.persistent_store import persistent_store
+
+    # Every real tool execution gets a scan record before the tool runs, so an
+    # interrupted or failed run is still recoverable afterwards.
+    tool_scan_id = f"tool_{uuid.uuid4().hex[:12]}"
+    tool_started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    persistent_store.create_scan(
+        scan_id=tool_scan_id,
+        scan_type="tool_execution",
+        target=effective_target,
+        configuration={"tool_id": tool_id_clean, "options": req.options or {}},
+    )
+
     result_data = {}
 
     options = req.options or {}
@@ -5067,6 +5403,32 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
             if inner_status in ("NOT_IMPLEMENTED", "NOT_EXECUTABLE", "FAILED"):
                 outer_status = inner_status
 
+        tool_finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        _exec_state = persistent_store.record_tool_execution(
+            scan_id=tool_scan_id,
+            tool_name=tool_id_clean,
+            tool_id=tool_id_clean,
+            execution_status=outer_status,
+            arguments={"target": effective_target, "options": options},
+            started_at=tool_started,
+            completed_at=tool_finished,
+            exit_code=0 if outer_status == "COMPLETED" else 1,
+            stdout_reference=f"/api/scans/{tool_scan_id}/results",
+        )
+        persistent_store.record_result(tool_scan_id, "tool_execution", result_data)
+        persistent_store.update_scan(
+            tool_scan_id,
+            status=outer_status,
+            started_at=tool_started,
+            completed_at=tool_finished,
+            duration_seconds=exec_time,
+        )
+        persistent_store.record_audit("operator", tool_scan_id, "TOOL_EXECUTED", {
+            "tool_id": tool_id_clean,
+            "status": outer_status,
+            "persistence": _exec_state.value,
+        })
+
         return {
 
             "status": outer_status,
@@ -5077,7 +5439,9 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
             "result": result_data,
 
-            "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+            "scan_id": tool_scan_id,
+            "persistence_status": _exec_state.value,
 
         }
 
@@ -5088,6 +5452,27 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
     except Exception as e:
 
         logger.error(f"Error executing tool {tool_id}: {e}")
+        _failed_finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        persistent_store.record_tool_execution(
+            scan_id=tool_scan_id,
+            tool_name=tool_id_clean,
+            tool_id=tool_id_clean,
+            execution_status="FAILED",
+            arguments={"target": effective_target, "options": options},
+            started_at=tool_started,
+            completed_at=_failed_finished,
+            exit_code=1,
+            stderr_reference=f"/api/scans/{tool_scan_id}/results",
+            error_message=str(e)[:1000],
+        )
+        persistent_store.update_scan(
+            tool_scan_id,
+            status="FAILED",
+            started_at=tool_started,
+            completed_at=_failed_finished,
+            error_message=str(e)[:1000],
+            duration_seconds=round(time.time() - t_start, 3),
+        )
 
         raise HTTPException(status_code=500, detail=f"Tool execution failed: {e!s}")
 
@@ -8540,14 +8925,18 @@ async def get_database_status_endpoint():
         sqlite_size_mb = round(os.path.getsize(DB_PATH) / (1024 * 1024), 2)
 
     mysql_health = mysql_manager.get_health_status(force_refresh=False)
+    with db.get_connection() as _conn:
+        _tables = _conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()[0]
     return {
-        "primary_database": "sqlite_wal" if not mysql_manager.config.enabled else "mysql_cluster",
+        "primary_database": "sqlite_wal",
         "sqlite": {
             "status": "HEALTHY",
             "journal_mode": "WAL",
             "path": DB_PATH,
             "size_mb": sqlite_size_mb,
-            "tables_count": 54,
+            "tables_count": _tables,
             "connection_pooling": "thread_local_reused"
         },
         "mysql": mysql_health,
