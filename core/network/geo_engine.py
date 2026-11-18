@@ -81,10 +81,21 @@ class GeolocationEngine:
         import urllib.parse
 
         try:
-            ip_obj = ipaddress.ip_address(ip)
+            ip_obj = ipaddress.ip_address(ip.strip())
             clean_ip = str(ip_obj)
         except ValueError:
-            clean_ip = ip
+            return GeolocationInfo(
+                ip=ip,
+                latitude=None,
+                longitude=None,
+                lat_dms="Unavailable",
+                lon_dms="Unavailable",
+                city="Invalid IP",
+                region="Invalid IP",
+                country="Invalid IP",
+                source_provider="Local Validator",
+                confidence="Invalid IP Syntax"
+            )
 
         safe_ip = urllib.parse.quote(clean_ip, safe="")
 

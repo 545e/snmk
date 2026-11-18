@@ -196,10 +196,16 @@ class ReconAgent:
                 if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or str(ip_obj) == "169.254.169.254":
                     await self.log(f"Target host {host} is in restricted IP space; skipping external HTTP inspection.", "WARN")
                     return
+                clean_host = str(ip_obj)
             except ValueError:
-                pass
+                clean_host = re.sub(r"[^a-zA-Z0-9.-]", "", host)
+                if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$", clean_host):
+                    await self.log(f"Invalid target host syntax: {host}", "WARN")
+                    return
 
-            safe_base_url = f"{self.parsed.scheme}://{self.parsed.netloc}"
+            port_part = f":{self.parsed.port}" if self.parsed.port else ""
+            scheme = "https" if self.parsed.scheme == "https" else "http"
+            safe_base_url = f"{scheme}://{clean_host}{port_part}/"
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False)) as client:
                 resp = await client.get(safe_base_url)
                 
