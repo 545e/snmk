@@ -122,11 +122,11 @@ class REAEngine:
 
     @staticmethod
     def _is_within_allowed_root(resolved: Path) -> bool:
-        resolved_str = str(resolved.resolve())
+        resolved_str = os.path.abspath(str(resolved))
         for root in REAEngine.allowed_roots():
-            root_str = str(root.resolve())
+            root_str = os.path.abspath(str(root))
             try:
-                if os.path.commonpath([root_str, resolved_str]) == root_str:
+                if resolved_str.startswith(root_str) and os.path.commonpath([root_str, resolved_str]) == root_str:
                     return True
             except (ValueError, Exception):
                 continue
@@ -204,43 +204,40 @@ class REAEngine:
 
         # Normalize path
         try:
-            resolved = Path(clean).resolve()
+            resolved_str = os.path.abspath(clean)
+            resolved = Path(resolved_str)
         except Exception as e:
             return False, "", f"Malformed path format: {str(e)}"
 
-        # Report a missing target before the allowlist decision so callers get
-        # the actionable "does not exist" message (the historical contract).
-        if not resolved.exists():
-            return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
-
+        # Allowlist check MUST precede any disk existence checks
         if not cls._is_within_allowed_root(resolved):
             roots = ", ".join(str(root) for root in cls.allowed_roots())
             return False, str(resolved), (
-                f"Target is outside the allowed analysis roots ({roots}). "
-                f"Set SWA_REA_ALLOWED_ROOTS to widen them."
+                f"Target is outside the allowed analysis roots ({roots}) or does not exist: {resolved.name}"
             )
+
+        if not resolved.exists():
+            return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
 
         return True, str(resolved), None
 
     @classmethod
     def infer_target_type(cls, path_str: str) -> str:
         """Infers target analysis type from file extension or directory structure."""
+        clean = os.path.normpath(str(path_str or "").strip().strip("'\""))
+        ext = os.path.splitext(clean)[1].lower()
+        for t_type, meta in SUPPORTED_TARGET_TYPES.items():
+            if ext in meta["extensions"]:
+                return t_type
+
         try:
-            # Pure inference helper: it only inspects the name/extension.
-            # Do not require the allowlist here, otherwise a plain filename
-            # such as "sample.js" is misclassified as binary.
-            p = Path(path_str)
-            if p.is_dir():
+            p = Path(clean)
+            if cls._is_within_allowed_root(p) and p.is_dir():
                 if (p / "package.json").is_file() or any(p.glob("*.js")):
                     return "javascript"
                 return "javascript"
-
-            ext = p.suffix.lower()
-            for t_type, meta in SUPPORTED_TARGET_TYPES.items():
-                if ext in meta["extensions"]:
-                    return t_type
         except Exception:
-            return "binary"
+            pass
 
         # Binary fallback heuristic
         return "binary"
@@ -264,8 +261,15 @@ class REAEngine:
         if not is_valid:
             raise ValueError(f"Invalid target path: {err}")
 
-        target_p = Path(clean_path).resolve()
-        if not self._is_within_allowed_root(target_p):
+        target_p = Path(clean_path)
+        target_str = os.path.abspath(str(target_p))
+        root_match = False
+        for r in self.allowed_roots():
+            r_str = os.path.abspath(str(r))
+            if target_str.startswith(r_str) and os.path.commonpath([r_str, target_str]) == r_str:
+                root_match = True
+                break
+        if not root_match:
             raise ValueError("Target path is outside allowed analysis roots.")
 
         inferred_type = target_type if (target_type and target_type in SUPPORTED_TARGET_TYPES) else self.infer_target_type(clean_path)
@@ -508,7 +512,14 @@ class REAEngine:
 
     async def _run_native_inspection(self, path: Path, target_type: str) -> Dict[str, Any]:
         """Provides safe, pure-Python static structure inspection when REA CLI is not installed."""
-        if not self._is_within_allowed_root(path):
+        path_str = os.path.abspath(str(path))
+        root_match = False
+        for r in self.allowed_roots():
+            r_str = os.path.abspath(str(r))
+            if path_str.startswith(r_str) and os.path.commonpath([r_str, path_str]) == r_str:
+                root_match = True
+                break
+        if not root_match or not self._is_within_allowed_root(path):
             raise PermissionError("Target artifact is outside allowed roots")
 
         if not path.is_file():

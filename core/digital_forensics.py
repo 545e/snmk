@@ -157,19 +157,20 @@ def confine_to_evidence_root(target_path: str) -> Path:
 
     Raises :class:`ValueError` when the resolved path is outside it.
     """
-    clean_target = os.path.normpath(str(target_path or ""))
+    root = forensics_evidence_root().resolve()
+    root_str = os.path.abspath(str(root))
+    clean_target = os.path.normpath(str(target_path or "")).strip()
     parts = clean_target.replace("\\", "/").split("/")
     if ".." in parts:
         raise ValueError("Directory traversal sequence not permitted in evidence path")
 
-    root = forensics_evidence_root().resolve()
     target = Path(clean_target)
-    candidate = target.resolve() if target.is_absolute() else (root / target).resolve()
+    candidate = (root / target).resolve() if not target.is_absolute() else target.resolve()
+    cand_str = os.path.abspath(str(candidate))
 
-    if os.path.commonpath([str(root), str(candidate)]) != str(root):
+    if not cand_str.startswith(root_str) and os.path.commonpath([root_str, cand_str]) != root_str:
         raise ValueError(
-            f"Path '{candidate}' is outside the evidence root '{root}'. "
-            f"Set SWA_EVIDENCE_ROOT to the directory that holds the evidence."
+            f"Path '{candidate}' is outside the evidence root '{root}'."
         )
     return candidate
 
@@ -416,6 +417,11 @@ class PhotoRecCarver:
                     "item_count": 0,
                     "error": str(exc),
                 }
+
+        curr_str = os.path.abspath(str(current))
+        root_str = os.path.abspath(str(root))
+        if not curr_str.startswith(root_str) and os.path.commonpath([root_str, curr_str]) != root_str:
+            current = root
 
         if not current.exists():
             current = root
@@ -817,11 +823,16 @@ class ChainOfCustodyLedger:
         elif storage_path:
             # Never open a path built directly from user input. Only the
             # confined path (validated against the evidence root) may be read.
+            p = None
             try:
-                p = confine_to_evidence_root(storage_path)
+                confined = confine_to_evidence_root(storage_path)
+                confined_str = os.path.abspath(str(confined))
+                root_str = os.path.abspath(str(forensics_evidence_root()))
+                if (confined_str.startswith(root_str) or os.path.commonpath([root_str, confined_str]) == root_str) and confined.is_file():
+                    p = confined
             except Exception:
                 p = None
-            if p is not None and p.is_file():
+            if p is not None:
                 size = p.stat().st_size
                 h_sha256 = hashlib.sha256()
                 h_sha512 = hashlib.sha512()
