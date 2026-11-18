@@ -2579,7 +2579,13 @@ async def run_amass_standalone(payload: AmassPayload):
             http_status=_sub.get("status") if isinstance(_sub.get("status"), int) else None,
             discovery_source=str(_source),
             discovery_type=_sub.get("discovery_type") or "passive",
-            confidence=float(_sub.get("confidence") or 0.0),
+            confidence=(
+                float(_sub["confidence"]) if isinstance(_sub.get("confidence"), (int, float))
+                else (0.9 if str(_sub.get("confidence", "")).lower() == "high"
+                      else 0.7 if str(_sub.get("confidence", "")).lower() == "medium"
+                      else 0.4 if str(_sub.get("confidence", "")).lower() == "low"
+                      else 0.0)
+            ),
             verification_timestamp=_finished,
         )
         _states.add(_state.value)

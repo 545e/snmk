@@ -476,13 +476,22 @@ class ScanPersistence:
         self._ensure()
         created = _now()
         config = _dumps(configuration or {})
+        # ``scans.profile`` is validated against the ScanProfile enum by the
+        # read APIs. New persistence scan types therefore map onto an existing
+        # valid profile instead of storing an arbitrary string there.
+        profile_map = {
+            "subdomain": "passive_recon",
+            "tool_execution": "quick",
+            "universal": "standard",
+        }
+        profile = profile_map.get(scan_type, "standard")
         sqlite_sql = """
             INSERT OR IGNORE INTO scans
             (id, target_url, status, profile, progress_percent, created_at,
              user_id, scan_type, configuration, total_findings)
             VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 0)
         """
-        sqlite_params = (scan_id, target, status, scan_type, created,
+        sqlite_params = (scan_id, target, status, profile, created,
                          user_id, scan_type, config)
         mysql_sql = """
             INSERT INTO scans (id, target_url, status, profile, progress_percent,
@@ -498,7 +507,7 @@ class ScanPersistence:
             logger.exception("Failed to create local scan record %s", scan_id)
             local_ok = False
         state = self._state(local_ok, mysql_sql, (
-            scan_id, target, status, scan_type, created,
+            scan_id, target, status, profile, created,
             user_id, scan_type, config,
         ))
         self.record_audit(user_id, scan_id, "SCAN_CREATED", {
@@ -599,11 +608,15 @@ class ScanPersistence:
             return PersistenceState.FAILED
         seen = _now()
         record_id = uuid.uuid4().hex
+        try:
+            conf_val = float(confidence)
+        except (ValueError, TypeError):
+            conf_val = 0.5 if str(confidence).lower() in ("high", "medium", "low") else 0.0
         values = (
             record_id, scan_id, user_id, root_domain, subdomain,
             _dumps(ip_addresses or []), _dumps(cname_records or []),
             dns_status, http_status, discovery_source, discovery_type,
-            float(confidence), seen, seen,
+            conf_val, seen, seen,
             verification_timestamp or seen,
         )
         columns = ("id", "scan_id", "user_id", "root_domain", "subdomain",

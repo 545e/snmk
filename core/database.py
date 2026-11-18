@@ -4491,11 +4491,11 @@ class Database:
 
 
 
-            status=ScanStatus(row["status"]),
+            status=ScanStatus(row["status"]) if row["status"] in ScanStatus._value2member_map_ else ScanStatus.PENDING,
 
 
 
-            profile=ScanProfile(row["profile"]),
+            profile=ScanProfile(row["profile"]) if row["profile"] in ScanProfile._value2member_map_ else ScanProfile.STANDARD,
 
 
 

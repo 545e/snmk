@@ -19,6 +19,7 @@ class Severity(str, Enum):
     INFO = "INFO"
 
 class ScanStatus(str, Enum):
+    INITIALIZED = "INITIALIZED"
     PENDING = "PENDING"
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"

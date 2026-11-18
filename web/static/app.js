@@ -1759,6 +1759,35 @@ const BREADCRUMB_MAP = {
     'siem': 'Platform / Audit Logs & SIEM Telemetry'
 };
 
+// Top-bar project selector. Previously this handler did not exist and the
+// onchange attribute threw a ReferenceError. It now persists the selection
+// locally and refreshes project-scoped data from the real API.
+async function switchProject(projectId) {
+  try {
+    if (projectId) sessionStorage.setItem('snmk_active_project', projectId);
+    else sessionStorage.removeItem('snmk_active_project');
+    if (typeof loadScans === 'function') await loadScans();
+    if (typeof showToast === 'function') {
+      showToast(projectId ? `Project ${projectId} selected` : 'All projects selected', 'success');
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Project switch failed: ' + e.message, 'error');
+  }
+}
+
+// DFIR evidence-image mount action. Defined here (loaded before
+// digital_forensics.js) so the generated button no longer throws a
+// ReferenceError. Opening a real mount requires a backend ingestion call.
+function addDataSourceModal(caseId) {
+  const caseInput = document.getElementById('dfirMountCaseId');
+  if (caseInput) caseInput.value = caseId || '';
+  const modal = document.getElementById('dfirMountModal');
+  if (modal && typeof modal.showModal === 'function') modal.showModal();
+  else if (typeof showToast === 'function') {
+    showToast(`Mount evidence image for case ${caseId || 'unknown'}`, 'info');
+  }
+}
+
 function navToView(view, updateHash = true) {
     document.title = 'SNMK — Autonomous Cybersecurity Platform';
     if (!view) view = 'dashboard';
