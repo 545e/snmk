@@ -33,7 +33,7 @@ def run_benchmarks():
     # 2. Regular Expression AST / Vulnerability Signature Benchmark (PCRE/C-Engine)
     vuln_patterns = [
         re.compile(r"(?i)(SELECT|UNION|INSERT|DELETE)\s+.*\s+(FROM|INTO)\s+.*"),
-        re.compile(r"(?is)<\s*script\b[\s\S]*?<\s*/\s*script\s*>"),
+        re.compile(r"(?i)(javascript|data):[^\s]*"),
         re.compile(r"github_pat_[A-Za-z0-9_]{82}"),
         re.compile(r"(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*"),
         re.compile(r"(?i)(exec|system|passthru|shell_exec)\s*\(.*?\)")

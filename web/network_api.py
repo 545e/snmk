@@ -11,6 +11,7 @@ import asyncio
 import datetime
 import json
 import logging
+import re
 import uuid
 from typing import Any
 
@@ -280,7 +281,10 @@ async def inspect_dns(request: Request, target: str = Query(...)):
 async def analyze_route_path(request: Request, body: RouteAnalyzeRequest):
     """Executes traceroute and enriches observable hops with ISP and coordinates."""
     authenticate_request(request)
-    return await route_engine.analyze_route(target=body.target, max_hops=body.max_hops, timeout=body.timeout)
+    clean_target = re.sub(r"[^a-zA-Z0-9.-]", "", (body.target or "").strip())
+    if not clean_target or clean_target.startswith("-"):
+        raise HTTPException(status_code=400, detail="Invalid target address for route analysis.")
+    return await route_engine.analyze_route(target=clean_target, max_hops=body.max_hops, timeout=body.timeout)
 
 
 @router.get("/bgp")

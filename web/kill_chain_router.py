@@ -410,16 +410,22 @@ def download_kill_chain_report(
         raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
     ext = "md" if format == "markdown" else format
-    safe_name = os.path.basename(f"{report_id}.{ext}")
-    output_dir = FilesystemPath(kill_chain_engine.reporter.output_dir).resolve()
-    file_path = (output_dir / safe_name).resolve()
-
-    # Defence in depth: confirm that the resolved file is inside the report directory before serving it.
-    if os.path.commonpath([str(output_dir), str(file_path)]) != str(output_dir):
+    clean_id = re.sub(r"[^a-zA-Z0-9_-]", "", report_id)
+    if not clean_id:
         raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
-    if not file_path.is_file():
-        raise HTTPException(status_code=404, detail=f"Report file {safe_name} not found on server.")
+    expected_name = f"{clean_id}.{ext}"
+    output_dir = FilesystemPath(kill_chain_engine.reporter.output_dir).resolve()
+    if not output_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Reports directory not found.")
+
+    matched_entry = next((f for f in os.listdir(output_dir) if f == expected_name), None)
+    if not matched_entry:
+        raise HTTPException(status_code=404, detail=f"Report file {expected_name} not found on server.")
+
+    file_path = (output_dir / matched_entry).resolve()
+    if os.path.commonpath([str(output_dir), str(file_path)]) != str(output_dir) or not file_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Report file {expected_name} not found on server.")
 
     media_types = {
         "html": "text/html",
@@ -432,7 +438,7 @@ def download_kill_chain_report(
     return FileResponse(
         path=str(file_path),
         media_type=media_types.get(ext, "application/octet-stream"),
-        filename=safe_name,
+        filename=matched_entry,
     )
 
 

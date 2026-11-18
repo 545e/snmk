@@ -33,18 +33,25 @@ class RouteAnalysisEngine:
             logger.warning(f"Invalid target for traceroute: {target}")
             return {"target": target, "hops": [], "explanations": ["Target address contains invalid characters."]}
 
-        # Resolve domain to a validated IP address
-        dest_ip = target
+        # Resolve domain to a validated IP address and reconstruct from integer octets
+        import ipaddress
         try:
-            import ipaddress
-            ipaddress.ip_address(target)
-        except ValueError:
             try:
-                dest_ip = socket.gethostbyname(target)
-                ipaddress.ip_address(dest_ip)
-            except Exception:
-                logger.warning(f"Could not resolve target to IP: {target}")
-                return {"target": target, "hops": [], "explanations": ["Could not resolve target to a valid IP address."]}
+                ip_obj = ipaddress.ip_address(target)
+            except ValueError:
+                resolved = socket.gethostbyname(target)
+                ip_obj = ipaddress.ip_address(resolved)
+
+            if ip_obj.version == 4:
+                b = ip_obj.packed
+                dest_ip = f"{int(b[0])}.{int(b[1])}.{int(b[2])}.{int(b[3])}"
+            elif ip_obj.version == 6:
+                dest_ip = ip_obj.exploded
+            else:
+                return {"target": target, "hops": [], "explanations": ["Unsupported IP version."]}
+        except Exception:
+            logger.warning(f"Could not resolve target to IP: {target}")
+            return {"target": target, "hops": [], "explanations": ["Could not resolve target to a valid IP address."]}
 
         hops: list[RouteHop] = []
 

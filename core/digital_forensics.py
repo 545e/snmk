@@ -158,8 +158,8 @@ def confine_to_evidence_root(target_path: str) -> Path:
     Raises :class:`ValueError` when the resolved path is outside it.
     """
     root = forensics_evidence_root().resolve()
-    norm = os.path.normpath(str(target_path).strip())
-    candidate = Path(norm).expanduser().resolve() if Path(norm).is_absolute() else (root / norm).resolve()
+    target = Path(target_path).expanduser()
+    candidate = target.resolve() if target.is_absolute() else (root / target).resolve()
 
     if os.path.commonpath([str(root), str(candidate)]) != str(root):
         raise ValueError(
@@ -810,46 +810,31 @@ class ChainOfCustodyLedger:
             md5 = hashlib.md5(file_bytes).hexdigest()
             size = len(file_bytes)
         elif storage_path:
+            p = Path(storage_path)
             try:
-                p = confine_to_evidence_root(storage_path)
-                if p.is_file():
-                    size = p.stat().st_size
-                    h_sha256 = hashlib.sha256()
-                    h_sha512 = hashlib.sha512()
-                    h_md5 = hashlib.md5()
-                    with open(p, "rb") as f:
-                        while chunk := f.read(1024 * 1024):
-                            h_sha256.update(chunk)
-                            h_sha512.update(chunk)
-                            h_md5.update(chunk)
-                    sha256 = h_sha256.hexdigest()
-                    sha512 = h_sha512.hexdigest()
-                    md5 = h_md5.hexdigest()
-                else:
-                    sha256 = hashlib.sha256(storage_path.encode()).hexdigest()
-                    sha512 = hashlib.sha512(storage_path.encode()).hexdigest()
-                    md5 = hashlib.md5(storage_path.encode()).hexdigest()
-                    size = len(storage_path)
+                confined = confine_to_evidence_root(storage_path)
+                if confined.is_file():
+                    p = confined
             except Exception:
-                p = Path(storage_path)
-                if p.is_file():
-                    size = p.stat().st_size
-                    h_sha256 = hashlib.sha256()
-                    h_sha512 = hashlib.sha512()
-                    h_md5 = hashlib.md5()
-                    with open(p, "rb") as f:
-                        while chunk := f.read(1024 * 1024):
-                            h_sha256.update(chunk)
-                            h_sha512.update(chunk)
-                            h_md5.update(chunk)
-                    sha256 = h_sha256.hexdigest()
-                    sha512 = h_sha512.hexdigest()
-                    md5 = h_md5.hexdigest()
-                else:
-                    sha256 = hashlib.sha256(storage_path.encode()).hexdigest()
-                    sha512 = hashlib.sha512(storage_path.encode()).hexdigest()
-                    md5 = hashlib.md5(storage_path.encode()).hexdigest()
-                    size = len(storage_path)
+                pass
+            if p.is_file():
+                size = p.stat().st_size
+                h_sha256 = hashlib.sha256()
+                h_sha512 = hashlib.sha512()
+                h_md5 = hashlib.md5()
+                with open(p, "rb") as f:
+                    while chunk := f.read(1024 * 1024):
+                        h_sha256.update(chunk)
+                        h_sha512.update(chunk)
+                        h_md5.update(chunk)
+                sha256 = h_sha256.hexdigest()
+                sha512 = h_sha512.hexdigest()
+                md5 = h_md5.hexdigest()
+            else:
+                sha256 = hashlib.sha256(str(storage_path).encode("utf-8")).hexdigest()
+                sha512 = hashlib.sha512(str(storage_path).encode("utf-8")).hexdigest()
+                md5 = hashlib.md5(str(storage_path).encode("utf-8")).hexdigest()
+                size = len(str(storage_path))
         else:
             # Synthetic / memory artifact hashing
             seed_data = f"{case_id}|{item_name}|{source_device}|{ts}".encode("utf-8")

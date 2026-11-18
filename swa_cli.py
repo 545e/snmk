@@ -438,12 +438,9 @@ def main():
                 src_url = str(item.get("source_url", ""))
                 src_short = src_url.split("/")[-1] if "/" in src_url else src_url
                 rule_name = str(item.get("name", ""))[:32]
-                masked_str = str(item.get("masked_value", ""))[:32]
+                masked_str = "[REDACTED]"
                 line_no = str(item.get("line", ""))[:6]
                 print(f"{sev_color}{sev:<10}\033[0m {rule_name:<32} {masked_str:<32} {line_no:<6} {src_short[:25]}")
-                snippet_str = str(item.get("snippet", "")).strip()[:90]
-                if snippet_str:
-                    print(f"    \033[90mSnippet: {snippet_str}\033[0m")
 
         if res.get("cloud_storage"):
             print("\n\033[93m[!] Discovered Cloud Object Storage Buckets:\033[0m")
@@ -472,8 +469,7 @@ def main():
                     f.write(f"--- SECRETS ({len(res.get('secrets', []))}) ---\n")
                     for item in res.get("secrets", []):
                         rule_name = str(item.get("name", ""))
-                        masked_str = str(item.get("masked_value", ""))
-                        f.write(f"[{item.get('severity')}] {rule_name}: {masked_str} (Line {item.get('line')}, File: {item.get('source_url')})\n")
+                        f.write(f"[{item.get('severity')}] {rule_name}: [REDACTED] (Line {item.get('line')}, File: {item.get('source_url')})\n")
                     f.write(f"\n--- ENDPOINTS ({len(res.get('api_endpoints', []))}) ---\n")
                     for ep in res.get("api_endpoints", []):
                         f.write(f"{ep['path']} -> {ep['resolved_url']}\n")
