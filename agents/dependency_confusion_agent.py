@@ -6,14 +6,14 @@ Prevents remote code execution (RCE) via public package hijacking.
 """
 
 import re
-import asyncio
-import httpx
-from typing import List, Dict, Any, Set
-from urllib.parse import urlparse
+import urllib.parse
 
-from core.models import VulnerabilityFinding, Severity, LogEvent
-from core.queue_manager import queue_manager
+import httpx
+
 from core.database import db
+from core.models import LogEvent, Severity, VulnerabilityFinding
+from core.queue_manager import queue_manager
+from core.scope_policy import scope_policy
 
 from core import tls_policy
 
@@ -26,18 +26,18 @@ POPULAR_PUBLIC_PACKAGES = {
 }
 
 class DependencyConfusionAgent:
-    def __init__(self, scan_id: str, js_urls: List[str], base_url: str):
+    def __init__(self, scan_id: str, js_urls: list[str], base_url: str):
         self.scan_id = scan_id
         self.js_urls = js_urls[:20]  # Analyze up to 20 representative JS bundles
         self.base_url = base_url
-        self.discovered_packages: Set[str] = set()
-        self.findings: List[VulnerabilityFinding] = []
+        self.discovered_packages: set[str] = set()
+        self.findings: list[VulnerabilityFinding] = []
 
     async def log(self, message: str, level: str = "INFO"):
         event = LogEvent(scan_id=self.scan_id, agent="DependencyConfusionAgent", level=level, message=message)
         await queue_manager.emit_log(event)
 
-    def extract_package_candidates(self, js_code: str) -> Set[str]:
+    def extract_package_candidates(self, js_code: str) -> set[str]:
         """Extract npm package names from webpack/vite bundles, import statements, and source maps."""
         candidates = set()
 
@@ -75,14 +75,21 @@ class DependencyConfusionAgent:
         except Exception:
             return False
 
-    async def run(self) -> List[VulnerabilityFinding]:
+    async def run(self) -> list[VulnerabilityFinding]:
         await self.log("Starting autonomous Dependency Confusion & Supply-Chain audit across client assets...", "INFO")
         
         async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
             # 1. Download and extract package candidates from JS files
             for js_url in self.js_urls:
                 try:
-                    resp = await client.get(js_url)
+                    p = urllib.parse.urlsplit(js_url)
+                    if p.scheme not in ("http", "https") or not p.hostname:
+                        continue
+                    is_r, _ = scope_policy.is_private_or_restricted(p.hostname)
+                    if is_r:
+                        continue
+                    safe_url = urllib.parse.urlunsplit(p)
+                    resp = await client.get(safe_url)
                     if resp.status_code == 200:
                         pkgs = self.extract_package_candidates(resp.text)
                         self.discovered_packages.update(pkgs)

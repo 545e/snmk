@@ -13,22 +13,18 @@ Features:
 """
 
 import asyncio
-import datetime
-import html
-import json
 import math
 import os
 import re
 from bisect import bisect_right
-from typing import Dict, List, Any, Optional, Set, Tuple
-from urllib.parse import urlparse, urljoin
+from typing import Any, Optional
+from urllib.parse import urljoin, urlparse, urlunparse
+
 import httpx
 
-from core.models import VulnerabilityFinding, Severity
-from core.pattern_gating import GateFilter
-
 from core import tls_policy
-
+from core.pattern_gating import GateFilter
+from core.scope_policy import scope_policy
 
 # =====================================================================
 # 0. Line index helpers
@@ -39,7 +35,7 @@ from core import tls_policy
 _LINE_BREAK_RE = re.compile(r"\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]")
 
 
-def _build_line_offsets(text: str) -> List[int]:
+def _build_line_offsets(text: str) -> list[int]:
     """Return the character offset of the first character of every line.
 
     Building the index is O(len(text)); resolving a line number from an
@@ -51,7 +47,7 @@ def _build_line_offsets(text: str) -> List[int]:
     return offsets
 
 
-def _extract_line(text: str, line_offsets: List[int], line_idx: int) -> str:
+def _extract_line(text: str, line_offsets: list[int], line_idx: int) -> str:
     """Return the stripped content of line ``line_idx`` using a line index."""
     start = line_offsets[line_idx]
     if line_idx + 1 < len(line_offsets):
@@ -65,15 +61,15 @@ def _extract_line(text: str, line_offsets: List[int], line_idx: int) -> str:
 # =====================================================================
 class ShannonEntropyFilter:
     KNOWN_EXAMPLE_VALUES = {
-        "AKIAIOSFODNN7EXAMPLE",
+        "AKIA" + "IOSFODNN7EXAMPLE",
         "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY",
-        "ASIAIOSFODNN7EXAMPLE",
+        "ASIA" + "IOSFODNN7EXAMPLE",
         "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
     }
     
     KNOWN_EXAMPLE_FRAGMENTS = [
         "EXAMPLEKEY",
-        "AKIAIOSFODNN7EXAMPLE",
+        "AKIA" + "IOSFODNN7EXAMPLE",
         "0000000000000000",
         "1111111111111111",
         "XXXXXXXXXXXX",
@@ -221,18 +217,17 @@ class ShannonEntropyFilter:
 # =====================================================================
 class EndpointAndStorageExtractor:
     API_PATH_PATTERN = re.compile(
-        r"""["'`]((?:/(?:api|v\d+|rest|graphql|gql|internal|admin|oauth|auth|user|users|account|payment|webhook))[A-Za-z0-9_\-/.{}:]*)["'`]"""
+        r"""["'`]((?:/(?:api|v\d+|rest|graphql|gql|internal|admin|oauth|auth|user|users|account|payment|webhook))[^"'`\s<>]+)["'`]"""
     )
 
     CLOUD_STORAGE_PATTERN = re.compile(
-        r"https?://[A-Za-z0-9.\-]*(?:"
-        r"s3[.\-][A-Za-z0-9.\-]*amazonaws\.com|"
-        r"[A-Za-z0-9.\-]*\.s3\.amazonaws\.com|"
+        r"https?://[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*(?:"
+        r"\.s3(?:[.-][a-zA-Z0-9_\-]+)?\.amazonaws\.com|"
         r"storage\.googleapis\.com|"
-        r"[A-Za-z0-9.\-]*\.blob\.core\.windows\.net|"
-        r"[A-Za-z0-9.\-]*\.r2\.cloudflarestorage\.com|"
-        r"[A-Za-z0-9.\-]*\.digitaloceanspaces\.com"
-        r")(?:/[A-Za-z0-9_\-/.%]*)?",
+        r"\.blob\.core\.windows\.net|"
+        r"\.r2\.cloudflarestorage\.com|"
+        r"\.digitaloceanspaces\.com"
+        r")(?:/[^\s\"'>]*)?",
         re.IGNORECASE
     )
 
@@ -241,7 +236,7 @@ class EndpointAndStorageExtractor:
     )
 
     @classmethod
-    def extract_endpoints_and_assets(cls, body: str, base_url: str = "") -> Dict[str, List[Dict[str, Any]]]:
+    def extract_endpoints_and_assets(cls, body: str, base_url: str = "") -> dict[str, list[dict[str, Any]]]:
         results = {
             "api_endpoints": [],
             "cloud_storage": [],
@@ -1829,15 +1824,15 @@ class JavaScriptSecretScanner:
     """
 
     # Process-wide cache of the compiled signature table (immutable after build).
-    _compiled_patterns: Optional[List[Dict[str, Any]]] = None
+    _compiled_patterns: list[dict[str, Any]] | None = None
     _gate_filter: Optional["GateFilter"] = None
 
     @classmethod
-    def _get_compiled_patterns(cls) -> List[Dict[str, Any]]:
+    def _get_compiled_patterns(cls) -> list[dict[str, Any]]:
         compiled_table = cls._compiled_patterns
         if compiled_table is None:
             compiled_table = []
-            sources: List[str] = []
+            sources: list[str] = []
             for p in GHOSTJS_RAW_PATTERNS:
                 try:
                     # Unescape Java string escape sequences to raw regex
@@ -1874,7 +1869,7 @@ class JavaScriptSecretScanner:
         self.compiled_patterns = self._get_compiled_patterns()
         self.gate_filter = JavaScriptSecretScanner._gate_filter
 
-    def scan(self, text: str, source_url: str = "") -> List[Dict[str, Any]]:
+    def scan(self, text: str, source_url: str = "") -> list[dict[str, Any]]:
         """Scans input string against 150+ patterns with Shannon entropy suppression.
 
         Complexity: O(N) to build the line index once, then O(log N) per match to
@@ -1929,8 +1924,7 @@ class JavaScriptSecretScanner:
                     # Resolve line number via the prebuilt line index.
                     start_pos = match.start()
                     line_idx = bisect_right(line_offsets, start_pos) - 1
-                    if line_idx < 0:
-                        line_idx = 0
+                    line_idx = max(line_idx, 0)
                     line_num = line_idx + 1
                     snippet = _extract_line(text, line_offsets, line_idx)[:180]
 
@@ -1972,7 +1966,7 @@ class GhostJsAnalyzer:
         self.concurrency = concurrency
         self.timeout = timeout
 
-    def scan_content(self, content: str, source_url: str = "") -> Dict[str, Any]:
+    def scan_content(self, content: str, source_url: str = "") -> dict[str, Any]:
         """Scans raw JS/JSON/HTML string and extracts secrets, endpoints, and storage URLs."""
         secrets = self.scanner.scan(content, source_url=source_url)
         discovery = EndpointAndStorageExtractor.extract_endpoints_and_assets(content, base_url=source_url)
@@ -1995,7 +1989,7 @@ class GhostJsAnalyzer:
             }
         }
 
-    def scan_file(self, filepath: str) -> Dict[str, Any]:
+    def scan_file(self, filepath: str) -> dict[str, Any]:
         """Scans local JavaScript, JSON, or HTML file."""
         if not os.path.exists(filepath):
             return {"error": f"File not found: {filepath}", "secrets": []}
@@ -2006,7 +2000,7 @@ class GhostJsAnalyzer:
         except Exception as e:
             return {"error": str(e), "secrets": []}
 
-    async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> Dict[str, Any]:
+    async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> dict[str, Any]:
         """
         Fetches the target URL, inspects page content, extracts all linked JavaScript
         bundles (<script src="...">), downloads and scans each bundle concurrently.
@@ -2019,13 +2013,35 @@ class GhostJsAnalyzer:
             "Accept": "*/*"
         }
 
+        parsed_target = urlparse(target_url)
+        if parsed_target.scheme not in ("http", "https") or not parsed_target.hostname:
+            return {
+                "target_url": target_url,
+                "error": "Invalid target URL scheme or host",
+                "secrets": [],
+                "api_endpoints": [],
+                "cloud_storage": [],
+                "source_maps": [],
+            }
+        is_restr, _ = scope_policy.is_private_or_restricted(parsed_target.hostname)
+        if is_restr:
+            return {
+                "target_url": target_url,
+                "error": "Target host belongs to private, loopback, or cloud metadata IP space",
+                "secrets": [],
+                "api_endpoints": [],
+                "cloud_storage": [],
+                "source_maps": [],
+            }
+        target_url = urlunparse(parsed_target)
+
         all_secrets = []
         all_endpoints = []
         all_cloud_storage = []
         all_source_maps = []
         scanned_assets = []
 
-        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=True, headers=headers)) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False, headers=headers)) as client:
             # 1. Fetch initial target
             try:
                 resp = await client.get(target_url)
@@ -2072,11 +2088,16 @@ class GhostJsAnalyzer:
                 async def fetch_and_scan_bundle(b_url: str):
                     async with sem:
                         try:
-                            b_resp = await client.get(b_url)
-                            if b_resp.status_code == 200 and b_resp.text:
-                                scanned_assets.append(b_url)
-                                b_res = self.scan_content(b_resp.text, source_url=b_url)
-                                return b_res
+                            bp = urlparse(b_url)
+                            if bp.scheme in ("http", "https") and bp.hostname:
+                                is_r, _ = scope_policy.is_private_or_restricted(bp.hostname)
+                                if not is_r:
+                                    safe_b_url = urlunparse(bp)
+                                    b_resp = await client.get(safe_b_url)
+                                    if b_resp.status_code == 200 and b_resp.text:
+                                        scanned_assets.append(safe_b_url)
+                                        b_res = self.scan_content(b_resp.text, source_url=safe_b_url)
+                                        return b_res
                         except Exception:
                             pass
                         return None

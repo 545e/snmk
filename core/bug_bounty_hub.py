@@ -4,7 +4,7 @@ Comprehensive directory of top crowdsourced bug bounty programs,
 Vulnerability Disclosure Programs (VDP), scopes, and reward tiers.
 """
 
-from typing import List, Dict, Any
+from typing import Any
 
 BUG_BOUNTY_PLATFORMS = [
     {
@@ -177,7 +177,7 @@ BUG_BOUNTY_PROGRAMS = [
 
 class BugBountyHub:
     @staticmethod
-    def list_programs(query: str = "") -> List[Dict[str, Any]]:
+    def list_programs(query: str = "") -> list[dict[str, Any]]:
         if not query:
             return BUG_BOUNTY_PROGRAMS
         q = query.lower()
@@ -187,5 +187,5 @@ class BugBountyHub:
         ]
 
     @staticmethod
-    def list_platforms() -> List[Dict[str, Any]]:
+    def list_platforms() -> list[dict[str, Any]]:
         return BUG_BOUNTY_PLATFORMS

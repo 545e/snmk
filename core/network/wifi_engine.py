@@ -7,10 +7,8 @@ frequency band, cipher suite, and evaluates link quality and security configurat
 from __future__ import annotations
 
 import logging
-import re
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional
 
 from core.network.models import WifiIntelligence
 
@@ -20,7 +18,7 @@ logger = logging.getLogger("snmk.map.wifi")
 class WifiIntelligenceEngine:
     """Enterprise Wi-Fi adapter auditor and link quality analyzer."""
 
-    def get_wifi_intelligence(self) -> Optional[WifiIntelligence]:
+    def get_wifi_intelligence(self) -> WifiIntelligence | None:
         """Queries OS wireless subsystems for connection quality and encryption parameters."""
         if sys.platform.startswith("win"):
             return self._get_windows_wifi()
@@ -30,13 +28,13 @@ class WifiIntelligenceEngine:
             return self._get_macos_wifi()
         return None
 
-    def _get_windows_wifi(self) -> Optional[WifiIntelligence]:
+    def _get_windows_wifi(self) -> WifiIntelligence | None:
         try:
             proc = subprocess.run(["netsh", "wlan", "show", "interfaces"], capture_output=True, text=True, timeout=5)
             if proc.returncode != 0 or not proc.stdout.strip():
                 return None
 
-            fields: Dict[str, str] = {}
+            fields: dict[str, str] = {}
             for line in proc.stdout.splitlines():
                 if ":" in line:
                     parts = line.split(":", 1)
@@ -120,7 +118,7 @@ class WifiIntelligenceEngine:
             logger.error(f"Windows Wi-Fi query failed: {e}")
             return None
 
-    def _get_linux_wifi(self) -> Optional[WifiIntelligence]:
+    def _get_linux_wifi(self) -> WifiIntelligence | None:
         try:
             proc = subprocess.run(["nmcli", "-t", "-f", "ACTIVE,SSID,BSSID,SIGNAL,CHAN,SECURITY", "dev", "wifi"],
                                   capture_output=True, text=True, timeout=5)
@@ -143,7 +141,7 @@ class WifiIntelligenceEngine:
             pass
         return None
 
-    def _get_macos_wifi(self) -> Optional[WifiIntelligence]:
+    def _get_macos_wifi(self) -> WifiIntelligence | None:
         # macOS airport utility
         return None
 

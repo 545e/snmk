@@ -5,15 +5,13 @@ Executes genuine bandwidth, latency, jitter, packet loss, and DNS timing measure
 
 from __future__ import annotations
 
-import asyncio
-import datetime
 import logging
 import re
 import statistics
 import subprocess
 import sys
 import time
-from typing import Any, Dict, List, Optional
+
 import httpx
 
 from core.network.models import SpeedTestResult
@@ -25,9 +23,9 @@ class NetworkPerformanceEngine:
     """Accurate, non-destructive network throughput and latency benchmarking."""
 
     def __init__(self):
-        self.history: List[SpeedTestResult] = []
+        self.history: list[SpeedTestResult] = []
 
-    async def measure_ping_and_jitter(self, target: str = "1.1.1.1", count: int = 4) -> Dict[str, float]:
+    async def measure_ping_and_jitter(self, target: str = "1.1.1.1", count: int = 4) -> dict[str, float]:
         """Measures ping, jitter, and packet loss using system ICMP ping."""
         rtts = []
         loss_pct = 0.0

@@ -10,26 +10,26 @@ import datetime
 import hashlib
 import json
 import sqlite3
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 from core.database import db
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
-    EvidenceItem,
-    ThreatIndicator,
-    IncidentRecord,
-    SecurityControl,
-    SeverityEnum,
     ConfidenceLevelEnum,
-    IncidentStatusEnum,
     ControlCapabilityEnum,
     ControlStatusEnum,
+    EvidenceItem,
+    IncidentRecord,
+    IncidentStatusEnum,
+    KillChainFinding,
+    KillChainStageEnum,
+    SecurityControl,
+    SeverityEnum,
+    ThreatIndicator,
 )
 
 
 def _utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
 def init_kill_chain_schema() -> None:
@@ -219,7 +219,7 @@ def save_evidence(item: EvidenceItem) -> str:
     return item.id
 
 
-def get_evidence(evidence_id: str) -> Optional[EvidenceItem]:
+def get_evidence(evidence_id: str) -> EvidenceItem | None:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -229,7 +229,7 @@ def get_evidence(evidence_id: str) -> Optional[EvidenceItem]:
         return _row_to_evidence(row)
 
 
-def count_evidence(stage: Optional[str] = None) -> int:
+def count_evidence(stage: str | None = None) -> int:
     """Return the number of evidence items (exact, not limited)."""
     with db.get_connection() as conn:
         query = "SELECT COUNT(*) FROM kill_chain_evidence"
@@ -240,13 +240,13 @@ def count_evidence(stage: Optional[str] = None) -> int:
         return int(conn.execute(query, params).fetchone()[0])
 
 
-def list_evidence(stage: Optional[str] = None, asset: Optional[str] = None, limit: int = 100) -> List[EvidenceItem]:
+def list_evidence(stage: str | None = None, asset: str | None = None, limit: int = 100) -> list[EvidenceItem]:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         query = "SELECT * FROM kill_chain_evidence"
         clauses = []
-        params: List[Any] = []
+        params: list[Any] = []
         if stage:
             clauses.append("stage = ?")
             params.append(stage)
@@ -325,7 +325,7 @@ def save_finding(finding: KillChainFinding) -> str:
     return finding.id
 
 
-def get_finding(finding_id: str) -> Optional[KillChainFinding]:
+def get_finding(finding_id: str) -> KillChainFinding | None:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -372,7 +372,7 @@ def list_findings(stage: Optional[str] = None, severity: Optional[str] = None, l
         cursor = conn.cursor()
         query = "SELECT * FROM kill_chain_findings"
         clauses = []
-        params: List[Any] = []
+        params: list[Any] = []
         if stage and stage != "ALL":
             clauses.append("stage = ?")
             params.append(stage)
@@ -449,13 +449,13 @@ def save_indicator(ind: ThreatIndicator) -> str:
     return ind.id
 
 
-def list_indicators(stage: Optional[str] = None, indicator_type: Optional[str] = None) -> List[ThreatIndicator]:
+def list_indicators(stage: str | None = None, indicator_type: str | None = None) -> list[ThreatIndicator]:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
         query = "SELECT * FROM kill_chain_indicators"
         clauses = []
-        params: List[Any] = []
+        params: list[Any] = []
         if stage:
             clauses.append("stage = ?")
             params.append(stage)
@@ -515,7 +515,7 @@ def save_control(ctrl: SecurityControl) -> str:
     return ctrl.id
 
 
-def list_controls(stage: Optional[str] = None) -> List[SecurityControl]:
+def list_controls(stage: str | None = None) -> list[SecurityControl]:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -581,7 +581,7 @@ def save_incident(inc: IncidentRecord) -> str:
     return inc.id
 
 
-def get_incident(incident_id: str) -> Optional[IncidentRecord]:
+def get_incident(incident_id: str) -> IncidentRecord | None:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
@@ -591,7 +591,7 @@ def get_incident(incident_id: str) -> Optional[IncidentRecord]:
         return _row_to_incident(row)
 
 
-def count_incidents(status: Optional[str] = None) -> int:
+def count_incidents(status: str | None = None) -> int:
     """Return the number of incident records (exact, not limited)."""
     with db.get_connection() as conn:
         query = "SELECT COUNT(*) FROM kill_chain_incidents"
@@ -602,7 +602,7 @@ def count_incidents(status: Optional[str] = None) -> int:
         return int(conn.execute(query, params).fetchone()[0])
 
 
-def list_incidents(status: Optional[str] = None, limit: int = 200,                   offset: int = 0) -> List[IncidentRecord]:
+def list_incidents(status: str | None = None, limit: int = 200,                   offset: int = 0) -> list[IncidentRecord]:
     """Return incident records, newest first.
 
     ``limit`` bounds the result set - the table is append-only and was
@@ -665,7 +665,7 @@ def record_audit(action: str, entity_type: str, entity_id: str, analyst: str = "
         conn.commit()
 
 
-def save_report_record(report_id: str, title: str, format_type: str, file_path: str, summary: Dict[str, Any], total_findings: int, critical_count: int, high_count: int) -> None:
+def save_report_record(report_id: str, title: str, format_type: str, file_path: str, summary: dict[str, Any], total_findings: int, critical_count: int, high_count: int) -> None:
     with db.get_connection() as conn:
         cursor = conn.cursor()
         cursor.execute(
@@ -679,7 +679,7 @@ def save_report_record(report_id: str, title: str, format_type: str, file_path: 
         conn.commit()
 
 
-def list_report_records() -> List[Dict[str, Any]]:
+def list_report_records() -> list[dict[str, Any]]:
     with db.get_connection() as conn:
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()

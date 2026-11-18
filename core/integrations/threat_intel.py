@@ -6,8 +6,10 @@ Implements concrete adapters for VirusTotal, AbuseIPDB, Shodan, Censys, AlienVau
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
+
 from core.integrations.base import BaseIntegrationAdapter
 from core.integrations.endpoint_policy import (
     EndpointPolicyError,
@@ -28,12 +30,12 @@ class VirusTotalAdapter(BaseIntegrationAdapter):
         "3. Copy your 64-character API key and paste it below."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "Enter VirusTotal v3 API Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "VirusTotal API key is missing.", "latency_ms": 0}
@@ -77,12 +79,12 @@ class AbuseIPDBAdapter(BaseIntegrationAdapter):
         "3. Generate a key and paste it below."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "Enter AbuseIPDB Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "AbuseIPDB API key missing.", "latency_ms": 0}
@@ -120,12 +122,12 @@ class ShodanAdapter(BaseIntegrationAdapter):
         "3. Paste into the API Key field."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "API Key", "type": "password", "required": True, "placeholder": "Enter Shodan API Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Shodan API key missing.", "latency_ms": 0}
@@ -157,13 +159,13 @@ class CensysAdapter(BaseIntegrationAdapter):
         "3. Copy your API ID and API Secret."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_id", "label": "API ID", "type": "text", "required": True, "placeholder": "Censys API ID"},
             {"key": "api_secret", "label": "API Secret", "type": "password", "required": True, "placeholder": "Censys API Secret"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_id = credentials.get("api_id", "").strip()
         api_secret = credentials.get("api_secret", "").strip()
         if not api_id or not api_secret:
@@ -189,12 +191,12 @@ class AlienVaultOTXAdapter(BaseIntegrationAdapter):
     required_permissions = ["OTX User Access"]
     setup_instructions = "1. Sign up at otx.alienvault.com.\n2. Obtain API Key from your profile page."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_key", "label": "OTX Key", "type": "password", "required": True, "placeholder": "Enter OTX Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         api_key = credentials.get("api_key", "").strip()
         if not api_key:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "OTX API key missing.", "latency_ms": 0}
@@ -219,12 +221,12 @@ class URLhausAdapter(BaseIntegrationAdapter):
     required_permissions = ["Public API Access (Optional Auth Key for elevated limits)"]
     setup_instructions = "1. URLhaus provides public access; enter an Auth-Key if available to raise rate limits."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "auth_key", "label": "Auth-Key (Optional)", "type": "password", "required": False, "placeholder": "Optional abuse.ch API Key"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         auth_key = credentials.get("auth_key", "").strip()
         headers = {"Auth-Key": auth_key} if auth_key else {}
         start = time.perf_counter()
@@ -248,12 +250,12 @@ class CisaKevAdapter(BaseIntegrationAdapter):
     required_permissions = ["Public Feed Access"]
     setup_instructions = "1. Public catalog maintained by CISA. No API key required; optionally enter custom feed endpoint."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "feed_url", "label": "Feed URL (Optional)", "type": "text", "required": False, "placeholder": "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = credentials.get("feed_url") or endpoint_url or "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
         try:
             # No credential is sent here, but the feed URL is operator
@@ -282,12 +284,12 @@ class FirstEpssAdapter(BaseIntegrationAdapter):
     required_permissions = ["Public API Access"]
     setup_instructions = "1. Public API provided by FIRST.org. Enter optional proxy/gateway endpoint if needed."
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "api_url", "label": "API URL (Optional)", "type": "text", "required": False, "placeholder": "https://api.first.org/data/v1/epss"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         url = credentials.get("api_url") or endpoint_url or "https://api.first.org/data/v1/epss?cve=CVE-2021-44228"
         try:
             # No credential is sent here, but the API URL is operator

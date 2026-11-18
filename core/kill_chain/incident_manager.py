@@ -8,19 +8,18 @@ from __future__ import annotations
 
 import datetime
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from core.kill_chain.db import (
+    get_incident,
+    record_audit,
+    save_incident,
+)
 from core.kill_chain.models import (
-    KillChainStageEnum,
     IncidentRecord,
     IncidentStatusEnum,
+    KillChainStageEnum,
     SeverityEnum,
-)
-from core.kill_chain.db import (
-    save_incident,
-    get_incident,
-    list_incidents,
-    record_audit,
 )
 
 
@@ -29,7 +28,7 @@ class IncidentManager:
     Orchestrates SOC incident workflows and defensive response playbooks.
     """
 
-    PLAYBOOKS: Dict[str, Dict[str, Any]] = {
+    PLAYBOOKS: dict[str, dict[str, Any]] = {
         "reconnaissance": {
             "title": "Stage 01 — Reconnaissance Defensive Playbook",
             "phase": "Identification & Exposure Reduction",
@@ -121,14 +120,14 @@ class IncidentManager:
         title: str,
         severity: str,
         assigned_analyst: str,
-        affected_assets: List[str],
+        affected_assets: list[str],
         description: str,
-        stages_involved: List[str],
-        linked_findings: List[str],
-        linked_evidence: Optional[List[str]] = None,
+        stages_involved: list[str],
+        linked_findings: list[str],
+        linked_evidence: list[str] | None = None,
     ) -> IncidentRecord:
         inc_id = f"inc_{uuid.uuid4().hex[:8]}"
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
 
         stages = []
         for s in stages_involved:
@@ -181,7 +180,7 @@ class IncidentManager:
         new_status: str,
         analyst: str = "SOC Lead",
         notes: str = "",
-    ) -> Optional[IncidentRecord]:
+    ) -> IncidentRecord | None:
         inc = get_incident(incident_id)
         if not inc:
             return None
@@ -191,7 +190,7 @@ class IncidentManager:
             raise ValueError(f"Invalid incident status: {new_status}")
 
         inc.status = IncidentStatusEnum[stat_str]
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
         inc.updated_at = now
 
         inc.audit_trail.append({
@@ -208,7 +207,7 @@ class IncidentManager:
         record_audit("UPDATE_INCIDENT_STATUS", "INCIDENT", incident_id, analyst, f"Status: {stat_str}")
         return inc
 
-    def get_playbook_for_stage(self, stage: str) -> Dict[str, Any]:
+    def get_playbook_for_stage(self, stage: str) -> dict[str, Any]:
         s = stage.lower()
         if s in self.PLAYBOOKS:
             return self.PLAYBOOKS[s]

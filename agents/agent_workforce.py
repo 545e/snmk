@@ -45,37 +45,20 @@ strict input/output schemas, permission boundaries, timeouts, and auditable task
 
 
 import asyncio
-
-import time
-
 import datetime
-
-from typing import Dict, Any, List, Optional
-
-from core.intelligence_models import (
-
-    AgentRole,
-
-    AgentManifest,
-
-    AgentPermissionBoundary,
-
-    AgentTask,
-
-    FindingLifecycleStatus,
-
-    ReportTemplateType
-
-)
+import time
+from typing import Any
 
 from core.database import db
-
+from core.intelligence_models import (
+    AgentManifest,
+    AgentPermissionBoundary,
+    AgentRole,
+    AgentTask,
+    ReportTemplateType,
+)
+from core.models import LogEvent, ReconResult
 from core.queue_manager import queue_manager
-
-from core.models import LogEvent, VulnerabilityFinding, Severity, ReconResult
-
-
-
 
 
 class BaseSpecialistAgent:
@@ -106,7 +89,7 @@ class BaseSpecialistAgent:
 
         """Executes the agent task under strict boundary and timeout enforcement."""
 
-        task.started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        task.started_at = datetime.datetime.now(datetime.UTC).isoformat()
 
         task.status = "RUNNING"
 
@@ -134,7 +117,7 @@ class BaseSpecialistAgent:
 
             await self.log(task.scan_id, f"Agent [{self.name}] completed task successfully.", "SUCCESS")
 
-        except asyncio.TimeoutError:
+        except TimeoutError:
 
             task.status = "FAILED"
 
@@ -148,13 +131,13 @@ class BaseSpecialistAgent:
 
             task.error_message = str(e)
 
-            await self.log(task.scan_id, f"Agent [{self.name}] encountered error: {str(e)}", "ERROR")
+            await self.log(task.scan_id, f"Agent [{self.name}] encountered error: {e!s}", "ERROR")
 
         finally:
 
             task.duration_seconds = round(time.time() - start_time, 2)
 
-            task.completed_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            task.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
 
             db.save_agent_task(task.model_dump())
 
@@ -164,7 +147,7 @@ class BaseSpecialistAgent:
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         """Specific agent execution implementation."""
 
@@ -212,7 +195,7 @@ class SupervisorAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         target = task.inputs.get("target", "127.0.0.1:8000")
 
@@ -298,7 +281,7 @@ class ReconnaissanceAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         target = (task.inputs.get("target") or "").strip()
 
@@ -320,9 +303,9 @@ class ReconnaissanceAgent(BaseSpecialistAgent):
 
         host = target.split("//")[-1].split("/")[0].split(":")[0].strip()
 
-        records: Dict[str, List[str]] = {}
+        records: dict[str, list[str]] = {}
 
-        ips: List[str] = []
+        ips: list[str] = []
 
         try:
 
@@ -424,11 +407,10 @@ class AssetIntelligenceAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
-
-        from core.knowledge_graph import knowledge_graph_engine
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         from core.attack_surface_intel import attack_surface_intel
+        from core.knowledge_graph import knowledge_graph_engine
 
         scan_id = task.scan_id
 
@@ -498,7 +480,7 @@ class WebSecurityAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         await self.log(task.scan_id, "Executing OWASP Top 10 web audit probes...")
 
@@ -548,7 +530,7 @@ class APISecurityAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         endpoints = task.inputs.get("endpoints") or []
 
@@ -598,7 +580,7 @@ class NetworkSecurityAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         target = (task.inputs.get("target") or "").strip()
 
@@ -698,7 +680,7 @@ class CloudSecurityAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         target = (task.inputs.get("target") or "").strip()
 
@@ -792,16 +774,14 @@ class SourceCodeSecurityAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         await self.log(task.scan_id, "Executing SAST and secrets detection checks...")
 
 
 
         import os
-
         import shutil
-
         import subprocess
 
 
@@ -840,13 +820,13 @@ class SourceCodeSecurityAgent(BaseSpecialistAgent):
 
 
 
-        executed: List[str] = []
+        executed: list[str] = []
 
-        unavailable: List[str] = []
+        unavailable: list[str] = []
 
         issue_count = 0
 
-        per_tool: Dict[str, Any] = {}
+        per_tool: dict[str, Any] = {}
 
 
 
@@ -980,7 +960,7 @@ class VulnerabilityIntelligenceAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         findings = db.get_findings_by_scan(task.scan_id)
 
@@ -1030,7 +1010,7 @@ class ThreatIntelligenceAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         await self.log(task.scan_id, "Correlating findings with MITRE ATT&CK enterprise matrix...")
 
@@ -1076,7 +1056,7 @@ class ThreatIntelligenceAgent(BaseSpecialistAgent):
 
         }
 
-        mapped: Dict[str, str] = {}
+        mapped: dict[str, str] = {}
 
         for f in findings:
 
@@ -1156,7 +1136,7 @@ class ComplianceAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         await self.log(task.scan_id, "Performing compliance gap analysis across OWASP ASVS and NIST CSF...")
 
@@ -1272,7 +1252,7 @@ class FindingsCorrelationAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         findings = db.get_findings_by_scan(task.scan_id)
 
@@ -1292,7 +1272,7 @@ class FindingsCorrelationAgent(BaseSpecialistAgent):
 
         # observations of the same issue collapse into one representative.
 
-        clusters: Dict[str, List[Any]] = {}
+        clusters: dict[str, list[Any]] = {}
 
         for f in findings:
 
@@ -1362,7 +1342,7 @@ class RiskPrioritizationAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         from core.risk_engine import risk_engine
 
@@ -1424,7 +1404,7 @@ class RemediationAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         from core.remediation_engine import remediation_engine
 
@@ -1492,7 +1472,7 @@ class ReportGenerationAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         from reports.enterprise_reports import enterprise_report_engine
 
@@ -1558,7 +1538,7 @@ class QualityAssuranceAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         findings = db.get_findings_by_scan(task.scan_id)
 
@@ -1662,7 +1642,7 @@ class PlatformHealthAgent(BaseSpecialistAgent):
 
 
 
-    async def _execute_internal(self, task: AgentTask) -> Dict[str, Any]:
+    async def _execute_internal(self, task: AgentTask) -> dict[str, Any]:
 
         from core.scanner_integrations import ScannerIntegrations
 
@@ -1756,7 +1736,7 @@ class AgentWorkforceDirectory:
 
     def __init__(self):
 
-        self._agents: Dict[AgentRole, BaseSpecialistAgent] = {
+        self._agents: dict[AgentRole, BaseSpecialistAgent] = {
 
             AgentRole.SUPERVISOR: SupervisorAgent(),
 
@@ -1796,16 +1776,16 @@ class AgentWorkforceDirectory:
 
 
 
-    def get_agent(self, role: AgentRole) -> Optional[BaseSpecialistAgent]:
+    def get_agent(self, role: AgentRole) -> BaseSpecialistAgent | None:
 
         return self._agents.get(role)
 
 
 
-    def list_manifests(self) -> List[AgentManifest]:
+    def list_manifests(self) -> list[AgentManifest]:
         return [agent.manifest for agent in self._agents.values()]
 
-    def list_all_agents(self, tier: Optional[str] = None) -> List[Any]:
+    def list_all_agents(self, tier: str | None = None) -> list[Any]:
         import sys
         reg_mod = sys.modules.get("core.agent_registry")
         if reg_mod and hasattr(reg_mod, "agent_registry"):
@@ -1814,7 +1794,7 @@ class AgentWorkforceDirectory:
 
 
 
-    def list_workforce_manifests(self) -> List[AgentManifest]:
+    def list_workforce_manifests(self) -> list[AgentManifest]:
 
         return [agent.manifest for agent in self._agents.values()]
 

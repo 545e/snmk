@@ -12,10 +12,9 @@ never as fabricated data.
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import httpx
 
@@ -25,14 +24,14 @@ KEV_FEED_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_v
 EPSS_API_URL = "https://api.first.org/data/v1/epss"
 
 _CACHE_TTL_SEC = 3600
-_cache: Dict[str, Dict[str, Any]] = {}
+_cache: dict[str, dict[str, Any]] = {}
 
 
 class ThreatIntelUnavailable(Exception):
     """Raised when a live threat-intel feed cannot be fetched."""
 
 
-def _cache_get(key: str) -> Optional[Any]:
+def _cache_get(key: str) -> Any | None:
     entry = _cache.get(key)
     if entry and (time.time() - entry["ts"]) < _CACHE_TTL_SEC:
         return entry["data"]
@@ -43,7 +42,7 @@ def _cache_put(key: str, data: Any) -> None:
     _cache[key] = {"ts": time.time(), "data": data}
 
 
-def _kev_index_for(vulns: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+def _kev_index_for(vulns: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     """Return a ``{CVE-ID: entry}`` index for the CISA KEV catalog.
 
     The normalisation is identical to the previous linear scan
@@ -53,7 +52,7 @@ def _kev_index_for(vulns: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
     return {str(v.get("cveID", "")).upper(): v for v in vulns}
 
 
-async def get_cisa_kev(cve: Optional[str] = None) -> Dict[str, Any]:
+async def get_cisa_kev(cve: str | None = None) -> dict[str, Any]:
     raw = _cache_get("kev")
     if raw is None:
         try:
@@ -103,7 +102,7 @@ async def get_cisa_kev(cve: Optional[str] = None) -> Dict[str, Any]:
             "note": "CVE not present in the CISA KEV catalog as of the cached feed release."}
 
 
-async def get_first_epss(cve: str) -> Dict[str, Any]:
+async def get_first_epss(cve: str) -> dict[str, Any]:
     cve_norm = (cve or "").strip().upper()
     if not cve_norm.startswith("CVE-"):
         raise ThreatIntelUnavailable("EPSS requires a CVE identifier like CVE-2021-44228.")

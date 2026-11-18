@@ -7,9 +7,7 @@ for all external tools, platforms, threat feeds, and cloud services.
 from __future__ import annotations
 
 import abc
-import time
-from typing import Any, Dict, List, Optional
-import httpx
+from typing import Any
 
 
 class BaseIntegrationAdapter(abc.ABC):
@@ -20,19 +18,18 @@ class BaseIntegrationAdapter(abc.ABC):
     category: str  # threat_intel, siem_edr, vulnerability_scanner, cloud, ai_provider, ticketing
     description: str
     documentation_url: str
-    required_permissions: List[str]
+    required_permissions: list[str]
     setup_instructions: str
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
+    def __init__(self, config: dict[str, Any] | None = None):
         self.config = config or {}
 
     @abc.abstractmethod
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         """Returns metadata for credentials required by this provider."""
-        pass
 
     @abc.abstractmethod
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         """
         Executes a live health check or lightweight probe against the provider API.
         Returns:
@@ -44,4 +41,3 @@ class BaseIntegrationAdapter(abc.ABC):
                 "details": dict
             }
         """
-        pass

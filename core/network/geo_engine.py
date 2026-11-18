@@ -9,7 +9,8 @@ from __future__ import annotations
 import ipaddress
 import logging
 import math
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
+
 import httpx
 
 from core.network.models import GeolocationInfo
@@ -76,10 +77,32 @@ class GeolocationEngine:
                 physical_caveat="RFC 1918 / Private network addresses have no global geographical routing location."
             )
 
+        import ipaddress
+        import urllib.parse
+
+        try:
+            ip_obj = ipaddress.ip_address(ip.strip())
+            clean_ip = str(ip_obj)
+        except ValueError:
+            return GeolocationInfo(
+                ip=ip,
+                latitude=None,
+                longitude=None,
+                lat_dms="Unavailable",
+                lon_dms="Unavailable",
+                city="Invalid IP",
+                region="Invalid IP",
+                country="Invalid IP",
+                source_provider="Local Validator",
+                confidence="Invalid IP Syntax"
+            )
+
+        safe_ip = urllib.parse.quote(clean_ip, safe="")
+
         # 1. Try ipinfo.io
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                res = await client.get(f"https://ipinfo.io/{ip}/json")
+            async with httpx.AsyncClient(timeout=4.0, follow_redirects=False) as client:
+                res = await client.get(f"https://ipinfo.io/{safe_ip}/json")
                 if res.status_code == 200:
                     data = res.json()
                     loc = data.get("loc", "")
@@ -116,8 +139,11 @@ class GeolocationEngine:
 
         # 2. Try ip-api.com fallback
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                res = await client.get(f"http://ip-api.com/json/{ip}?fields=status,country,countryCode,regionName,city,zip,lat,lon,timezone,as")
+            async with httpx.AsyncClient(timeout=4.0, follow_redirects=False) as client:
+                res = await client.get(
+                    f"https://ip-api.com/json/{safe_ip}",
+                    params={"fields": "status,country,countryCode,regionName,city,zip,lat,lon,timezone,as"}
+                )
                 if res.status_code == 200:
                     data = res.json()
                     if data.get("status") == "success":
@@ -161,13 +187,15 @@ class GeolocationEngine:
             confidence="Unavailable"
         )
 
-    async def forward_geocode(self, address_or_place: str) -> Dict[str, Any]:
+    async def forward_geocode(self, address_or_place: str) -> dict[str, Any]:
         """Forward geocoding: Place/Address -> Latitude + Longitude."""
         query = address_or_place.strip()
         try:
-            async with httpx.AsyncClient(headers={"User-Agent": "SNMK-MAP-Intelligence/2.2"}, timeout=5.0) as client:
-                url = f"https://nominatim.openstreetmap.org/search?q={httpx.URL(query)}&format=json&limit=1"
-                res = await client.get(url)
+            async with httpx.AsyncClient(headers={"User-Agent": "SNMK-MAP-Intelligence/2.2"}, timeout=5.0, follow_redirects=False) as client:
+                res = await client.get(
+                    "https://nominatim.openstreetmap.org/search",
+                    params={"q": query, "format": "json", "limit": 1}
+                )
                 if res.status_code == 200 and res.json():
                     item = res.json()[0]
                     lat = float(item["lat"])
@@ -187,12 +215,16 @@ class GeolocationEngine:
 
         return {"success": False, "query": query, "message": "Geocoding query could not be resolved."}
 
-    async def reverse_geocode(self, latitude: float, longitude: float) -> Dict[str, Any]:
+    async def reverse_geocode(self, latitude: float, longitude: float) -> dict[str, Any]:
         """Reverse geocoding: Latitude + Longitude -> Geographic Address."""
         try:
-            async with httpx.AsyncClient(headers={"User-Agent": "SNMK-MAP-Intelligence/2.2"}, timeout=5.0) as client:
-                url = f"https://nominatim.openstreetmap.org/reverse?lat={latitude}&lon={longitude}&format=json"
-                res = await client.get(url)
+            lat_f = float(latitude)
+            lon_f = float(longitude)
+            async with httpx.AsyncClient(headers={"User-Agent": "SNMK-MAP-Intelligence/2.2"}, timeout=5.0, follow_redirects=False) as client:
+                res = await client.get(
+                    "https://nominatim.openstreetmap.org/reverse",
+                    params={"lat": str(lat_f), "lon": str(lon_f), "format": "json"}
+                )
                 if res.status_code == 200 and res.json():
                     item = res.json()
                     addr = item.get("address", {})

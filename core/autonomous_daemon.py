@@ -10,13 +10,13 @@ import datetime
 import json
 import os
 import time
-from typing import Dict, List, Any, Optional, Set
+from typing import Any
 
 from agents.amass_engine import AmassSubdomainEngine
-from core.models import ScanConfig, ScanJob, ScanProfile, ScanStatus
-from core.database import db
-from core.queue_manager import queue_manager
 from agents.orchestrator import SWAOrchestrator
+from core.database import db
+from core.models import ScanConfig, ScanJob, ScanProfile, ScanStatus
+
 
 class AutonomousCyberDaemon:
     def __init__(self, targets_file: str, interval_hours: float = 12.0, recursive: bool = True):
@@ -26,7 +26,7 @@ class AutonomousCyberDaemon:
         self.state_file = os.path.join(os.path.dirname(targets_file), "daemon_state.json")
         self.running = False
 
-    def load_targets(self) -> List[Dict[str, Any]]:
+    def load_targets(self) -> list[dict[str, Any]]:
         """Loads target domains and assessment configurations from JSON."""
         if not os.path.exists(self.targets_file):
             # Create default template
@@ -45,7 +45,7 @@ class AutonomousCyberDaemon:
             print(f"[-] Error loading targets file: {e}")
             return []
 
-    def load_previous_state(self) -> Dict[str, Any]:
+    def load_previous_state(self) -> dict[str, Any]:
         """Loads baseline asset snapshots for delta comparison."""
         if os.path.exists(self.state_file):
             try:
@@ -55,7 +55,7 @@ class AutonomousCyberDaemon:
                 pass
         return {}
 
-    def save_current_state(self, state: Dict[str, Any]):
+    def save_current_state(self, state: dict[str, Any]):
         """Persists current asset snapshots."""
         try:
             with open(self.state_file, "w", encoding="utf-8") as f:
@@ -69,7 +69,7 @@ class AutonomousCyberDaemon:
         previous_state = self.load_previous_state()
         new_state = dict(previous_state)
 
-        timestamp = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        timestamp = datetime.datetime.now(datetime.UTC).isoformat()
         print(f"\n\033[96m[⚡] Autonomous Cyber Daemon Cycle Triggered at {timestamp}\033[0m")
         print(f"[+] Active monitored targets: {len(targets)}")
 

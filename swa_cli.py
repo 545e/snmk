@@ -432,13 +432,15 @@ def main():
         if res.get("secrets"):
             print(f"\n\033[91m{'SEVERITY':<10} {'NAME':<32} {'MASKED VALUE':<32} {'LINE':<6} {'SOURCE'}\033[0m")
             print("-" * 110)
-            for sec in res["secrets"]:
-                sev = sec["severity"]
+            for item in res["secrets"]:
+                sev = str(item.get("severity", ""))
                 sev_color = "\033[91m" if sev in ["CRITICAL", "HIGH"] else "\033[93m"
-                src_short = sec["source_url"].split("/")[-1] if "/" in sec["source_url"] else sec["source_url"]
-                print(f"{sev_color}{sev:<10}\033[0m {sec['name']:<32} {sec['masked_value']:<32} {sec['line']:<6} {src_short[:25]}")
-                if sec.get("snippet"):
-                    print(f"    \033[90mSnippet: {sec['snippet'][:90]}\033[0m")
+                src_url = str(item.get("source_url", ""))
+                src_short = src_url.split("/")[-1] if "/" in src_url else src_url
+                rule_name = str(item.get("name", ""))[:32]
+                masked_str = "[REDACTED]"
+                line_no = str(item.get("line", ""))[:6]
+                print(f"{sev_color}{sev:<10}\033[0m {rule_name:<32} {masked_str:<32} {line_no:<6} {src_short[:25]}")
 
         if res.get("cloud_storage"):
             print("\n\033[93m[!] Discovered Cloud Object Storage Buckets:\033[0m")
@@ -465,8 +467,9 @@ def main():
                     f.write("=== SWA GHOSTJS INTELLIGENCE REPORT ===\n")
                     f.write(f"Target: {res.get('target_url') or args.js_file}\n\n")
                     f.write(f"--- SECRETS ({len(res.get('secrets', []))}) ---\n")
-                    for sec in res.get("secrets", []):
-                        f.write(f"[{sec['severity']}] {sec['name']}: {sec['masked_value']} (Line {sec['line']}, File: {sec['source_url']})\n")
+                    for item in res.get("secrets", []):
+                        rule_name = str(item.get("name", ""))
+                        f.write(f"[{item.get('severity')}] {rule_name}: [REDACTED] (Line {item.get('line')}, File: {item.get('source_url')})\n")
                     f.write(f"\n--- ENDPOINTS ({len(res.get('api_endpoints', []))}) ---\n")
                     for ep in res.get("api_endpoints", []):
                         f.write(f"{ep['path']} -> {ep['resolved_url']}\n")

@@ -9,66 +9,65 @@ from __future__ import annotations
 
 import datetime
 import os
+import datetime
+import os
 import re
 from pathlib import Path as FilesystemPath
 from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, HTTPException, Query, Body, Path
+
+from fastapi import APIRouter, Body, HTTPException, Path, Query
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 
+from core.kill_chain.db import (
+    get_evidence,
+    get_finding,
+    get_incident,
+    list_evidence,
+    list_findings,
+    list_incidents,
+    list_indicators,
+    list_report_records,
+    save_evidence,
+)
 from core.kill_chain.engine import kill_chain_engine
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
-    EvidenceItem,
-    IncidentRecord,
-    ThreatIndicator,
     KillChainOverview,
-)
-from core.kill_chain.db import (
-    list_findings,
-    get_finding,
-    list_evidence,
-    get_evidence,
-    save_evidence,
-    list_indicators,
-    list_incidents,
-    get_incident,
-    list_report_records,
+    KillChainStageEnum,
 )
 
 kill_chain_router = APIRouter(prefix="/api/kill-chain", tags=["Cyber Kill Chain"])
 
 
 class TelemetryIngestRequest(BaseModel):
-    target: Optional[str] = "127.0.0.1"
-    telemetry: Optional[Dict[str, Any]] = None
-    subdomains: Optional[List[str]] = None
-    open_ports: Optional[List[Any]] = None
-    files: Optional[List[Dict[str, Any]]] = None
-    emails: Optional[List[Dict[str, Any]]] = None
-    urls: Optional[List[Any]] = None
-    findings: Optional[List[Dict[str, Any]]] = None
-    processes: Optional[List[Dict[str, Any]]] = None
-    network_flows: Optional[List[Dict[str, Any]]] = None
-    exfiltration: Optional[List[Dict[str, Any]]] = None
+    target: str | None = "127.0.0.1"
+    telemetry: dict[str, Any] | None = None
+    subdomains: list[str] | None = None
+    open_ports: list[Any] | None = None
+    files: list[dict[str, Any]] | None = None
+    emails: list[dict[str, Any]] | None = None
+    urls: list[Any] | None = None
+    findings: list[dict[str, Any]] | None = None
+    processes: list[dict[str, Any]] | None = None
+    network_flows: list[dict[str, Any]] | None = None
+    exfiltration: list[dict[str, Any]] | None = None
 
 
 class IncidentCreateRequest(BaseModel):
     title: str
     severity: str = "HIGH"
     assigned_analyst: str = "SOC Lead"
-    affected_assets: List[str] = ["127.0.0.1"]
+    affected_assets: list[str] = ["127.0.0.1"]
     description: str = ""
-    stages_involved: List[str] = ["reconnaissance"]
-    linked_findings: List[str] = []
-    linked_evidence: Optional[List[str]] = None
+    stages_involved: list[str] = ["reconnaissance"]
+    linked_findings: list[str] = []
+    linked_evidence: list[str] | None = None
 
 
 class IncidentUpdateRequest(BaseModel):
     status: str
-    analyst: Optional[str] = "SOC Lead"
-    notes: Optional[str] = ""
+    analyst: str | None = "SOC Lead"
+    notes: str | None = ""
 
 
 class IndicatorLookupRequest(BaseModel):
@@ -77,10 +76,10 @@ class IndicatorLookupRequest(BaseModel):
 
 
 class ReportGenerateRequest(BaseModel):
-    title: Optional[str] = "Enterprise Cyber Kill Chain Threat & Vulnerability Assessment"
-    formats: Optional[List[str]] = ["html", "json", "csv", "markdown", "pdf"]
-    scope: Optional[str] = "All Monitored Assets"
-    analyst: Optional[str] = "Principal Security Architect"
+    title: str | None = "Enterprise Cyber Kill Chain Threat & Vulnerability Assessment"
+    formats: list[str] | None = ["html", "json", "csv", "markdown", "pdf"]
+    scope: str | None = "All Monitored Assets"
+    analyst: str | None = "Principal Security Architect"
 
 
 # 1. Overview & Health
@@ -98,7 +97,7 @@ def get_kill_chain_health():
         "service": "Cyber Kill Chain Intelligence & Attack Lifecycle Analyzer",
         "version": "2.0.0",
         "stages_active": 7,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
     }
 
 
@@ -151,8 +150,8 @@ def analyze_telemetry_payload(request: TelemetryIngestRequest):
 # 4. Findings
 @kill_chain_router.get("/findings")
 def get_kill_chain_findings(
-    stage: Optional[str] = Query(None, description="Filter by stage"),
-    severity: Optional[str] = Query(None, description="Filter by severity"),
+    stage: str | None = Query(None, description="Filter by stage"),
+    severity: str | None = Query(None, description="Filter by severity"),
     limit: int = Query(200, ge=1, le=500),
 ):
     """Returns persistent findings across the 7 stages with risk and confidence scores."""
@@ -205,8 +204,8 @@ def run_correlation(target_asset: Optional[str] = Query(None)):
 # 6. Evidence Repository
 @kill_chain_router.get("/evidence")
 def get_kill_chain_evidence(
-    stage: Optional[str] = Query(None),
-    asset: Optional[str] = Query(None),
+    stage: str | None = Query(None),
+    asset: str | None = Query(None),
     limit: int = Query(100, ge=1, le=500),
 ):
     """Returns forensic evidence items from the repository."""
@@ -215,7 +214,7 @@ def get_kill_chain_evidence(
 
 
 @kill_chain_router.post("/evidence")
-def ingest_evidence_item(evidence_data: Dict[str, Any] = Body(...)):
+def ingest_evidence_item(evidence_data: dict[str, Any] = Body(...)):
     """Ingests a new raw evidence artifact with automatic cryptographic hashing and confidence rating."""
     try:
         stage_enum = KillChainStageEnum(evidence_data.get("stage", "reconnaissance").lower())
@@ -318,7 +317,7 @@ def recommend_response_actions(stage: str = Query(...)):
 
 # 11. Incident Response Center
 @kill_chain_router.get("/incidents")
-def list_soc_incidents(status: Optional[str] = Query(None)):
+def list_soc_incidents(status: str | None = Query(None)):
     """Returns all tracked SOC incidents."""
     incidents = list_incidents(status=status)
     return [i.dict() for i in incidents]
@@ -411,18 +410,22 @@ def download_kill_chain_report(
         raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
     ext = "md" if format == "markdown" else format
-    output_dir = FilesystemPath(kill_chain_engine.reporter.output_dir).resolve()
-    file_path = (output_dir / f"{report_id}.{ext}").resolve()
-
-    # Defence in depth: even with the identifier validated, confirm that the
-    # resolved file is inside the report directory before serving it.
-    try:
-        file_path.relative_to(output_dir)
-    except ValueError:
+    clean_id = re.sub(r"[^a-zA-Z0-9_-]", "", report_id)
+    if not clean_id:
         raise HTTPException(status_code=400, detail="Invalid report identifier.")
 
-    if not file_path.is_file():
-        raise HTTPException(status_code=404, detail=f"Report file {report_id}.{ext} not found on server.")
+    expected_name = f"{clean_id}.{ext}"
+    output_dir = FilesystemPath(kill_chain_engine.reporter.output_dir).resolve()
+    if not output_dir.is_dir():
+        raise HTTPException(status_code=404, detail="Reports directory not found.")
+
+    matched_entry = next((f for f in os.listdir(output_dir) if f == expected_name), None)
+    if not matched_entry:
+        raise HTTPException(status_code=404, detail=f"Report file {expected_name} not found on server.")
+
+    file_path = (output_dir / matched_entry).resolve()
+    if os.path.commonpath([str(output_dir), str(file_path)]) != str(output_dir) or not file_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Report file {expected_name} not found on server.")
 
     media_types = {
         "html": "text/html",
@@ -433,9 +436,9 @@ def download_kill_chain_report(
         "markdown": "text/markdown",
     }
     return FileResponse(
-        path=file_path,
+        path=str(file_path),
         media_type=media_types.get(ext, "application/octet-stream"),
-        filename=f"{report_id}.{ext}",
+        filename=matched_entry,
     )
 
 

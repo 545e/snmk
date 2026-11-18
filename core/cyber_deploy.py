@@ -22,13 +22,15 @@ Supports:
 - Instant Rollback to verified previous releases.
 """
 
+import datetime
 import os
+import shutil
 import sys
 import time
-import datetime
-import shutil
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from core.database import db
+
 
 class CyberDeployEngine:
     def __init__(self):
@@ -38,14 +40,14 @@ class CyberDeployEngine:
         self,
         environment: str = "local",
         method: str = "local_process",
-        release_id: Optional[str] = None,
-        approved_by: Optional[str] = None
-    ) -> Dict[str, Any]:
+        release_id: str | None = None,
+        approved_by: str | None = None
+    ) -> dict[str, Any]:
         """
         Initiate deployment pipeline.
         Environments: 'local', 'docker', 'compose', 'staging', 'production'
         """
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%d_%H%M%S")
         dep_id = f"dep_{timestamp}_{os.urandom(2).hex()}"
         rel_id = release_id or f"rel_v2.2.{timestamp}"
 
@@ -61,11 +63,11 @@ class CyberDeployEngine:
             "status": "PRECHECK",
             "current_step": "1/11: PRECHECK",
             "approved_by": approved_by,
-            "approval_timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat() if approved_by else None,
+            "approval_timestamp": datetime.datetime.now(datetime.UTC).isoformat() if approved_by else None,
             "health_status": "PENDING",
-            "logs": f"[{datetime.datetime.now(datetime.timezone.utc).isoformat()}] Deployment initialized for {environment.upper()}.\n",
+            "logs": f"[{datetime.datetime.now(datetime.UTC).isoformat()}] Deployment initialized for {environment.upper()}.\n",
             "rollback_target": rollback_target,
-            "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
             "completed_at": None
         }
         db.save_cyber_deployment(dep_record)
@@ -73,7 +75,7 @@ class CyberDeployEngine:
         # Run pipeline stages
         return self._execute_pipeline(dep_record)
 
-    def approve_deployment(self, deployment_id: str, approver: str = "operator") -> Dict[str, Any]:
+    def approve_deployment(self, deployment_id: str, approver: str = "operator") -> dict[str, Any]:
         """Approve a deployment held at the APPROVAL_PENDING gate (e.g. for Production)."""
         dep = db.get_cyber_deployment(deployment_id)
         if not dep:
@@ -82,7 +84,7 @@ class CyberDeployEngine:
         if dep["status"] != "APPROVAL_PENDING":
             return dep
 
-        now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_ts = datetime.datetime.now(datetime.UTC).isoformat()
         dep["approved_by"] = approver
         dep["approval_timestamp"] = now_ts
         dep["status"] = "APPROVED"
@@ -99,14 +101,14 @@ class CyberDeployEngine:
         # Resume execution from stage 8: DEPLOY
         return self._execute_post_approval(dep)
 
-    def rollback_deployment(self, deployment_id: str, operator: str = "operator") -> Dict[str, Any]:
+    def rollback_deployment(self, deployment_id: str, operator: str = "operator") -> dict[str, Any]:
         """Execute rollback to previous stable release."""
         dep = db.get_cyber_deployment(deployment_id)
         if not dep:
             raise ValueError(f"Deployment {deployment_id} not found.")
 
         target = dep.get("rollback_target") or "rel_v2.2.0_baseline"
-        now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_ts = datetime.datetime.now(datetime.UTC).isoformat()
         dep["status"] = "ROLLED_BACK"
         dep["current_step"] = f"ROLLED_BACK to {target}"
         dep["completed_at"] = now_ts
@@ -121,13 +123,13 @@ class CyberDeployEngine:
 
         return dep
 
-    def _execute_pipeline(self, dep: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_pipeline(self, dep: dict[str, Any]) -> dict[str, Any]:
         env = dep["environment"]
         logs = dep["logs"]
 
         def log_step(step_name: str, msg: str):
             nonlocal logs
-            ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            ts = datetime.datetime.now(datetime.UTC).isoformat()
             logs += f"[{ts}] [{step_name}] {msg}\n"
             dep["logs"] = logs
 
@@ -157,8 +159,6 @@ class CyberDeployEngine:
             log_step("DEPENDENCY VALIDATION", "Validating required dependencies: fastapi, pydantic, uvicorn, httpx...")
             import fastapi
             import pydantic
-            import uvicorn
-            import httpx
             log_step("DEPENDENCY VALIDATION", f"Dependencies verified: FastAPI {fastapi.__version__}, Pydantic {pydantic.__version__}.")
 
             # Step 4: DATABASE MIGRATION VALIDATION
@@ -200,26 +200,26 @@ class CyberDeployEngine:
             return self._execute_post_approval(dep)
 
         except Exception as e:
-            now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_ts = datetime.datetime.now(datetime.UTC).isoformat()
             dep["status"] = "FAILED"
             dep["completed_at"] = now_ts
             dep["health_status"] = "UNHEALTHY"
-            log_step("FAILED", f"Deployment halted due to error: {str(e)}")
+            log_step("FAILED", f"Deployment halted due to error: {e!s}")
             db.save_cyber_deployment(dep)
             db.record_audit_log(
                 action="CYBER_DEPLOY_FAILED",
                 actor="deploy_engine",
-                details=f"Deployment {dep['id']} failed at step {dep['current_step']}: {str(e)}"
+                details=f"Deployment {dep['id']} failed at step {dep['current_step']}: {e!s}"
             )
             return dep
 
-    def _execute_post_approval(self, dep: Dict[str, Any]) -> Dict[str, Any]:
+    def _execute_post_approval(self, dep: dict[str, Any]) -> dict[str, Any]:
         """Execute stages 8 through 11 following approval."""
         logs = dep["logs"]
 
         def log_step(step_name: str, msg: str):
             nonlocal logs
-            ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            ts = datetime.datetime.now(datetime.UTC).isoformat()
             logs += f"[{ts}] [{step_name}] {msg}\n"
             dep["logs"] = logs
 
@@ -253,7 +253,7 @@ class CyberDeployEngine:
             log_step("POST-DEPLOY TEST", f"Post-deploy verification successful: {len(tools)} cybersecurity tools active.")
 
             # Step 11: COMPLETE
-            now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_ts = datetime.datetime.now(datetime.UTC).isoformat()
             dep["status"] = "COMPLETED"
             dep["current_step"] = "11/11: COMPLETED"
             dep["completed_at"] = now_ts
@@ -261,11 +261,13 @@ class CyberDeployEngine:
 
             # Section 52: Mandatory Post-Deployment Acceptance Checklist Generation
             try:
-                from core.post_deployment_checklist import post_deployment_checklist_engine
+                from core.post_deployment_checklist import (
+                    post_deployment_checklist_engine,
+                )
                 checklist = post_deployment_checklist_engine.generate_checklist(dep["id"])
                 log_step("CHECKLIST", f"Post-Deployment Acceptance Checklist generated. Overall Status: {checklist['overall_status']}.")
             except Exception as e:
-                log_step("CHECKLIST_WARN", f"Checklist generation warning: {str(e)}")
+                log_step("CHECKLIST_WARN", f"Checklist generation warning: {e!s}")
 
             db.save_cyber_deployment(dep)
             db.record_audit_log(
@@ -276,11 +278,11 @@ class CyberDeployEngine:
             return dep
 
         except Exception as e:
-            now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_ts = datetime.datetime.now(datetime.UTC).isoformat()
             dep["status"] = "FAILED"
             dep["completed_at"] = now_ts
             dep["health_status"] = "UNHEALTHY"
-            log_step("FAILED", f"Post-deploy pipeline failed: {str(e)}")
+            log_step("FAILED", f"Post-deploy pipeline failed: {e!s}")
             db.save_cyber_deployment(dep)
             return dep
 

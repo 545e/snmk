@@ -4,15 +4,16 @@ Provides secure ingestion, validation, preview, schema inference, data leakage i
 sanitization, train/val/test splitting, and lifecycle tracking for security datasets.
 """
 
+import csv
+import datetime
+import hashlib
+import io
+import json
 import os
 import re
-import json
-import csv
-import io
 import uuid
-import hashlib
-import datetime
-from typing import List, Dict, Any, Optional, Tuple
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 DATA_DIR = os.getenv("SWA_DATA_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "datasets"))
@@ -39,11 +40,11 @@ class DatasetMetadata(BaseModel):
     version: str = "v1"
     record_count: int = 0
     file_size_bytes: int = 0
-    fields: List[str] = Field(default_factory=list)
-    target_label_field: Optional[str] = None
+    fields: list[str] = Field(default_factory=list)
+    target_label_field: str | None = None
     missing_values_count: int = 0
     duplicate_count: int = 0
-    leakage_warnings: List[Dict[str, Any]] = Field(default_factory=list)
+    leakage_warnings: list[dict[str, Any]] = Field(default_factory=list)
     source: str = "Internal Security Audit"
     license: str = "Proprietary / Authorized Research"
     provenance: str = "SWA AI Security Assessment Corpus"
@@ -51,8 +52,8 @@ class DatasetMetadata(BaseModel):
     train_split_count: int = 0
     val_split_count: int = 0
     test_split_count: int = 0
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class DataManagementEngine:
@@ -70,11 +71,11 @@ class DataManagementEngine:
         self,
         raw_bytes: bytes,
         original_filename: str,
-        name: Optional[str] = None,
+        name: str | None = None,
         source: str = "Security Assessment",
         license_str: str = "Proprietary / Authorized Research",
-        target_label_field: Optional[str] = None
-    ) -> Tuple[DatasetMetadata, List[Dict[str, Any]]]:
+        target_label_field: str | None = None
+    ) -> tuple[DatasetMetadata, list[dict[str, Any]]]:
         """Validates encoding, parses rows, detects leakage, and saves to storage."""
         if len(raw_bytes) > MAX_UPLOAD_BYTES:
             raise ValueError(f"File size exceeds maximum permitted limit ({MAX_UPLOAD_BYTES / (1024*1024):.1f} MB)")
@@ -136,9 +137,9 @@ class DataManagementEngine:
         db.save_dataset(meta)
         return meta, records[:20]
 
-    def _parse_records(self, content: str, file_type: str) -> Tuple[List[Dict[str, Any]], List[str], int, int]:
-        records: List[Dict[str, Any]] = []
-        fields: List[str] = []
+    def _parse_records(self, content: str, file_type: str) -> tuple[list[dict[str, Any]], list[str], int, int]:
+        records: list[dict[str, Any]] = []
+        fields: list[str] = []
         missing_count = 0
         seen_hashes = set()
         duplicate_count = 0
@@ -159,7 +160,8 @@ class DataManagementEngine:
                 if not clean_row:
                     continue
                 h = hashlib.md5(
-                    json.dumps(clean_row, sort_keys=True).encode()
+                    json.dumps(clean_row, sort_keys=True).encode(),
+                    usedforsecurity=False
                 ).hexdigest()
                 if h in seen_hashes:
                     duplicate_count += 1
@@ -178,7 +180,7 @@ class DataManagementEngine:
                 try:
                     obj = json.loads(line)
                     if isinstance(obj, dict):
-                        h = hashlib.md5(json.dumps(obj, sort_keys=True).encode()).hexdigest()
+                        h = hashlib.md5(json.dumps(obj, sort_keys=True).encode(), usedforsecurity=False).hexdigest()
                         if h in seen_hashes:
                             duplicate_count += 1
                         else:
@@ -196,7 +198,7 @@ class DataManagementEngine:
                 if isinstance(data, list):
                     for item in data:
                         if isinstance(item, dict):
-                            h = hashlib.md5(json.dumps(item, sort_keys=True).encode()).hexdigest()
+                            h = hashlib.md5(json.dumps(item, sort_keys=True).encode(), usedforsecurity=False).hexdigest()
                             if h in seen_hashes:
                                 duplicate_count += 1
                             else:
@@ -216,7 +218,7 @@ class DataManagementEngine:
             for idx, line in enumerate(content.splitlines()):
                 line = line.strip()
                 if line:
-                    h = hashlib.md5(line.encode()).hexdigest()
+                    h = hashlib.md5(line.encode(), usedforsecurity=False).hexdigest()
                     if h in seen_hashes:
                         duplicate_count += 1
                     else:
@@ -225,7 +227,7 @@ class DataManagementEngine:
 
         return records, fields, missing_count, duplicate_count
 
-    def _inspect_leakage(self, content: str) -> List[Dict[str, Any]]:
+    def _inspect_leakage(self, content: str) -> list[dict[str, Any]]:
         warnings = []
         for name, pattern in LEAKAGE_SIGNATURES:
             matches = re.findall(pattern, content, re.IGNORECASE)
@@ -247,7 +249,7 @@ class DataManagementEngine:
             sanitized = re.sub(pattern, f"[REDACTED_{name.upper().replace(' ', '_')}]", sanitized, flags=re.IGNORECASE)
         return sanitized
 
-    def get_dataset_records(self, dataset_id: str, limit: int = 50, offset: int = 0) -> Tuple[List[Dict[str, Any]], int]:
+    def get_dataset_records(self, dataset_id: str, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
         from core.database import db
         meta = db.get_dataset(dataset_id)
         if not meta:
@@ -269,7 +271,7 @@ class DataManagementEngine:
         train_ratio: float = 0.70,
         val_ratio: float = 0.15,
         test_ratio: float = 0.15
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Configures and validates reproducible dataset partitions."""
         from core.database import db
         meta = db.get_dataset(dataset_id)
@@ -287,7 +289,7 @@ class DataManagementEngine:
         meta.train_split_count = train_count
         meta.val_split_count = val_count
         meta.test_split_count = test_count
-        meta.updated_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        meta.updated_at = datetime.datetime.now(datetime.UTC).isoformat()
         db.save_dataset(meta)
 
         return {

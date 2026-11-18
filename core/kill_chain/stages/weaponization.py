@@ -10,15 +10,15 @@ from __future__ import annotations
 import datetime
 import hashlib
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
     EvidenceItem,
-    ThreatIndicator,
-    StageAnalysisResult,
+    KillChainFinding,
+    KillChainStageEnum,
     SeverityEnum,
+    StageAnalysisResult,
+    ThreatIndicator,
 )
 from core.kill_chain.stages.base import BaseStageAnalyzer
 
@@ -46,15 +46,15 @@ class WeaponizationAnalyzer(BaseStageAnalyzer):
         {"name": "Threat Intelligence IOC Pre-Emptive Blocklist", "capability": "Disrupt", "tool": "Firewall Threat Feed"},
     ]
 
-    def analyze(self, telemetry: Dict[str, Any], asset_context: Optional[Dict[str, Any]] = None) -> StageAnalysisResult:
-        findings: List[KillChainFinding] = []
-        evidence_list: List[EvidenceItem] = []
-        indicators: List[ThreatIndicator] = []
+    def analyze(self, telemetry: dict[str, Any], asset_context: dict[str, Any] | None = None) -> StageAnalysisResult:
+        findings: list[KillChainFinding] = []
+        evidence_list: list[EvidenceItem] = []
+        indicators: list[ThreatIndicator] = []
         assets_seen = set()
 
         target = telemetry.get("target") or telemetry.get("host") or "127.0.0.1"
         assets_seen.add(target)
-        now_utc = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_utc = datetime.datetime.now(datetime.UTC).isoformat()
 
         # 1. Analyze Artifacts / File Hashes
         files = telemetry.get("files") or telemetry.get("artifacts", [])

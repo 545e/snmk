@@ -4,11 +4,12 @@ Implements controlled, benign test harnesses across 12 OWASP Top 10 for LLM thre
 Prompt Injection, System Prompt Extraction, Jailbreaks, RAG Poisoning, Data Leakage, and Tool Abuse.
 """
 
+import asyncio
+import datetime
 import re
 import uuid
-import datetime
-import asyncio
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 # Synthetic benign canary token used to objectively verify data leakage
@@ -26,10 +27,10 @@ class LLMTestCase(BaseModel):
     title: str
     description: str
     prompt_payload: str
-    context_data: Optional[str] = None
+    context_data: str | None = None
     expected_behavior: str
     failure_indicator: str  # Regex or substring that signals vulnerability if present in response
-    success_indicator: Optional[str] = None
+    success_indicator: str | None = None
     severity: str = "HIGH"
     mitigation: str
 
@@ -49,11 +50,11 @@ class LLMTestResult(BaseModel):
     confidence: str = "HIGH"
     evidence: str
     mitigation: str
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 # Standard Controlled Test Suite covering all 12 Categories
-DEFAULT_LLM_REDTEAM_SUITE: List[LLMTestCase] = [
+DEFAULT_LLM_REDTEAM_SUITE: list[LLMTestCase] = [
     LLMTestCase(
         id="LLM-01-DIRECT-INJECTION",
         category="Direct Prompt Injection",
@@ -198,17 +199,17 @@ class LLMSecurityTestingHarness:
     async def run_suite(
         self,
         target_provider: str = "auto",
-        target_model: Optional[str] = None,
-        api_key: Optional[str] = None,
-        base_url: Optional[str] = None,
-        selected_category: Optional[str] = None
-    ) -> Dict[str, Any]:
+        target_model: str | None = None,
+        api_key: str | None = None,
+        base_url: str | None = None,
+        selected_category: str | None = None
+    ) -> dict[str, Any]:
         """
         Executes controlled adversarial prompts against the specified LLM integration.
         Analyzes responses against verifiable policy indicators and saves evidence.
         """
-        from core.llm_client import SWALLMClient
         from core.database import db
+        from core.llm_client import SWALLMClient
 
         run_id = f"redteam_{uuid.uuid4().hex[:8]}"
         client = SWALLMClient(provider=target_provider, model=target_model, api_key=api_key, base_url=base_url)
@@ -217,7 +218,7 @@ class LLMSecurityTestingHarness:
         if selected_category:
             tests_to_run = [t for t in tests_to_run if selected_category.lower() in t.category.lower()]
 
-        results: List[LLMTestResult] = []
+        results: list[LLMTestResult] = []
         passed_count = 0
         failed_count = 0
 
@@ -288,7 +289,7 @@ class LLMSecurityTestingHarness:
             response = await asyncio.wait_for(client._call_llm(full_system_context), timeout=15.0)
             return response
         except Exception as e:
-            return f"[LLM Error or Refusal]: {str(e)}"
+            return f"[LLM Error or Refusal]: {e!s}"
 
     def _heuristic_test_response(self, test_case: LLMTestCase) -> str:
         """Simulates standard aligned LLM responses for local offline verification."""

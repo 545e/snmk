@@ -9,22 +9,20 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-import os
 import sys
 import threading
 import time
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any
 
 import psutil
 
-from core.network.geo_engine import is_private_ip
 from core.network.interfaces import check_capture_drivers
 from core.network.models import FlowSummary, PacketDetail, PacketSummary
 
 logger = logging.getLogger("snmk.map.packet_engine")
 
 
-def format_hex_dump(raw_bytes: bytes) -> Tuple[str, str]:
+def format_hex_dump(raw_bytes: bytes) -> tuple[str, str]:
     """Generates Wireshark-style 16-byte hex dump with offset and ASCII pane."""
     if not raw_bytes:
         return "", ""
@@ -67,15 +65,15 @@ class PacketDissector:
     """Dissects raw packets and Scapy packets into enterprise MAP schemas."""
 
     def __init__(self):
-        self._seen_seqs: Dict[str, set] = {}
+        self._seen_seqs: dict[str, set] = {}
 
-    def dissect(self, pkt: Any, pkt_no: int, iface: str = "default", base_time: float = 0.0) -> Tuple[PacketSummary, PacketDetail]:
+    def dissect(self, pkt: Any, pkt_no: int, iface: str = "default", base_time: float = 0.0) -> tuple[PacketSummary, PacketDetail]:
         """Deep protocol dissection into Wireshark fields."""
-        from scapy.all import Ether, IP, IPv6, TCP, UDP, ICMP, ARP, DNS, Raw
+        from scapy.all import ARP, DNS, ICMP, IP, TCP, UDP, Ether, IPv6
 
         pkt_time = float(getattr(pkt, "time", time.time()))
         rel_time = round(pkt_time - base_time, 4) if base_time else 0.0000
-        time_str = datetime.datetime.fromtimestamp(pkt_time, tz=datetime.timezone.utc).strftime("%H:%M:%S.%f")[:-2]
+        time_str = datetime.datetime.fromtimestamp(pkt_time, tz=datetime.UTC).strftime("%H:%M:%S.%f")[:-2]
 
         src_ip = "0.0.0.0"
         dst_ip = "0.0.0.0"
@@ -88,8 +86,8 @@ class PacketDissector:
         is_suspicious = False
 
         layers = []
-        layer_fields: Dict[str, Dict[str, Any]] = {}
-        expert_info: List[str] = []
+        layer_fields: dict[str, dict[str, Any]] = {}
+        expert_info: list[str] = []
 
         # 1. Ethernet Layer
         if pkt.haslayer(Ether):
@@ -309,10 +307,10 @@ class LiveCaptureSession:
     def __init__(self):
         self.is_running = False
         self.is_paused = False
-        self.capture_thread: Optional[threading.Thread] = None
-        self.packet_summaries: List[PacketSummary] = []
-        self.packet_details: Dict[int, PacketDetail] = {}
-        self.flows: Dict[str, FlowSummary] = {}
+        self.capture_thread: threading.Thread | None = None
+        self.packet_summaries: list[PacketSummary] = []
+        self.packet_details: dict[int, PacketDetail] = {}
+        self.flows: dict[str, FlowSummary] = {}
         self.interface = "default"
         self.bpf_filter = ""
         self.packet_limit = 200
@@ -320,10 +318,10 @@ class LiveCaptureSession:
         self.start_time = 0.0
         self.end_time = 0.0
         self.dissector = PacketDissector()
-        self.subscribers: List[asyncio.Queue] = []
+        self.subscribers: list[asyncio.Queue] = []
         self._lock = threading.Lock()
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         with self._lock:
             driver_ok, driver_type = check_capture_drivers()
             return {
@@ -339,7 +337,7 @@ class LiveCaptureSession:
                 "driver_type": driver_type
             }
 
-    def start_capture(self, interface: str = "default", packet_limit: int = 200, duration_limit: int = 30, bpf_filter: str = "") -> Dict[str, Any]:
+    def start_capture(self, interface: str = "default", packet_limit: int = 200, duration_limit: int = 30, bpf_filter: str = "") -> dict[str, Any]:
         with self._lock:
             if self.is_running:
                 return {"success": False, "message": "Capture session is already running."}
@@ -370,7 +368,7 @@ class LiveCaptureSession:
                 "message": f"Capture started on interface {interface} (Limit: {self.packet_limit} packets / {self.duration_limit}s)."
             }
 
-    def stop_capture(self) -> Dict[str, Any]:
+    def stop_capture(self) -> dict[str, Any]:
         with self._lock:
             if not self.is_running:
                 return {"success": False, "message": "No active capture session."}
@@ -425,7 +423,7 @@ class LiveCaptureSession:
 
     def _socket_flow_sampler(self, base_time: float):
         """Samples real host sockets, connections, and generates real dissected flow packets."""
-        from scapy.all import Ether, IP, TCP, UDP
+        from scapy.all import IP, TCP, UDP, Ether
         count = len(self.packet_summaries)
 
         while self.is_running and count < self.packet_limit and (time.time() - self.start_time) < self.duration_limit:
@@ -501,7 +499,7 @@ class LiveCaptureSession:
                     flow.bytes_received += summary.length
                 flow.last_seen = summary.time_str
 
-    def get_packets(self, offset: int = 0, limit: int = 100, filter_query: str = "") -> Dict[str, Any]:
+    def get_packets(self, offset: int = 0, limit: int = 100, filter_query: str = "") -> dict[str, Any]:
         """Filters and paginates packet list for Wireshark grid view."""
         with self._lock:
             items = self.packet_summaries
@@ -512,21 +510,13 @@ class LiveCaptureSession:
                 for p in items:
                     # Support protocol, ip, port filter expressions
                     match = False
-                    if q in p.protocol.lower() or q in p.source_ip.lower() or q in p.destination_ip.lower():
-                        match = True
-                    elif q.isdigit() and (p.source_port == int(q) or p.destination_port == int(q)):
+                    if q in p.protocol.lower() or q in p.source_ip.lower() or q in p.destination_ip.lower() or q.isdigit() and (p.source_port == int(q) or p.destination_port == int(q)):
                         match = True
                     elif "==" in q:
                         k, v = [x.strip() for x in q.split("==", 1)]
-                        if k in ("ip.addr", "ip.src", "ip") and (v in p.source_ip or v in p.destination_ip):
+                        if k in ("ip.addr", "ip.src", "ip") and (v in p.source_ip or v in p.destination_ip) or k in ("tcp.port", "udp.port", "port") and (str(p.source_port) == v or str(p.destination_port) == v) or k == "protocol" and p.protocol.lower() == v.lower():
                             match = True
-                        elif k in ("tcp.port", "udp.port", "port") and (str(p.source_port) == v or str(p.destination_port) == v):
-                            match = True
-                        elif k == "protocol" and p.protocol.lower() == v.lower():
-                            match = True
-                    elif q == "retransmission" and p.is_retransmission:
-                        match = True
-                    elif q == "suspicious" and p.is_suspicious:
+                    elif q == "retransmission" and p.is_retransmission or q == "suspicious" and p.is_suspicious:
                         match = True
 
                     if match:
@@ -544,17 +534,17 @@ class LiveCaptureSession:
                 "packets": [p.dict() for p in paged]
             }
 
-    def get_packet_detail(self, packet_no: int) -> Optional[PacketDetail]:
+    def get_packet_detail(self, packet_no: int) -> PacketDetail | None:
         with self._lock:
             return self.packet_details.get(packet_no)
 
-    def get_flows(self) -> List[FlowSummary]:
+    def get_flows(self) -> list[FlowSummary]:
         with self._lock:
             return list(self.flows.values())
 
-    def get_protocol_hierarchy(self) -> Dict[str, int]:
+    def get_protocol_hierarchy(self) -> dict[str, int]:
         with self._lock:
-            counts: Dict[str, int] = {}
+            counts: dict[str, int] = {}
             for p in self.packet_summaries:
                 counts[p.protocol] = counts.get(p.protocol, 0) + 1
             return counts

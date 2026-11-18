@@ -5,14 +5,14 @@ SSL Inspection, and Sensitive Asset Discovery.
 """
 
 import asyncio
+import re
 import socket
 import ssl
-import re
 from urllib.parse import urlparse
-import httpx
-from typing import List, Dict, Any, Optional
 
-from core.models import ReconResult, LogEvent, VulnerabilityFinding, Severity
+import httpx
+
+from core.models import LogEvent, ReconResult, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 from core import tls_policy
@@ -65,16 +65,20 @@ class ReconAgent:
         self.parsed = self._normalize_url(target_url)
         self.domain = self.parsed.hostname or target_url
         self.base_url = f"{self.parsed.scheme}://{self.parsed.netloc}"
-        self.takeover_findings: List[VulnerabilityFinding] = []
+        self.takeover_findings: list[VulnerabilityFinding] = []
 
     def _normalize_url(self, target: str):
-        if not target.startswith(("http://", "https://")):
-            t_lower = target.lower()
+        clean_target = (target or "").strip()
+        if not clean_target.startswith(("http://", "https://")):
+            t_lower = clean_target.lower()
             if any(h in t_lower for h in ["127.0.0.1", "localhost", "0.0.0.0", "[::1]"]):
-                target = f"http://{target}"
+                clean_target = f"http://{clean_target}"
             else:
-                target = f"https://{target}"
-        return urlparse(target)
+                clean_target = f"https://{clean_target}"
+        parsed = urlparse(clean_target)
+        if parsed.scheme not in ("http", "https") or not parsed.netloc:
+            raise ValueError(f"Invalid target URL for reconnaissance: {target}")
+        return parsed
 
     async def log(self, message: str, level: str = "INFO"):
         event = LogEvent(scan_id=self.scan_id, agent="ReconAgent", level=level, message=message)
@@ -113,7 +117,7 @@ class ReconAgent:
             recon.dns_records["A"] = ips
             await self.log(f"DNS resolved IPs: {', '.join(ips)}", "SUCCESS")
         except Exception as e:
-            await self.log(f"DNS resolution notice: {str(e)}", "WARN")
+            await self.log(f"DNS resolution notice: {e!s}", "WARN")
 
     async def enumerate_subdomains(self, recon: ReconResult):
         # Do not enumerate if target is an IP address
@@ -141,6 +145,24 @@ class ReconAgent:
 
     async def scan_ports(self, recon: ReconResult):
         await self.log(f"Probing standard TCP ports on {self.domain}...", "INFO")
+        
+        # 1. High-Performance C++ Native Engine Check
+        try:
+            from core.native_scanner import native_scanner
+            if native_scanner.is_available:
+                native_ports = await native_scanner.scan_ports(self.domain, timeout_ms=350, threads=64)
+                if native_ports:
+                    recon.open_ports = native_ports
+                    port_list = [str(p["port"]) for p in native_ports]
+                    await self.log(
+                        f"C++ Native High-Speed Engine scanned ports in <300ms. Open ports: {', '.join(port_list) if port_list else 'None'}",
+                        "SUCCESS"
+                    )
+                    return
+        except Exception as e:
+            await self.log(f"Native C++ port scan fallback to async sockets: {e}", "WARN")
+
+        # 2. Python Async Socket Fallback
         open_ports = []
 
         async def check_port(port: int):
@@ -167,8 +189,14 @@ class ReconAgent:
     async def inspect_http_and_tech(self, recon: ReconResult):
         await self.log("Analyzing HTTP headers, security policies, and tech signatures...", "INFO")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=True)) as client:
-                resp = await client.get(self.base_url)
+            from core.cyber_tools import _validate_safe_target_url
+            safe_target = _validate_safe_target_url(self.base_url)
+            if not safe_target:
+                await self.log(f"Target host is invalid or points to restricted address space; skipping external HTTP inspection.", "WARN")
+                return
+
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False)) as client:
+                resp = await client.get(safe_target)
                 
                 # Security Headers Check
                 headers = dict(resp.headers)
@@ -223,7 +251,7 @@ class ReconAgent:
                 await self.log(f"Fingerprinted technologies: {', '.join(tech_names) if tech_names else 'Generic / Obfuscated'}", "SUCCESS")
 
         except Exception as e:
-            await self.log(f"HTTP inspection notice: {str(e)}", "WARN")
+            await self.log(f"HTTP inspection notice: {e!s}", "WARN")
 
     async def inspect_ssl(self, recon: ReconResult):
         try:

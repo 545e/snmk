@@ -130,7 +130,7 @@ class TestREAEngine(unittest.TestCase):
         conn.commit()
         conn.close()
 
-        result = asyncio.run(self.engine.analyze(db_path, target_type="sqlite", authorized=True))
+        result = asyncio.run(self.engine.analyze(db_path, target_type="sqlite", authorized=True, force_native=True))
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["target_type"], "sqlite")
@@ -157,7 +157,7 @@ class TestREAEngine(unittest.TestCase):
         with open(js_path, "w", encoding="utf-8") as f:
             f.write(js_content)
 
-        result = asyncio.run(self.engine.analyze(js_path, target_type="javascript", authorized=True))
+        result = asyncio.run(self.engine.analyze(js_path, target_type="javascript", authorized=True, force_native=True))
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["target_type"], "javascript")
@@ -179,7 +179,7 @@ class TestREAEngine(unittest.TestCase):
         with open(pe_path, "wb") as f:
             f.write(dos_header + pe_sig + coff_header + (b"\x00" * 256))
 
-        result = asyncio.run(self.engine.analyze(pe_path, target_type="binary", authorized=True))
+        result = asyncio.run(self.engine.analyze(pe_path, target_type="binary", authorized=True, force_native=True))
         self.assertTrue(result["success"])
         self.assertEqual(result["status"], "COMPLETED")
         self.assertEqual(result["target_type"], "binary")

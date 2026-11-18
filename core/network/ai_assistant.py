@@ -8,13 +8,10 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.llm_client import SWALLMClient
-from core.network.geo_engine import geo_engine
-from core.network.infrastructure import infra_engine
 from core.network.interfaces import get_local_network_info
-from core.network.origin_engine import origin_engine
 from core.network.packet_engine import live_capture
 
 logger = logging.getLogger("snmk.map.ai_assistant")
@@ -26,7 +23,7 @@ class MapAiAssistant:
     def __init__(self):
         self.llm_client = SWALLMClient()
 
-    async def answer_query(self, query: str, context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def answer_query(self, query: str, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Processes network questions against active MAP telemetry context."""
         query_str = query.strip()
         local_info = get_local_network_info()
@@ -78,7 +75,7 @@ class MapAiAssistant:
         )
 
         response_text = ""
-        evidence_citations: List[str] = [
+        evidence_citations: list[str] = [
             f"Local telemetry from vantage point {local_info.hostname} ({local_info.local_ipv4})",
             f"Observed {capture_status.get('packet_count', 0)} frames across {len(flows)} flows"
         ]
@@ -104,7 +101,7 @@ class MapAiAssistant:
             "evidence_citations": evidence_citations
         }
 
-    def _expert_heuristic_answer(self, query: str, context: Dict[str, Any]) -> str:
+    def _expert_heuristic_answer(self, query: str, context: dict[str, Any]) -> str:
         """Deterministic expert answers when no external LLM API key is configured."""
         q = query.lower()
         local = context["local_host"]

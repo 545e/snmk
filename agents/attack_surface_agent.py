@@ -5,16 +5,15 @@ and discovers REST/GraphQL/OpenAPI endpoints for vulnerability probing.
 """
 
 import asyncio
-import re
-from urllib.parse import urljoin, urlparse, parse_qs
+from urllib.parse import parse_qs, urljoin, urlparse
+
 import httpx
 from bs4 import BeautifulSoup
-from typing import List, Set, Dict, Any
 
-from core.models import DiscoveredEndpoint, LogEvent, VulnerabilityFinding, Severity
-from core.queue_manager import queue_manager
 from core.database import db
 from core.js_intelligence import GhostJsAnalyzer
+from core.models import DiscoveredEndpoint, LogEvent, Severity, VulnerabilityFinding
+from core.queue_manager import queue_manager
 
 from core import tls_policy
 
@@ -31,15 +30,15 @@ class AttackSurfaceAgent:
         self.max_depth = max_depth
         self.concurrency = concurrency
         self.parsed_base = urlparse(base_url)
-        self.visited_urls: Set[str] = set()
-        self.endpoints: Dict[str, DiscoveredEndpoint] = {}
+        self.visited_urls: set[str] = set()
+        self.endpoints: dict[str, DiscoveredEndpoint] = {}
         self.js_analyzer = GhostJsAnalyzer(concurrency=self.concurrency)
 
     async def log(self, message: str, level: str = "INFO"):
         event = LogEvent(scan_id=self.scan_id, agent="AttackSurfaceAgent", level=level, message=message)
         await queue_manager.emit_log(event)
 
-    async def run(self) -> List[DiscoveredEndpoint]:
+    async def run(self) -> list[DiscoveredEndpoint]:
         await self.log(f"Mapping attack surface and API routes starting from {self.base_url}...", "INFO")
         
         # 1. Crawl seed URL
@@ -48,7 +47,7 @@ class AttackSurfaceAgent:
         async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=4.0, follow_redirects=True, limits=limits)) as client:
             sem = asyncio.Semaphore(self.concurrency or 12)
 
-            async def process_page(current_url: str, depth: int) -> List[str]:
+            async def process_page(current_url: str, depth: int) -> list[str]:
                 if current_url in self.visited_urls or len(self.visited_urls) >= 40:
                     return []
                 self.visited_urls.add(current_url)

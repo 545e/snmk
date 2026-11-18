@@ -4,10 +4,12 @@ Base class and interfaces for modular, extensible OWASP Top 10 and security plug
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 import httpx
 
-from core.models import DiscoveredEndpoint, VulnerabilityFinding, Severity
+from core.models import DiscoveredEndpoint, Severity, VulnerabilityFinding
+
 
 class BaseSecurityPlugin(ABC):
     """Abstract base class for all SWA AI security auditing plugins."""
@@ -30,7 +32,7 @@ class BaseSecurityPlugin(ABC):
         self.default_severity = default_severity
         self.enabled = enabled
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "id": self.plugin_id,
             "name": self.name,
@@ -46,12 +48,11 @@ class BaseSecurityPlugin(ABC):
         self,
         scan_id: str,
         client: httpx.AsyncClient,
-        endpoints: List[DiscoveredEndpoint],
+        endpoints: list[DiscoveredEndpoint],
         recon_data: Any,
         log_callback: Any = None
-    ) -> List[VulnerabilityFinding]:
+    ) -> list[VulnerabilityFinding]:
         """
         Execute security verification tests against target endpoints.
         Must return a list of verified VulnerabilityFinding objects.
         """
-        pass

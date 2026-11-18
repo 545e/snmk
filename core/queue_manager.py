@@ -4,9 +4,10 @@ Handles concurrent background scan jobs and real-time WebSocket subscriber dispa
 """
 
 import asyncio
-from typing import Dict, Set, Callable, Awaitable, Optional, Any, List
-from core.models import ScanJob, LogEvent, VulnerabilityFinding, ScanStatus
+from typing import Any
+
 from core.database import db
+from core.models import LogEvent, ScanStatus, VulnerabilityFinding
 
 
 class QueueManager:
@@ -19,9 +20,9 @@ class QueueManager:
     MAX_QUEUE_SIZE = 1000
 
     def __init__(self):
-        self.active_tasks: Dict[str, asyncio.Task] = {}
-        self.subscribers: Set[asyncio.Queue] = set()
-        self.log_subscribers: Dict[str, Set[asyncio.Queue]] = {}  # scan_id -> queues
+        self.active_tasks: dict[str, asyncio.Task] = {}
+        self.subscribers: set[asyncio.Queue] = set()
+        self.log_subscribers: dict[str, set[asyncio.Queue]] = {}  # scan_id -> queues
         self.dropped_events = 0
 
     def register_client(self) -> asyncio.Queue:
@@ -54,7 +55,7 @@ class QueueManager:
             self.subscribers.discard(dq)
 
     @staticmethod
-    def _offer(q: asyncio.Queue, payload: Dict[str, Any], dead_queues: List[asyncio.Queue]) -> None:
+    def _offer(q: asyncio.Queue, payload: dict[str, Any], dead_queues: list[asyncio.Queue]) -> None:
         """Enqueue an event, dropping the oldest one when the buffer is full."""
         try:
             q.put_nowait(payload)

@@ -23,12 +23,32 @@ import re
 import socket
 import ssl
 import time
-from urllib.parse import urlparse, parse_qs, urlencode, urlunparse, quote, unquote
-from typing import Dict, List, Any, Optional
+from typing import Any
+from urllib.parse import parse_qs, quote, unquote, urlencode, urlparse, urlunparse
 
 import httpx
 
 from core import tls_policy
+from core.scope_policy import scope_policy
+
+
+def _validate_safe_target_url(target_url: str) -> str | None:
+    """SSRF guard: validates URL scheme and ensures target is not in restricted IP space."""
+    if not target_url or not isinstance(target_url, str):
+        return None
+    url = target_url.strip()
+    if not url.startswith(("http://", "https://")):
+        url = f"https://{url}"
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            return None
+        is_restr, _ = scope_policy.is_private_or_restricted(parsed.hostname)
+        if is_restr:
+            return None
+        return urlunparse(parsed)
+    except Exception:
+        return None
 
 
 # =====================================================================
@@ -36,7 +56,7 @@ from core import tls_policy
 # =====================================================================
 class DNSLookupTool:
     @staticmethod
-    async def resolve(domain: str) -> Dict[str, Any]:
+    async def resolve(domain: str) -> dict[str, Any]:
         """Resolves DNS records and inspects SPF / DMARC email spoofing defenses."""
         # Sanitize domain
         domain = domain.strip().lower()
@@ -46,7 +66,7 @@ class DNSLookupTool:
 
         results = {
             "domain": domain,
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             "records": {},
             "email_security": {
                 "spf_found": False,
@@ -191,21 +211,27 @@ class SecurityHeadersTool:
     LEAK_HEADERS = ["server", "x-powered-by", "x-aspnet-version", "x-runtime"]
 
     @classmethod
-    async def evaluate(cls, target_url: str) -> Dict[str, Any]:
+    async def evaluate(cls, target_url: str) -> dict[str, Any]:
         """Audits HTTP response headers, grades security posture from A+ to F."""
-        if not target_url.startswith(("http://", "https://")):
-            target_url = f"https://{target_url}"
+        safe_url = _validate_safe_target_url(target_url)
+        if not safe_url:
+            return {
+                "target_url": target_url,
+                "error": "Target URL is invalid or points to restricted/private IP space",
+                "score": 0,
+                "grade": "F"
+            }
 
-        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=True)) as client:
+        async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0, follow_redirects=False)) as client:
             try:
-                resp = await client.get(target_url)
+                resp = await client.get(safe_url)
                 headers_lower = {k.lower(): v for k, v in resp.headers.items()}
                 status_code = resp.status_code
                 final_url = str(resp.url)
             except Exception as e:
                 return {
                     "target_url": target_url,
-                    "error": f"Failed to connect to target: {str(e)}",
+                    "error": f"Failed to connect to target: {e!s}",
                     "score": 0,
                     "grade": "F"
                 }
@@ -276,7 +302,7 @@ class SecurityHeadersTool:
 # =====================================================================
 class SSLCertificateTool:
     @staticmethod
-    async def inspect(target: str, port: int = 443) -> Dict[str, Any]:
+    async def inspect(target: str, port: int = 443) -> dict[str, Any]:
         """Deep TLS handshake inspection: issuer, validity, SANs, days to expiry."""
         target = target.strip()
         if "://" in target:
@@ -323,7 +349,7 @@ class SSLCertificateTool:
             return {
                 "target": target,
                 "port": port,
-                "error": f"TLS Connection failed: {str(e)}",
+                "error": f"TLS Connection failed: {e!s}",
                 "valid": False
             }
 
@@ -354,7 +380,7 @@ class SSLCertificateTool:
 
             valid_from = parsed_cert.not_valid_before_utc.isoformat()
             valid_to = parsed_cert.not_valid_after_utc.isoformat()
-            now = datetime.datetime.now(datetime.timezone.utc)
+            now = datetime.datetime.now(datetime.UTC)
             delta = parsed_cert.not_valid_after_utc - now
             days_remaining = delta.days
             is_expired = days_remaining < 0
@@ -422,7 +448,7 @@ class PortProberTool:
     }
 
     @classmethod
-    async def scan(cls, target: str, ports: Optional[List[int]] = None, timeout: float = 1.5) -> Dict[str, Any]:
+    async def scan(cls, target: str, ports: list[int] | None = None, timeout: float = 1.5) -> dict[str, Any]:
         """Probes target TCP ports concurrently with banner grab."""
         target = target.strip()
         if "://" in target:
@@ -475,7 +501,7 @@ class PortProberTool:
 # =====================================================================
 class WhoisIpTool:
     @staticmethod
-    async def lookup(target: str) -> Dict[str, Any]:
+    async def lookup(target: str) -> dict[str, Any]:
         """Queries RDAP / IP Threat Intelligence for domain or IP address."""
         target = target.strip()
         if "://" in target:
@@ -510,17 +536,22 @@ class WhoisIpTool:
         async with httpx.AsyncClient(timeout=5.0) as client:
             try:
                 if is_ip or resolved_ip:
-                    # Query IP RDAP endpoint
-                    r = await client.get(f"https://rdap.arin.net/registry/ip/{resolved_ip}")
-                    if r.status_code == 200:
-                        data = r.json()
-                        intel["rdap_source"] = "ARIN"
-                        intel["org"] = data.get("name")
-                        for entity in data.get("entities", []):
-                            for vcard in entity.get("vcardArray", [[]])[1]:
-                                if vcard[0] == "fn":
-                                    intel["isp"] = vcard[3]
-                                    break
+                    try:
+                        ip_obj = ipaddress.ip_address(resolved_ip)
+                        if not ip_obj.is_private and not ip_obj.is_loopback and not ip_obj.is_link_local:
+                            safe_ip = quote(str(ip_obj), safe="")
+                            r = await client.get(f"https://rdap.arin.net/registry/ip/{safe_ip}")
+                            if r.status_code == 200:
+                                data = r.json()
+                                intel["rdap_source"] = "ARIN"
+                                intel["org"] = data.get("name")
+                                for entity in data.get("entities", []):
+                                    for vcard in entity.get("vcardArray", [[]])[1]:
+                                        if vcard[0] == "fn":
+                                            intel["isp"] = vcard[3]
+                                            break
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
@@ -532,7 +563,7 @@ class WhoisIpTool:
 # =====================================================================
 class CryptoEncoderTool:
     @staticmethod
-    def encode_decode(text: str, operation: str) -> Dict[str, Any]:
+    def encode_decode(text: str, operation: str) -> dict[str, Any]:
         """Encodes or decodes text across Base64, Hex, URL, and HTML entities."""
         text_bytes = text.encode("utf-8", errors="ignore")
         output = ""
@@ -564,36 +595,36 @@ class CryptoEncoderTool:
         return {"input": text, "operation": operation, "output": output, "error": error}
 
     @staticmethod
-    def calculate_hashes(text: str) -> Dict[str, Any]:
+    def calculate_hashes(text: str) -> dict[str, Any]:
         """Computes standard cybersecurity cryptographic digests (MD5, SHA1, SHA256, SHA512, NTLM)."""
         b = text.encode("utf-8", errors="ignore")
         
         # NTLM calculation (MD4 of UTF-16LE)
         ntlm_hash = ""
         try:
-            ntlm_hash = hashlib.new("md4", text.encode("utf-16le")).hexdigest()
+            ntlm_hash = hashlib.new("md4", text.encode("utf-16le"), usedforsecurity=False).hexdigest()
         except Exception:
             ntlm_hash = "MD4 algorithm not available on this platform"
 
         return {
             "input": text,
             "length": len(text),
-            "md5": hashlib.md5(b).hexdigest(),
-            "sha1": hashlib.sha1(b).hexdigest(),
+            "md5": hashlib.md5(b, usedforsecurity=False).hexdigest(),
+            "sha1": hashlib.sha1(b, usedforsecurity=False).hexdigest(),
             "sha256": hashlib.sha256(b).hexdigest(),
             "sha512": hashlib.sha512(b).hexdigest(),
             "ntlm": ntlm_hash
         }
 
     @staticmethod
-    def inspect_jwt(token: str) -> Dict[str, Any]:
+    def inspect_jwt(token: str) -> dict[str, Any]:
         """Inspects, decodes, and validates JSON Web Tokens (JWT)."""
         token = token.strip()
         parts = token.split(".")
         if len(parts) != 3:
             return {"error": "Invalid JWT format. Expected 3 base64url segments separated by dots."}
 
-        def _b64url_decode(s: str) -> Dict[str, Any]:
+        def _b64url_decode(s: str) -> dict[str, Any]:
             # Add padding
             rem = len(s) % 4
             if rem > 0:
@@ -606,26 +637,26 @@ class CryptoEncoderTool:
         try:
             header = _b64url_decode(parts[0])
         except Exception as e:
-            return {"error": f"Failed to decode JWT Header: {str(e)}"}
+            return {"error": f"Failed to decode JWT Header: {e!s}"}
 
         try:
             payload = _b64url_decode(parts[1])
         except Exception as e:
-            return {"error": f"Failed to decode JWT Payload: {str(e)}"}
+            return {"error": f"Failed to decode JWT Payload: {e!s}"}
 
         # Expiration analysis
         exp_timestamp = payload.get("exp")
         exp_readable = None
         is_expired = False
         if exp_timestamp and isinstance(exp_timestamp, (int, float)):
-            exp_date = datetime.datetime.fromtimestamp(exp_timestamp, datetime.timezone.utc)
+            exp_date = datetime.datetime.fromtimestamp(exp_timestamp, datetime.UTC)
             exp_readable = exp_date.isoformat()
-            is_expired = datetime.datetime.now(datetime.timezone.utc) > exp_date
+            is_expired = datetime.datetime.now(datetime.UTC) > exp_date
 
         iat_timestamp = payload.get("iat")
         iat_readable = None
         if iat_timestamp and isinstance(iat_timestamp, (int, float)):
-            iat_readable = datetime.datetime.fromtimestamp(iat_timestamp, datetime.timezone.utc).isoformat()
+            iat_readable = datetime.datetime.fromtimestamp(iat_timestamp, datetime.UTC).isoformat()
 
         # Security check: 'none' algorithm
         alg = header.get("alg", "").lower()
@@ -654,7 +685,7 @@ class CryptoEncoderTool:
 # =====================================================================
 class SubnetCalculatorTool:
     @staticmethod
-    def calculate(cidr_str: str) -> Dict[str, Any]:
+    def calculate(cidr_str: str) -> dict[str, Any]:
         """Calculates network range, netmask, usable hosts, and wildcard mask from CIDR notation."""
         cidr_str = cidr_str.strip()
         try:
@@ -689,7 +720,7 @@ class SubnetCalculatorTool:
                 "is_global": net.is_global
             }
         except Exception as e:
-            return {"error": f"Invalid CIDR or IP address: {str(e)}"}
+            return {"error": f"Invalid CIDR or IP address: {e!s}"}
 
 
 # =====================================================================
@@ -697,7 +728,7 @@ class SubnetCalculatorTool:
 # =====================================================================
 class TargetedVulnProberTool:
     @classmethod
-    async def probe(cls, target_url: str, vuln_type: str, parameter: Optional[str] = None) -> Dict[str, Any]:
+    async def probe(cls, target_url: str, vuln_type: str, parameter: str | None = None) -> dict[str, Any]:
         """Instantly tests a specific URL and parameter for a chosen vulnerability vector."""
         if not target_url.startswith(("http://", "https://")):
             target_url = f"https://{target_url}"
@@ -740,9 +771,17 @@ class TargetedVulnProberTool:
         elif vuln_type in ["cors", "cors_misconfig"]:
             # Test custom Origin header
             evil_origin = "https://evil-attacker.example.com"
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0)) as client:
+            safe_target = _validate_safe_target_url(target_url)
+            if not safe_target:
+                return {
+                    "target_url": target_url,
+                    "vuln_type": "CORS Misconfiguration",
+                    "vulnerable": False,
+                    "summary": "Target URL is invalid or points to restricted address space",
+                }
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, follow_redirects=False)) as client:
                 try:
-                    r = await client.get(target_url, headers={"Origin": evil_origin})
+                    r = await client.get(safe_target, headers={"Origin": evil_origin})
                     acao = r.headers.get("access-control-allow-origin", "")
                     acac = r.headers.get("access-control-allow-credentials", "")
                     acac_bool = acac.lower() == "true"
@@ -811,7 +850,7 @@ class TargetedVulnProberTool:
 # =====================================================================
 class ReverseShellGeneratorTool:
     @staticmethod
-    def generate(ip: str, port: int, shell_type: str = "all") -> Dict[str, Any]:
+    def generate(ip: str, port: int, shell_type: str = "all") -> dict[str, Any]:
         """Generates standard authorized reverse shell & payload syntax references."""
         ip = ip.strip()
         templates = {

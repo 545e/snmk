@@ -13,12 +13,11 @@ from __future__ import annotations
 import datetime
 import hmac
 import os
-import time
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Query, Request
+from pydantic import BaseModel
 
 from core.app_security import (
     SecurityContext,
@@ -30,10 +29,16 @@ from core.app_security import (
     SWA_MASTER_API_KEY,
 )
 from core.database import db
-from core.models import ScanConfig, ScanJob, ScanProfile, ScanStatus, VulnerabilityFinding
 from core.scope_policy import scope_policy
 from core.scoring import compute_posture
 from core.integrations.registry import integration_registry
+from core.models import (
+    ScanConfig,
+    ScanJob,
+    ScanProfile,
+    ScanStatus,
+)
+from core.scope_policy import scope_policy
 from core.tool_registry import tool_registry
 
 v1_router = APIRouter(tags=["v1"])
@@ -54,14 +59,14 @@ def _registered_agent_count() -> int:
 def v1_envelope(
     data: Any = None,
     success: bool = True,
-    message: Optional[str] = None,
-    meta: Optional[Dict[str, Any]] = None,
-) -> Dict[str, Any]:
+    message: str | None = None,
+    meta: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     envelope = {
         "success": success,
         "data": data,
         "meta": {
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
             "api_version": "v1",
             **(meta or {}),
         },
@@ -74,103 +79,103 @@ def v1_envelope(
 # --- Request Schemas ---
 
 class V1LoginPayload(BaseModel):
-    username: Optional[str] = None
-    password: Optional[str] = None
-    api_key: Optional[str] = None
+    username: str | None = None
+    password: str | None = None
+    api_key: str | None = None
 
 class V1UserCreatePayload(BaseModel):
     username: str
-    email: Optional[str] = None
+    email: str | None = None
     role: str = "analyst"
 
 class V1WorkspaceCreatePayload(BaseModel):
     name: str
-    description: Optional[str] = None
+    description: str | None = None
 
 class V1ProjectCreatePayload(BaseModel):
     workspace_id: str
     name: str
-    target_scope: Optional[str] = None
+    target_scope: str | None = None
 
 class V1AssessmentLaunchPayload(BaseModel):
     target_url: str
     profile: str = "standard"
-    tools: Optional[List[str]] = None
+    tools: list[str] | None = None
     lab_mode: bool = False
 
 class V1AssetCreatePayload(BaseModel):
     domain: str
-    description: Optional[str] = "Authorized assessment asset"
-    profile: Optional[str] = "standard"
+    description: str | None = "Authorized assessment asset"
+    profile: str | None = "standard"
 
 class V1VerificationPayload(BaseModel):
     finding_id: str
-    target_url: Optional[str] = None
+    target_url: str | None = None
 
 class V1RemediationTicketPayload(BaseModel):
     finding_id: str
     title: str
-    assigned_to: Optional[str] = "analyst"
-    priority: Optional[str] = "HIGH"
-    notes: Optional[str] = None
+    assigned_to: str | None = "analyst"
+    priority: str | None = "HIGH"
+    notes: str | None = None
 
 class V1RemediationTransitionPayload(BaseModel):
     new_status: str
-    comment: Optional[str] = None
+    comment: str | None = None
 
 class V1ToolRunPayload(BaseModel):
     tool_id: str
     target: str
-    arguments: Optional[Dict[str, Any]] = None
+    arguments: dict[str, Any] | None = None
 
 class V1IntegrationSavePayload(BaseModel):
     provider_id: str
-    credentials: Dict[str, str] = {}
-    display_name: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    config: Optional[Dict[str, Any]] = None
+    credentials: dict[str, str] = {}
+    display_name: str | None = None
+    endpoint_url: str | None = None
+    config: dict[str, Any] | None = None
     enabled: bool = True
-    integration_id: Optional[str] = None
+    integration_id: str | None = None
 
 class V1IntegrationRotatePayload(BaseModel):
-    credentials: Dict[str, str] = {}
+    credentials: dict[str, str] = {}
 
 class V1IntegrationTestPayload(BaseModel):
     provider_id: str
-    credentials: Optional[Dict[str, str]] = None
-    endpoint_url: Optional[str] = None
+    credentials: dict[str, str] | None = None
+    endpoint_url: str | None = None
 
 class V1ThreatEnrichPayload(BaseModel):
     indicator: str
-    indicator_type: Optional[str] = "ip"
+    indicator_type: str | None = "ip"
 
 class V1AIModelTestPayload(BaseModel):
     provider: str
     model: str
-    prompt: Optional[str] = "Return 'PING_OK'"
+    prompt: str | None = "Return 'PING_OK'"
 
 class V1AIAgentCreatePayload(BaseModel):
     name: str
     role: str
-    category: Optional[str] = "Specialist"
-    description: Optional[str] = None
-    capabilities: Optional[List[str]] = None
+    category: str | None = "Specialist"
+    description: str | None = None
+    capabilities: list[str] | None = None
 
 class V1IncidentCreatePayload(BaseModel):
     title: str
     severity: str = "MEDIUM"
-    description: Optional[str] = None
-    target: Optional[str] = None
+    description: str | None = None
+    target: str | None = None
 
 class V1ApprovalDecisionPayload(BaseModel):
     decision: str  # APPROVED / REJECTED
-    comment: Optional[str] = None
+    comment: str | None = None
 
 class V1ReportGeneratePayload(BaseModel):
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
     template_type: str = "detailed_assessment"
     format: str = "pdf"
-    title: Optional[str] = None
+    title: str | None = None
 
 
 # =====================================================================
@@ -251,7 +256,7 @@ async def v1_create_user(payload: V1UserCreatePayload):
         "email": payload.email,
         "role": payload.role,
         "status": "ACTIVE",
-        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     return v1_envelope(data=new_user, message=f"User {payload.username} created")
 
@@ -273,12 +278,12 @@ async def v1_list_workspaces():
 @v1_router.post("/workspaces")
 async def v1_create_workspace(payload: V1WorkspaceCreatePayload):
     """Create a new security operations workspace."""
-    from web.enterprise_api import create_workspace, Workspace
+    from web.enterprise_api import Workspace, create_workspace
     data = await create_workspace(Workspace(id=f"ws-{uuid.uuid4().hex[:8]}", name=payload.name, description=payload.description or ""))
     return v1_envelope(data=data, message="Workspace created")
 
 @v1_router.get("/projects")
-async def v1_list_projects(workspace_id: Optional[str] = None):
+async def v1_list_projects(workspace_id: str | None = None):
     """List security assessment projects."""
     from web.enterprise_api import list_projects
     data = await list_projects(workspace_id=workspace_id)
@@ -287,7 +292,7 @@ async def v1_list_projects(workspace_id: Optional[str] = None):
 @v1_router.post("/projects")
 async def v1_create_project(payload: V1ProjectCreatePayload):
     """Create a security assessment project within a workspace."""
-    from web.enterprise_api import create_project, Project
+    from web.enterprise_api import Project, create_project
     data = await create_project(Project(
         id=f"proj-{uuid.uuid4().hex[:8]}",
         workspace_id=payload.workspace_id,
@@ -498,7 +503,7 @@ async def v1_list_exposed_assets():
 
 @v1_router.get("/vulnerabilities")
 async def v1_list_vulnerabilities(
-    severity: Optional[str] = None,
+    severity: str | None = None,
     limit: int = Query(default=100, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
 ):
@@ -515,9 +520,9 @@ async def v1_list_vulnerabilities(
 
 @v1_router.get("/findings")
 async def v1_list_findings(
-    severity: Optional[str] = None,
-    scan_id: Optional[str] = None,
-    status: Optional[str] = None,
+    severity: str | None = None,
+    scan_id: str | None = None,
+    status: str | None = None,
     limit: int = 100,
     offset: int = 0,
 ):
@@ -575,7 +580,7 @@ async def v1_verify_finding(payload: V1VerificationPayload):
         "status_code": 200,
         "response_time_ms": 28,
         "evidence_snippet": finding.evidence or "Deterministic PoC matched vulnerable payload signature.",
-        "verified_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "verified_at": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     return v1_envelope(data=result, message="Verification executed")
 
@@ -619,14 +624,14 @@ async def v1_create_remediation_ticket(payload: V1RemediationTicketPayload):
         "priority": payload.priority,
         "assigned_to": payload.assigned_to,
         "status": "OPEN",
-        "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "created_at": datetime.datetime.now(datetime.UTC).isoformat(),
     }
     return v1_envelope(data=ticket, message="Remediation ticket created")
 
 @v1_router.post("/remediation/tickets/{ticket_id}/transition")
 async def v1_transition_ticket(ticket_id: str, payload: V1RemediationTransitionPayload):
     """Transition remediation ticket status (IN_PROGRESS, RESOLVED, VERIFIED)."""
-    from web.enterprise_api import transition_ticket, TicketTransitionReq
+    from web.enterprise_api import TicketTransitionReq, transition_ticket
     req = TicketTransitionReq(status=payload.new_status, comment=payload.comment)
     data = await transition_ticket(ticket_id, req)
     return v1_envelope(data=data, message=f"Ticket transitioned to {payload.new_status}")
@@ -687,7 +692,7 @@ async def v1_get_security_tools_catalog():
 @v1_router.post("/security-tools/run")
 async def v1_run_security_tool(payload: V1ToolRunPayload):
     """Execute a single security tool against an authorized target."""
-    from web.server import execute_single_tool, SingleToolRunRequest
+    from web.server import SingleToolRunRequest, execute_single_tool
     req = SingleToolRunRequest(tool_id=payload.tool_id, target=payload.target)
     result = await execute_single_tool(req)
     return v1_envelope(data=result, message=f"Tool {payload.tool_id} executed")
@@ -791,9 +796,9 @@ async def v1_enrich_threat_indicator(payload: V1ThreatEnrichPayload):
     return v1_envelope(data=data)
 
 @v1_router.get("/threat-intelligence/cisa-kev")
-async def v1_query_cisa_kev(cve: Optional[str] = None):
+async def v1_query_cisa_kev(cve: str | None = None):
     """Query the live CISA Known Exploited Vulnerabilities catalog (cached 1h)."""
-    from core.threat_intel_live import get_cisa_kev, ThreatIntelUnavailable
+    from core.threat_intel_live import ThreatIntelUnavailable, get_cisa_kev
     try:
         data = await get_cisa_kev(cve)
     except ThreatIntelUnavailable as exc:
@@ -801,11 +806,11 @@ async def v1_query_cisa_kev(cve: Optional[str] = None):
     return v1_envelope(data=data)
 
 @v1_router.get("/threat-intelligence/first-epss")
-async def v1_query_first_epss(cve: Optional[str] = None):
+async def v1_query_first_epss(cve: str | None = None):
     """Query the live FIRST.org EPSS API for a CVE (cached 1h). Requires cve=CVE-YYYY-NNNN."""
     if not cve:
         raise HTTPException(status_code=400, detail="Query parameter cve is required, e.g. cve=CVE-2021-44228")
-    from core.threat_intel_live import get_first_epss, ThreatIntelUnavailable
+    from core.threat_intel_live import ThreatIntelUnavailable, get_first_epss
     try:
         data = await get_first_epss(cve)
     except ThreatIntelUnavailable as exc:
@@ -833,8 +838,8 @@ async def v1_list_ai_models():
 @v1_router.get("/ai/models/status")
 async def v1_get_ai_models_status():
     """Get active AI model health and connectivity status (real client state)."""
-    from core.llm_client import llm_client
     from core.ai_models import ai_model_manager
+    from core.llm_client import llm_client
     st = llm_client.get_status()
     default_model = ai_model_manager.get_default_model() or {}
     return v1_envelope(data={
@@ -908,7 +913,7 @@ async def v1_get_ai_agent(agent_id: str):
     return v1_envelope(data=agent)
 
 @v1_router.post("/ai/agents/collaborate")
-async def v1_ai_collaborate(target: Optional[str] = "127.0.0.1:8000"):
+async def v1_ai_collaborate(target: str | None = "127.0.0.1:8000"):
     """Execute collaborative 6-stage autonomous cybersecurity workflow."""
     from web.ai_agent_api import run_multi_agent_collaboration
     data = await run_multi_agent_collaboration({"target": target})
@@ -985,7 +990,7 @@ async def v1_list_pending_approvals():
 @v1_router.post("/approvals/{approval_id}/action")
 async def v1_decide_approval(approval_id: str, payload: V1ApprovalDecisionPayload):
     """Approve or reject a gated security action."""
-    from web.enterprise_api import decide_approval, ApprovalDecisionReq
+    from web.enterprise_api import ApprovalDecisionReq, decide_approval
     req = ApprovalDecisionReq(decision=payload.decision, comment=payload.comment)
     data = await decide_approval(approval_id, req)
     return v1_envelope(data=data, message=f"Approval marked as {payload.decision}")
@@ -1042,7 +1047,7 @@ async def v1_list_export_formats():
 async def v1_list_audit_logs(limit: int = 50):
     """List immutable system audit logs."""
     logs = [
-        {"id": f"log-{i}", "event": "API_AUTHENTICATION", "actor": "operator", "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+        {"id": f"log-{i}", "event": "API_AUTHENTICATION", "actor": "operator", "timestamp": datetime.datetime.now(datetime.UTC).isoformat()}
         for i in range(1, 5)
     ]
     return v1_envelope(data=logs)
@@ -1064,7 +1069,7 @@ async def v1_system_info():
         "api_version": "v1",
         "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}.{os.sys.version_info.micro}",
         "environment": os.getenv("ENVIRONMENT", "production"),
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
     })
 
 @v1_router.get("/system/health")

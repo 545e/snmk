@@ -11,18 +11,19 @@ import datetime
 import logging
 import time
 import uuid
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
-from fastapi import APIRouter, HTTPException
+from typing import Any
 
-from core.database import db
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
+
 from core.credentials import credentials_vault, mask_secret
+from core.database import db
 from core.integrations.ai_providers import (
-    OpenAIAdapter,
     AnthropicAdapter,
     GoogleGeminiAdapter,
+    OllamaLocalAdapter,
+    OpenAIAdapter,
     OpenRouterAdapter,
-    OllamaLocalAdapter
 )
 from core.scope_policy import scope_policy
 
@@ -104,32 +105,32 @@ class CreateAIAgentRequest(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     provider: str
     model: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
-    description: Optional[str] = None
-    role: Optional[str] = "Cybersecurity Specialist"
+    api_key: str | None = None
+    base_url: str | None = None
+    description: str | None = None
+    role: str | None = "Cybersecurity Specialist"
     enabled: bool = True
     is_default: bool = False
     test_connection_now: bool = True
 
 
 class UpdateAIAgentRequest(BaseModel):
-    name: Optional[str] = None
-    provider: Optional[str] = None
-    model: Optional[str] = None
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
-    description: Optional[str] = None
-    role: Optional[str] = None
-    enabled: Optional[bool] = None
-    is_default: Optional[bool] = None
+    name: str | None = None
+    provider: str | None = None
+    model: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+    description: str | None = None
+    role: str | None = None
+    enabled: bool | None = None
+    is_default: bool | None = None
 
 
 class TestConnectionRequest(BaseModel):
     provider: str
-    api_key: Optional[str] = None
-    base_url: Optional[str] = None
-    model: Optional[str] = None
+    api_key: str | None = None
+    base_url: str | None = None
+    model: str | None = None
 
 
 class CopilotChatMsg(BaseModel):
@@ -139,25 +140,25 @@ class CopilotChatMsg(BaseModel):
 
 class CopilotChatReq(BaseModel):
     message: str = Field(..., min_length=1)
-    target: Optional[str] = "127.0.0.1:8000"
-    agent_id: Optional[str] = None
-    conversation_history: Optional[List[CopilotChatMsg]] = None
+    target: str | None = "127.0.0.1:8000"
+    agent_id: str | None = None
+    conversation_history: list[CopilotChatMsg] | None = None
 
 
 class CurlPocReq(BaseModel):
     target: str
-    finding_id: Optional[str] = None
+    finding_id: str | None = None
 
 
 class DefensivePatchReq(BaseModel):
     target: str
-    finding_id: Optional[str] = None
-    tech_stack: Optional[List[str]] = None
+    finding_id: str | None = None
+    tech_stack: list[str] | None = None
 
 
 class ScopeVerificationReq(BaseModel):
     target: str
-    lab_mode: Optional[bool] = None
+    lab_mode: bool | None = None
 
 
 # =====================================================================
@@ -175,7 +176,7 @@ def _encrypt_key(raw_key: str) -> tuple[str, str]:
     return encrypted_str, masked
 
 
-def _decrypt_key(encrypted_str: str) -> Optional[str]:
+def _decrypt_key(encrypted_str: str) -> str | None:
     """Decrypts API key from stored salt:cipher format."""
     if not encrypted_str:
         return None
@@ -189,7 +190,7 @@ def _decrypt_key(encrypted_str: str) -> Optional[str]:
         return None
 
 
-async def _run_provider_test(provider: str, api_key: str, base_url: Optional[str] = None, model: Optional[str] = None) -> Dict[str, Any]:
+async def _run_provider_test(provider: str, api_key: str, base_url: str | None = None, model: str | None = None) -> dict[str, Any]:
     """Tests provider connectivity using appropriate adapter."""
     p_lower = provider.lower().strip()
     creds = {"api_key": api_key, "base_url": base_url or ""}
@@ -276,7 +277,7 @@ async def create_ai_agent(req: CreateAIAgentRequest):
         test_res = await _run_provider_test(p_lower, raw_key, base_url=req.base_url, model=req.model)
         conn_status = "CONNECTED" if test_res.get("success") else ("INVALID_KEY" if test_res.get("status") == "AUTHENTICATION_FAILED" else "DISCONNECTED")
         last_error = test_res.get("message", "")
-        last_tested = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        last_tested = datetime.datetime.now(datetime.UTC).isoformat()
 
     agent_id = f"agent_{uuid.uuid4().hex[:10]}"
     agent_data = {
@@ -329,7 +330,7 @@ async def get_provider_usage_metrics():
     avg_duration = metrics["avg_duration_seconds"]
     avg_latency_ms = round(avg_duration * 1000, 2) if avg_duration is not None else None
     return {
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
         "total_configured_agents": len(agents),
         "connected_agents": sum(1 for a in agents if a.get("connection_status") == "CONNECTED"),
         "active_agents": sum(1 for a in agents if a.get("enabled")),
@@ -363,7 +364,7 @@ async def update_ai_agent(agent_id: str, req: UpdateAIAgentRequest):
     if not existing:
         raise HTTPException(status_code=404, detail="Agent not found.")
 
-    updates: Dict[str, Any] = {}
+    updates: dict[str, Any] = {}
     if req.name is not None:
         updates["name"] = req.name
     if req.provider is not None:
@@ -419,7 +420,7 @@ async def test_saved_agent_connection(agent_id: str):
         return {"success": False, "status": "NOT_CONFIGURED", "message": "No API key configured for agent."}
 
     res = await _run_provider_test(provider, decrypted_key, base_url=agent.get("base_url"), model=agent.get("model"))
-    now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    now = datetime.datetime.now(datetime.UTC).isoformat()
     new_status = "CONNECTED" if res.get("success") else ("INVALID_KEY" if res.get("status") == "AUTHENTICATION_FAILED" else "DISCONNECTED")
     db.update_ai_agent(agent_id, {
         "connection_status": new_status,
@@ -445,7 +446,7 @@ async def set_default_agent(agent_id: str):
 # =====================================================================
 
 @router.post("/agents/collaborate")
-async def run_multi_agent_collaboration(req: Dict[str, Any]):
+async def run_multi_agent_collaboration(req: dict[str, Any]):
     """
     Executes a multi-agent orchestrated cybersecurity workflow across the specialist workforce:
     1. Reconnaissance Agent -> Asset discovery
@@ -485,7 +486,7 @@ async def run_multi_agent_collaboration(req: Dict[str, Any]):
                 ),
                 timeout=90.0,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             rec = {"status": "FAILED", "error_message": "Stage timed out after 90s."}
         except Exception as e:
             rec = {"status": "FAILED", "error_message": str(e)}
@@ -653,5 +654,5 @@ async def copilot_scope_verification_endpoint(req: ScopeVerificationReq):
         "reason": res.reason or "Target authorized within approved assessment perimeter.",
         "ssrf_protection_enforced": True,
         "dangerous_probes_blocked": True,
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
     }

@@ -6,8 +6,10 @@ Implements adapters for AWS, Microsoft Azure, and Google Cloud Platform (GCP).
 from __future__ import annotations
 
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any
+
 import httpx
+
 from core.integrations.base import BaseIntegrationAdapter
 
 
@@ -23,14 +25,14 @@ class AWSAdapter(BaseIntegrationAdapter):
         "2. Provide AWS Access Key ID, Secret Access Key, and default Region."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "aws_access_key_id", "label": "AWS Access Key ID", "type": "text", "required": True, "placeholder": "AKIA..."},
             {"key": "aws_secret_access_key", "label": "AWS Secret Access Key", "type": "password", "required": True, "placeholder": "Secret Key"},
             {"key": "aws_region", "label": "Default Region", "type": "text", "required": True, "placeholder": "us-east-1"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         ak = credentials.get("aws_access_key_id", "").strip()
         sk = credentials.get("aws_secret_access_key", "").strip()
         region = credentials.get("aws_region", "us-east-1").strip()
@@ -78,7 +80,7 @@ class AzureCloudAdapter(BaseIntegrationAdapter):
         "3. Enter Tenant ID, Client ID, Client Secret, and Subscription ID."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "tenant_id", "label": "Tenant ID", "type": "text", "required": True, "placeholder": "Tenant GUID"},
             {"key": "client_id", "label": "Client ID", "type": "text", "required": True, "placeholder": "Client GUID"},
@@ -86,7 +88,7 @@ class AzureCloudAdapter(BaseIntegrationAdapter):
             {"key": "subscription_id", "label": "Subscription ID", "type": "text", "required": False, "placeholder": "Subscription GUID"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         tenant = credentials.get("tenant_id", "").strip()
         cid = credentials.get("client_id", "").strip()
         sec = credentials.get("client_secret", "").strip()
@@ -120,12 +122,12 @@ class GCPAdapter(BaseIntegrationAdapter):
         "3. Paste the contents of the JSON key below."
     )
 
-    def get_credential_fields(self) -> List[Dict[str, Any]]:
+    def get_credential_fields(self) -> list[dict[str, Any]]:
         return [
             {"key": "service_account_json", "label": "Service Account JSON Key", "type": "textarea", "required": True, "placeholder": "{\n  \"type\": \"service_account\", ...\n}"}
         ]
 
-    async def test_connection(self, credentials: Dict[str, str], endpoint_url: Optional[str] = None) -> Dict[str, Any]:
+    async def test_connection(self, credentials: dict[str, str], endpoint_url: str | None = None) -> dict[str, Any]:
         sa_json = credentials.get("service_account_json", "").strip()
         if not sa_json:
             return {"success": False, "status": "NOT_CONFIGURED", "message": "Service Account JSON is required.", "latency_ms": 0}

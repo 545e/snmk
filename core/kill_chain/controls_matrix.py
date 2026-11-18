@@ -7,15 +7,15 @@ Evaluates implemented vs verified vs missing controls and computes objective def
 from __future__ import annotations
 
 import datetime
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from core.kill_chain.db import list_controls, save_control
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    SecurityControl,
     ControlCapabilityEnum,
     ControlStatusEnum,
+    KillChainStageEnum,
+    SecurityControl,
 )
-from core.kill_chain.db import list_controls, save_control
 
 
 class SecurityControlMatrix:
@@ -41,7 +41,7 @@ class SecurityControlMatrix:
         KillChainStageEnum.ACTIONS_ON_OBJECTIVES,
     ]
 
-    def get_matrix(self) -> Dict[str, Any]:
+    def get_matrix(self) -> dict[str, Any]:
         """
         Builds the 7x5 matrix of security controls with status indicators and coverage metrics.
         """
@@ -50,8 +50,8 @@ class SecurityControlMatrix:
             self._seed_default_matrix()
             all_controls = list_controls()
 
-        matrix: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
-        stage_coverage: Dict[str, float] = {}
+        matrix: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        stage_coverage: dict[str, float] = {}
 
         total_cells = len(self.STAGE_DEFINITIONS) * len(self.CAPABILITIES)
         verified_count = 0
@@ -90,7 +90,7 @@ class SecurityControlMatrix:
         overall_coverage_pct = round((verified_count / max(1, total_cells)) * 100.0, 1)
 
         # Identify coverage gaps (capabilities with Missing or 0 controls)
-        gaps: List[Dict[str, str]] = []
+        gaps: list[dict[str, str]] = []
         for stage in self.STAGE_DEFINITIONS:
             s_val = stage.value
             for cap in self.CAPABILITIES:
@@ -112,7 +112,7 @@ class SecurityControlMatrix:
             "stage_coverage": stage_coverage,
             "matrix": matrix,
             "gaps": gaps,
-            "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "generated_at": datetime.datetime.now(datetime.UTC).isoformat(),
         }
 
     def _get_recommendation_for_gap(self, stage: KillChainStageEnum, cap: ControlCapabilityEnum) -> str:
@@ -134,7 +134,7 @@ class SecurityControlMatrix:
 
     def _seed_default_matrix(self) -> None:
         """Seeds standard defensive controls across all 7 stages and 5 capabilities."""
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
         defaults = [
             # 1. Recon
             ("ctrl_rec_det", KillChainStageEnum.RECONNAISSANCE, "Attack Surface Monitor", ControlCapabilityEnum.DETECT, ControlStatusEnum.VERIFIED, "SWA Scoped Recon"),

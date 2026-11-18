@@ -24,9 +24,9 @@ from prometheus_client import (
 )
 from starlette.middleware.base import BaseHTTPMiddleware
 
-REQUESTS = Counter("snmk_http_requests_total", "HTTP requests", ["method", "path", "status"])
-LATENCY = Histogram("snmk_http_request_seconds", "HTTP request latency", ["method", "path"])
-ACTIVE = Gauge("snmk_http_requests_in_flight", "Requests currently in flight")
+REQUESTS = Counter("snmk_platform_requests_total", "HTTP requests", ["method", "path", "status"])
+LATENCY = Histogram("snmk_platform_request_seconds", "HTTP request latency", ["method", "path"])
+ACTIVE = Gauge("snmk_platform_requests_in_flight", "Requests currently in flight")
 AGENT_TASKS = Counter("snmk_crew_tasks_total", "Crew tasks", ["role", "status"])
 ALERTS = Counter("snmk_alerts_total", "Alerts created", ["severity"])
 START_TIME = Gauge("snmk_process_start_time", "Process start timestamp (unix seconds)")

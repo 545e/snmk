@@ -207,7 +207,7 @@ def test_crlf_header_injection_audit():
 def test_open_redirect_audit():
     def handler(request: httpx.Request):
         url_decoded = unquote(str(request.url))
-        if "evil-attacker-redirect-domain.com" in url_decoded:
+        if "evil-attacker-redirect-domain" in url_decoded:
             return httpx.Response(302, headers={"Location": "https://evil-attacker-redirect-domain.com/login"})
         return httpx.Response(200, text="Home")
 

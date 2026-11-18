@@ -10,17 +10,16 @@ import abc
 import datetime
 import hashlib
 import uuid
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
+    ConfidenceLevelEnum,
     EvidenceItem,
-    ThreatIndicator,
+    KillChainFinding,
+    KillChainStageEnum,
+    SeverityEnum,
     StageAnalysisResult,
     StageStatusEnum,
-    SeverityEnum,
-    ConfidenceLevelEnum,
 )
 
 
@@ -32,13 +31,12 @@ class BaseStageAnalyzer(abc.ABC):
     title: str
     objective: str
     mitre_tactic: str
-    detection_capabilities: List[str]
-    default_controls: List[Dict[str, str]]
+    detection_capabilities: list[str]
+    default_controls: list[dict[str, str]]
 
     @abc.abstractmethod
-    def analyze(self, telemetry: Dict[str, Any], asset_context: Optional[Dict[str, Any]] = None) -> StageAnalysisResult:
+    def analyze(self, telemetry: dict[str, Any], asset_context: dict[str, Any] | None = None) -> StageAnalysisResult:
         """Executes defensive inspection for this stage against ingested telemetry or scans."""
-        pass
 
     def calculate_risk(
         self,
@@ -64,7 +62,7 @@ class BaseStageAnalyzer(abc.ABC):
         source_reliability: float,  # 0.6 (Third party/crowdsourced) to 1.0 (Direct local kernel/scanner)
         corroboration_count: int,   # 1 to N sources agreeing
         completeness: float = 1.0   # 0.5 (Partial headers) to 1.0 (Full payload/PCAP/AST)
-    ) -> Tuple[ConfidenceLevelEnum, float]:
+    ) -> tuple[ConfidenceLevelEnum, float]:
         """
         Documented confidence scoring methodology:
         Confidence = min(100.0, (evidence_quality * 0.4 + source_reliability * 0.3 + min(corroboration_count, 3) * 0.1 + completeness * 0.2) * 100)
@@ -89,7 +87,7 @@ class BaseStageAnalyzer(abc.ABC):
         self,
         artifact_type: str,
         raw_data: str,
-        normalized_data: Dict[str, Any],
+        normalized_data: dict[str, Any],
         affected_asset: str,
         source_tool: str = "SWA Core",
         evidence_quality: float = 0.9,
@@ -113,10 +111,10 @@ class BaseStageAnalyzer(abc.ABC):
             evidence_hash=ev_hash,
             confidence_level=conf_level,
             confidence_score=conf_score,
-            observed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            observed_at=datetime.datetime.now(datetime.UTC).isoformat(),
         )
 
-    def determine_stage_status(self, findings: List[KillChainFinding]) -> StageStatusEnum:
+    def determine_stage_status(self, findings: list[KillChainFinding]) -> StageStatusEnum:
         """Computes stage color-coded status based on findings severity."""
         if not findings:
             return StageStatusEnum.PROTECTED

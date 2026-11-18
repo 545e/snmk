@@ -12,26 +12,28 @@ Covers 6 distinct testing categories:
 Records full test telemetry: status, evidence, duration, severity, and actionable remediation.
 """
 
+import datetime
 import os
+import socket
 import sys
 import time
-import socket
-import datetime
 import urllib.parse
-from typing import List, Dict, Any, Optional
+from typing import Any
+
 from core.database import db
+
 
 class CyberTestEngine:
     def __init__(self):
         pass
 
-    def run_suite(self, profile: str = "comprehensive", target_url: str = "http://127.0.0.1:8000") -> Dict[str, Any]:
+    def run_suite(self, profile: str = "comprehensive", target_url: str = "http://127.0.0.1:8000") -> dict[str, Any]:
         """
         Execute automated cyber testing across requested profile.
         Profiles: 'smoke', 'security', 'infrastructure', 'performance', 'functional', 'comprehensive'
         """
-        run_id = f"testrun_{datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d_%H%M%S')}_{os.urandom(2).hex()}"
-        start_time_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        run_id = f"testrun_{datetime.datetime.now(datetime.UTC).strftime('%Y%m%d_%H%M%S')}_{os.urandom(2).hex()}"
+        start_time_iso = datetime.datetime.now(datetime.UTC).isoformat()
         t0 = time.time()
 
         initial_run = {
@@ -69,7 +71,7 @@ class CyberTestEngine:
                 blocked += 1
 
         total_duration = round(time.time() - t0, 3)
-        completed_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        completed_iso = datetime.datetime.now(datetime.UTC).isoformat()
         overall_status = "PASSED" if failed == 0 and blocked == 0 else "FAILED" if failed > 0 else "BLOCKED"
 
         summary = f"Completed {len(results)} tests in {total_duration}s: {passed} PASSED, {failed} FAILED, {blocked} BLOCKED."
@@ -105,7 +107,7 @@ class CyberTestEngine:
             "results": results
         }
 
-    def _select_tests(self, profile: str) -> List[Dict[str, Any]]:
+    def _select_tests(self, profile: str) -> list[dict[str, Any]]:
         """Registry of enterprise test cases across all 6 categories."""
         all_tests = [
             # 1. Application Testing
@@ -246,7 +248,7 @@ class CyberTestEngine:
         else: # comprehensive
             return all_tests
 
-    def _execute_single_test(self, test_def: Dict[str, Any], run_id: str, target_url: str) -> Dict[str, Any]:
+    def _execute_single_test(self, test_def: dict[str, Any], run_id: str, target_url: str) -> dict[str, Any]:
         test_id = test_def["test_id"]
         test_name = test_def["test_name"]
         category = test_def["category"]
@@ -254,7 +256,7 @@ class CyberTestEngine:
         fn = test_def["fn"]
 
         t0 = time.time()
-        now_ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_ts = datetime.datetime.now(datetime.UTC).isoformat()
         res_id = f"res_{test_id}_{os.urandom(3).hex()}"
 
         try:
@@ -265,7 +267,7 @@ class CyberTestEngine:
             duration = round(time.time() - t0, 4)
             status = "FAILED"
             evidence = ""
-            error = f"Unhandled test execution exception: {str(e)}"
+            error = f"Unhandled test execution exception: {e!s}"
             remediation = "Investigate traceback, ensure dependencies are present."
 
         return {
@@ -334,8 +336,14 @@ class CyberTestEngine:
         return False, "", "Security headers check failed.", "Configure required headers."
 
     def _test_zero_false_positive_filter(self, target_url: str):
+        from core.models import (
+            ScanConfig,
+            ScanJob,
+            ScanProfile,
+            Severity,
+            VulnerabilityFinding,
+        )
         from reports.generator import ReportGenerator
-        from core.models import ScanJob, VulnerabilityFinding, Severity, ScanProfile, ScanConfig
 
         mock_scan = ScanJob(
             id="test_scan",

@@ -13,15 +13,15 @@ Complete coverage of OWASP 2025 Top 10 & API Security categories:
 - A10: Server-Side Request Forgery (SSRF)
 """
 
-import re
 import asyncio
-from urllib.parse import urlparse, urlencode, parse_qs, urlunparse
+import re
+from typing import Any
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
 import httpx
 from bs4 import BeautifulSoup
-from typing import List, Dict, Any, Optional
 
-from core.models import DiscoveredEndpoint, VulnerabilityFinding, Severity
-from core.signature_matching import SignatureMatcher
+from core.models import DiscoveredEndpoint, Severity, VulnerabilityFinding
 from plugins.base_plugin import BaseSecurityPlugin
 
 # --- SQL Errors & Signatures ---
@@ -115,7 +115,7 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
             default_severity=Severity.HIGH
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         if not endpoints:
             return findings
@@ -327,7 +327,7 @@ class PluginA02_CryptographicFailures(BaseSecurityPlugin):
             default_severity=Severity.MEDIUM
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         if not endpoints:
             return findings
@@ -444,7 +444,7 @@ class PluginA03_Injection(BaseSecurityPlugin):
             default_severity=Severity.CRITICAL
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         sem = asyncio.Semaphore(12)
 
@@ -503,7 +503,7 @@ class PluginA03_Injection(BaseSecurityPlugin):
                             endpoint=ep.url,
                             method="GET",
                             parameter=param,
-                            description=f"Server evaluated mathematical template expression `{{{{47*47}}}}` into computed result `2209`. This indicates active template engine interpretation (Jinja2, Twig, or Mako) which may allow Remote Code Execution.",
+                            description="Server evaluated mathematical template expression `{{47*47}}` into computed result `2209`. This indicates active template engine interpretation (Jinja2, Twig, or Mako) which may allow Remote Code Execution.",
                             poc_curl=f"curl -i '{test_url}'",
                             poc_explanation="Mathematical expression '47*47' was evaluated server-side to '2209' without escaping.",
                             request_evidence=f"GET {test_url} HTTP/1.1",
@@ -602,7 +602,7 @@ class PluginA04_InsecureDesign(BaseSecurityPlugin):
             default_severity=Severity.LOW
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         for ep in endpoints:
             ep_lower = ep.url.lower()
@@ -652,7 +652,7 @@ class PluginA05_SecurityMisconfiguration(BaseSecurityPlugin):
             default_severity=Severity.LOW
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         if not endpoints:
             return findings
@@ -955,7 +955,7 @@ class PluginA06_VulnerableComponents(BaseSecurityPlugin):
             default_severity=Severity.LOW
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         if not endpoints:
             return findings
@@ -1043,7 +1043,7 @@ class PluginA06_VulnerableComponents(BaseSecurityPlugin):
                         method="GET",
                         description=f"The HTML document includes a `<meta name=\"generator\" content=\"{cms_name}\">` tag disclosing the exact content management system and version in use.",
                         poc_curl=f"curl -i '{target_url}' | grep -i 'name=\"generator\"'",
-                        poc_explanation=f"Generator tag found: {str(gen_tag)}",
+                        poc_explanation=f"Generator tag found: {gen_tag!s}",
                         request_evidence=f"GET {target_url} HTTP/1.1",
                         response_evidence=str(gen_tag),
                         remediation_advice="Remove the generator meta tag from page templates or theme headers.",
@@ -1071,7 +1071,7 @@ class PluginA07_AuthFailures(BaseSecurityPlugin):
             default_severity=Severity.MEDIUM
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
 
         for ep in endpoints[:15]:
@@ -1142,7 +1142,8 @@ class PluginA07_AuthFailures(BaseSecurityPlugin):
 
             # 3. Check for Exposed or Insecure JWT (JSON Web Token)
             try:
-                import base64, json
+                import base64
+                import json
                 jwt_pattern = r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]*"
                 resp_text = resp.text if 'resp' in locals() else ""
                 combined_headers = " ".join([f"{k}: {v}" for k, v in resp.headers.items()]) if 'resp' in locals() else ""
@@ -1198,7 +1199,7 @@ class PluginA08_IntegrityFailures(BaseSecurityPlugin):
             default_severity=Severity.LOW
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         if not endpoints:
             return findings
@@ -1258,7 +1259,7 @@ class PluginA09_LoggingMonitoring(BaseSecurityPlugin):
             default_severity=Severity.LOW
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         for ep in endpoints[:4]:
             try:
@@ -1309,7 +1310,7 @@ class PluginA10_SSRF(BaseSecurityPlugin):
             default_severity=Severity.HIGH
         )
 
-    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: List[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> List[VulnerabilityFinding]:
+    async def run(self, scan_id: str, client: httpx.AsyncClient, endpoints: list[DiscoveredEndpoint], recon_data: Any, log_callback=None) -> list[VulnerabilityFinding]:
         findings = []
         ssrf_params = ["url", "dest", "redirect", "next", "target", "webhook", "callback", "link", "feed", "uri", "host"]
 

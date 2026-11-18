@@ -7,11 +7,12 @@ Includes dual baseline calibration (root vs wildcard 404/SPA catch-all) to elimi
 import asyncio
 import re
 import uuid
-from urllib.parse import urljoin, urlparse, urlencode
-import httpx
-from typing import List, Dict, Any, Optional
+from typing import Any
+from urllib.parse import urlparse
 
-from core.models import LogEvent, VulnerabilityFinding, Severity
+import httpx
+
+from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 # Realistic browser headers to bypass CDN/WAF false bot blocks
@@ -111,16 +112,16 @@ class FuzzerAgent:
         self.semaphore = asyncio.Semaphore(concurrency)
         
         # Dual Baselines: Root Clean vs 404 Wildcard
-        self.root_status: Optional[int] = 200
-        self.root_length: Optional[int] = 0
-        self.wildcard_status: Optional[int] = 404
-        self.wildcard_length: Optional[int] = 0
+        self.root_status: int | None = 200
+        self.root_length: int | None = 0
+        self.wildcard_status: int | None = 404
+        self.wildcard_length: int | None = 0
 
     async def log(self, message: str, level: str = "INFO"):
         event = LogEvent(scan_id=self.scan_id, agent="FuzzerAgent", level=level, message=message)
         await queue_manager.emit_log(event)
 
-    async def run(self) -> Dict[str, Any]:
+    async def run(self) -> dict[str, Any]:
         await self.log(f"Calibrating dual baselines (clean root vs wildcard 404/catch-all) on {self.base_url}...", "INFO")
         
         limits = httpx.Limits(max_keepalive_connections=25, max_connections=50)
@@ -237,7 +238,7 @@ class FuzzerAgent:
 
         return True
 
-    async def _fuzz_paths(self, client: httpx.AsyncClient) -> List[Dict[str, Any]]:
+    async def _fuzz_paths(self, client: httpx.AsyncClient) -> list[dict[str, Any]]:
         results = []
 
         async def probe_path(path: str, severity: Severity, title: str):
@@ -322,7 +323,7 @@ class FuzzerAgent:
 
         return results
 
-    async def _fuzz_parameters(self, client: httpx.AsyncClient) -> List[Dict[str, Any]]:
+    async def _fuzz_parameters(self, client: httpx.AsyncClient) -> list[dict[str, Any]]:
         """Fuzz for hidden query parameters comparing strictly against the clean root page."""
         results = []
         canary = "swa_fuzz_canary_3918"

@@ -26,97 +26,30 @@ Remediation Lifecycle Board, 12-Template Enterprise Reports, and Diagnostics.
 
 
 
+import datetime
+from typing import Any
+
 from fastapi import APIRouter, HTTPException
-
-
-
-from typing import Dict, Any, Optional
-
-
-
 from pydantic import BaseModel, Field
 
-
-
-import datetime
-
-from core.database import db
 from core.scoring import compute_posture, deduplicate_findings
-from core.intelligence_models import (
-
-
-
-    GlobalSecurityContext,
-
-
-
-    Workspace,
-
-
-
-    Project,
-
-
-
-
-
-
-    ApprovalActionType,
-
-
-
-    ApprovalStatus,
-
-
-
-    AgentRole,
-
-
-
-
-
-
-    ReportTemplateType,
-
-
-
-    FindingLifecycleStatus
-
-
-
-)
-
-
 
 from core.approval_engine import approval_engine
-
-
-
-from core.knowledge_graph import knowledge_graph_engine
-
-
-
 from core.attack_surface_intel import attack_surface_intel
-
-
-
+from core.database import db
+from core.intelligence_models import (
+    AgentRole,
+    ApprovalActionType,
+    ApprovalStatus,
+    FindingLifecycleStatus,
+    GlobalSecurityContext,
+    Project,
+    ReportTemplateType,
+    Workspace,
+)
+from core.knowledge_graph import knowledge_graph_engine
 from core.remediation_engine import remediation_engine
-
-
-
-
-
-
-
-
-
 from reports.enterprise_reports import enterprise_report_engine
-
-
-
-
-
-
 
 router = APIRouter(prefix="/api", tags=["Enterprise Intelligence"])
 
@@ -150,27 +83,27 @@ class ContextUpdateRequest(BaseModel):
 
 
 
-    workspace_id: Optional[str] = None
+    workspace_id: str | None = None
 
 
 
-    workspace_name: Optional[str] = None
+    workspace_name: str | None = None
 
 
 
-    project_id: Optional[str] = None
+    project_id: str | None = None
 
 
 
-    project_name: Optional[str] = None
+    project_name: str | None = None
 
 
 
-    target: Optional[str] = None
+    target: str | None = None
 
 
 
-    target_authorized: Optional[bool] = None
+    target_authorized: bool | None = None
 
 
 
@@ -477,7 +410,7 @@ async def create_workspace(ws: Workspace):
 
 
 
-async def list_projects(workspace_id: Optional[str] = None):
+async def list_projects(workspace_id: str | None = None):
 
 
 
@@ -541,27 +474,27 @@ async def list_agents(
 
 
 
-    category: Optional[str] = None,
+    category: str | None = None,
 
 
 
-    tier: Optional[str] = None,
+    tier: str | None = None,
 
 
 
-    status: Optional[str] = None,
+    status: str | None = None,
 
 
 
-    search: Optional[str] = None,
+    search: str | None = None,
 
 
 
-    page: Optional[int] = None,
+    page: int | None = None,
 
 
 
-    limit: Optional[int] = None
+    limit: int | None = None
 
 
 
@@ -706,11 +639,11 @@ class AgentTaskDispatchReq(BaseModel):
 
 
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
 
 
-    inputs: Dict[str, Any] = Field(default_factory=dict)
+    inputs: dict[str, Any] = Field(default_factory=dict)
 
 
 
@@ -740,7 +673,7 @@ async def dispatch_agent_task(agent_role: str, req: AgentTaskDispatchReq):
 
 
 
-async def list_agent_tasks(scan_id: Optional[str] = None, agent_role: Optional[str] = None):
+async def list_agent_tasks(scan_id: str | None = None, agent_role: str | None = None):
 
 
 
@@ -796,11 +729,11 @@ class ApprovalCreateReq(BaseModel):
 
 
 
-    agent_role: Optional[AgentRole] = None
+    agent_role: AgentRole | None = None
 
 
 
-    scope_details: Dict[str, Any] = Field(default_factory=dict)
+    scope_details: dict[str, Any] = Field(default_factory=dict)
 
 
 
@@ -840,7 +773,7 @@ class ApprovalDecisionReq(BaseModel):
 
 
 
-async def list_approvals(status: Optional[str] = None):
+async def list_approvals(status: str | None = None):
 
 
 
@@ -1084,7 +1017,7 @@ async def get_shared_vulnerabilities():
 
 
 
-async def get_easm_drift(limit: int = 50, project_id: Optional[str] = None):
+async def get_easm_drift(limit: int = 50, project_id: str | None = None):
 
 
 
@@ -1124,7 +1057,7 @@ async def get_easm_drift(limit: int = 50, project_id: Optional[str] = None):
 
 
 
-async def list_remediation_tickets(status: Optional[str] = None, scan_id: Optional[str] = None):
+async def list_remediation_tickets(status: str | None = None, scan_id: str | None = None):
 
 
 
@@ -1192,11 +1125,11 @@ class TicketTransitionReq(BaseModel):
 
 
 
-    owner: Optional[str] = None
+    owner: str | None = None
 
 
 
-    suppression_reason: Optional[str] = None
+    suppression_reason: str | None = None
 
 
 
@@ -1360,11 +1293,11 @@ class ReportGenerateReq(BaseModel):
 
 
 
-    target: Optional[str] = "127.0.0.1:8000"
+    target: str | None = "127.0.0.1:8000"
 
 
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
 
 
@@ -1432,7 +1365,7 @@ async def generate_enterprise_report(req: ReportGenerateReq):
 
 
 
-async def list_report_archive(limit: int = 50, template_type: Optional[str] = None):
+async def list_report_archive(limit: int = 50, template_type: str | None = None):
 
 
 
@@ -1540,7 +1473,7 @@ async def get_detailed_diagnostics():
 
 
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
 
 
@@ -1662,7 +1595,7 @@ async def enrich_indicator(payload: dict):
     if matches:
         return {"indicator": val, "matched": True, "details": matches[0],
                 "sources_checked": ["local_ioc_repository"],
-                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()}
+                "timestamp": datetime.datetime.now(datetime.UTC).isoformat()}
 
     return {
         "indicator": val,
@@ -1671,7 +1604,7 @@ async def enrich_indicator(payload: dict):
         "confidence": "none",
         "sources_checked": ["local_ioc_repository"],
         "note": "No external threat-intel provider is configured or was queried. Configure an integration (e.g. VirusTotal, AlienVault OTX) to enable live enrichment.",
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
 # -------------------------------------------------------------

@@ -148,9 +148,10 @@ def test_exiftool_gps_extraction_and_zero_cloudinary():
     assert report.has_gps is True
     assert report.gps_latitude is not None
     assert report.gps_longitude is not None
-    assert "https://www.google.com/maps" in report.map_url_google
-    assert "https://www.openstreetmap.org" in report.map_url_osm
-    assert "https://jimpl.com" in report.external_verification_url
+    from urllib.parse import urlparse
+    assert urlparse(report.map_url_google).hostname == "www.google.com"
+    assert urlparse(report.map_url_osm).hostname == "www.openstreetmap.org"
+    assert urlparse(report.external_verification_url).hostname == "jimpl.com"
 
     # STRICT POLICY: Verify Cloudinary is completely absent
     report_dict_str = str(report.__dict__).lower()

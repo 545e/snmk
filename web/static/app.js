@@ -1,3 +1,146 @@
+function renderSubdomains(subs) {
+    const container = document.getElementById("subdomainsContainer");
+    const badge = document.getElementById("subdomainsCountBadge");
+    const count = (Array.isArray(subs) ? subs.length : 0);
+    if (badge) badge.textContent = count;
+    if (!container) return;
+
+    if (!subs || subs.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">No Subdomains Discovered</div>
+                <div style="font-size: 12px;">Run the Autonomous Subdomain Engine to map assets across this target scope.</div>
+            </div>`;
+        return;
+    }
+
+    const liveCount = subs.filter(s => typeof s === 'object' && (s.status === 200 || s.http_responsive || s.status_code === 200)).length;
+    const confirmedDns = subs.filter(s => typeof s === 'object' && s.dns_confirmed !== false && (s.ip || (s.ips && s.ips.length))).length;
+
+    container.innerHTML = `
+        <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+            <div style="display: flex; gap: 12px; align-items: center;">
+                <span style="font-size: 13px; font-weight: 700; color: var(--text-title);">Discovered Assets (${subs.length})</span>
+                <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 600;">${liveCount} Live HTTP</span>
+                <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(99, 102, 241, 0.15); color: #818cf8; font-weight: 600;">${confirmedDns} DNS Resolved</span>
+            </div>
+            <input type="text" id="subdomainFilterInput" placeholder="Filter subdomains by name, IP, or server..." oninput="filterSubdomainsUI(this.value)" style="padding: 6px 12px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-title); min-width: 260px;">
+        </div>
+        <div id="subdomainsListWrapper" style="display: flex; flex-direction: column; gap: 8px;">
+            ${subs.map((s, idx) => {
+                const name = typeof s === 'string' ? s : (s.subdomain || s.name || '');
+                const ip = typeof s === 'object' ? (s.ip || (s.ip_addresses && s.ip_addresses[0]) || '') : '';
+                const allIps = typeof s === 'object' && s.ip_addresses ? s.ip_addresses.join(', ') : ip;
+                const status = typeof s === 'object' ? (s.status || s.status_code || '') : '';
+                const server = typeof s === 'object' ? (s.server || '') : '';
+                const title = typeof s === 'object' ? (s.title || '') : '';
+                const cname = typeof s === 'object' ? (s.cname || '') : '';
+                const sources = typeof s === 'object' && s.sources ? s.sources.join(', ') : '';
+                const takeover = typeof s === 'object' && s.takeover_risk;
+
+                const statusColor = (status === 200) ? '#10b981' : ((status >= 300 && status < 400) ? '#38bdf8' : ((status >= 400 && status < 500) ? '#f59e0b' : '#6b7280'));
+                const statusBg = (status === 200) ? 'rgba(16, 185, 129, 0.12)' : ((status >= 300 && status < 400) ? 'rgba(56, 189, 248, 0.12)' : 'rgba(107, 114, 128, 0.12)');
+
+                return `
+                    <div class="subdomain-card-row" data-sub="${escapeHtml(name.toLowerCase())}" data-ip="${escapeHtml(allIps.toLowerCase())}" data-server="${escapeHtml(server.toLowerCase())}" style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; gap: 12px; transition: border-color 0.15s ease;">
+                        <div style="display: flex; align-items: center; gap: 10px; min-width: 0; flex: 2;">
+                            <span style="display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: ${statusColor}; flex-shrink: 0;"></span>
+                            <div style="min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <a href="https://${escapeHtml(name)}" target="_blank" rel="noopener noreferrer" style="font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text-title); text-decoration: none;" onmouseover="this.style.color='var(--brand)'" onmouseout="this.style.color='var(--text-title)'">
+                                        ${escapeHtml(name)}
+                                    </a>
+                                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.5;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                                </div>
+                                ${title ? `<div style="font-size: 11.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 420px; margin-top: 2px;">${escapeHtml(title)}</div>` : ''}
+                                ${cname ? `<div style="font-size: 10.5px; font-family: var(--mono); color: #818cf8; margin-top: 1px;">CNAME ➔ ${escapeHtml(cname)}</div>` : ''}
+                            </div>
+                        </div>
+
+                        <div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+                            ${server ? `<span style="font-size: 11px; padding: 2px 7px; border-radius: 4px; background: rgba(99, 102, 241, 0.1); color: #a5b4fc; font-weight: 500;">${escapeHtml(server)}</span>` : ''}
+                            ${status ? `<span style="font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; background: ${statusBg}; color: ${statusColor}; font-weight: 700;">${status}</span>` : '<span style="font-size: 10.5px; color: var(--text-muted);">DNS</span>'}
+                            ${allIps ? `<span style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); background: var(--bg-subtle); padding: 2px 7px; border-radius: 4px; border: 1px solid var(--border);">${escapeHtml(ip)}</span>` : ''}
+                            ${takeover ? `<span style="font-size: 10.5px; padding: 2px 6px; border-radius: 4px; background: rgba(239, 68, 68, 0.2); color: #ef4444; font-weight: 700;">TAKEOVER RISK</span>` : ''}
+                            ${sources ? `<span style="font-size: 10px; color: var(--text-muted); opacity: 0.7;">[${escapeHtml(sources.split(',')[0])}]</span>` : ''}
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function filterSubdomainsUI(query) {
+    const q = (query || '').toLowerCase().trim();
+    const rows = document.querySelectorAll('.subdomain-card-row');
+    rows.forEach(r => {
+        if (!q) {
+            r.style.display = 'flex';
+        } else {
+            const sub = r.getAttribute('data-sub') || '';
+            const ip = r.getAttribute('data-ip') || '';
+            const srv = r.getAttribute('data-server') || '';
+            r.style.display = (sub.includes(q) || ip.includes(q) || srv.includes(q)) ? 'flex' : 'none';
+        }
+    });
+}
+
+function renderFuzzingResults(fuzzResults) {
+    const container = document.getElementById("fuzzingContainer");
+    const badge = document.getElementById("fuzzingCountBadge");
+    const count = (Array.isArray(fuzzResults) ? fuzzResults.length : 0);
+    if (badge) badge.textContent = count;
+    if (!container) return;
+
+    if (!fuzzResults || fuzzResults.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.6;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">Zero Exposed Sensitive Assets Discovered</div>
+                <div style="font-size: 12px;">Target endpoint boundaries and hidden paths verified clean.</div>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = `
+        <div style="margin-bottom: 12px; font-size: 13px; font-weight: 700; color: var(--text-title);">Discovered Fuzzed Assets (${fuzzResults.length})</div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${fuzzResults.map(f => {
+                const url = f.url || f.path || '';
+                const path = f.path || url;
+                const status = f.status || f.status_code || 200;
+                const title = f.title || '';
+                const length = f.content_length ? `${f.content_length} bytes` : '';
+                return `
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;">
+                        <div>
+                            <div style="font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--text-title);">${escapeHtml(path)}</div>
+                            ${title ? `<div style="font-size: 11.5px; color: var(--text-muted); margin-top: 2px;">${escapeHtml(title)}</div>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            ${length ? `<span style="font-size: 11px; color: var(--text-muted);">${length}</span>` : ''}
+                            <span style="font-family: var(--mono); font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">HTTP ${status}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    `;
+}
+
+function formatDate(dateStr) {
+    if (!dateStr) return "-";
+    try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return String(dateStr);
+        return d.toLocaleString();
+    } catch (err) {
+        return String(dateStr);
+    }
+}
+
 
 function openAiCopilotDrawer() {
     const drawer = document.getElementById("aiCopilotDrawer") || document.getElementById("copilotDrawer");
@@ -212,6 +355,18 @@ async function launchScan() {
             showToast(`Assessment started for ${target}!`);
         }
     } catch (e) {
+        const didYouMean = (e.message || '').match(/Did you mean '([^']+)'\?/i);
+        if (didYouMean && didYouMean[1]) {
+            const suggestedDomain = didYouMean[1];
+            if (confirm(`${e.message}\n\nSwitch target to '${suggestedDomain}' and start assessment now?`)) {
+                if (input) input.value = suggestedDomain;
+                const ctxTargetEl = document.getElementById('ctxTargetText');
+                if (ctxTargetEl) ctxTargetEl.textContent = suggestedDomain;
+                return launchScan();
+            }
+            return;
+        }
+
         if (e.message && e.message.includes('not listed in configured scope allowlist')) {
             const cleanDomain = target.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
             const doAuth = confirm(`Target Scope Authorization Required:\n\nTarget '${cleanDomain}' is not yet in the authorized scope allowlist.\n\nAuthorize '${cleanDomain}' and start assessment now?`);
@@ -252,6 +407,8 @@ let __swaPollInFlight = false;
 function pollScanStatus(scanId) {
     if (scanPollInterval) clearInterval(scanPollInterval);
     scanPollInterval = setInterval(async () => {
+        if (__swaPollInFlight) return;
+        __swaPollInFlight = true;
         try {
             const res = await fetch(`/api/scans/${scanId}`);
             if (!res.ok) return;
@@ -286,6 +443,15 @@ function pollScanStatus(scanId) {
 
             if (tasksText) {
                 tasksText.textContent = `(Findings: ${scan.findings_count || 0})`;
+            }
+
+            if (scan.recon_data) {
+                if (Array.isArray(scan.recon_data.subdomains) && scan.recon_data.subdomains.length > 0) {
+                    renderSubdomains(scan.recon_data.subdomains);
+                }
+                if (Array.isArray(scan.recon_data.fuzzing_results) && scan.recon_data.fuzzing_results.length > 0) {
+                    renderFuzzingResults(scan.recon_data.fuzzing_results);
+                }
             }
 
             if (scan.status === 'COMPLETED' || scan.status === 'FAILED' || scan.status === 'CANCELLED') {
@@ -386,8 +552,11 @@ async function loadScans(triggerBtn) {
                 recentTbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--text-muted);">No security assessments recorded yet. Launch a scan above.</td></tr>`;
             } else {
                 recentTbody.innerHTML = scans.slice(0, 10).map(s => {
-                    const statusClass = s.status === 'COMPLETED' ? 'status-COMPLETED' : (s.status === 'RUNNING' ? 'status-RUNNING' : 'status-FAILED');
-                    const statusDot = s.status === 'COMPLETED' ? '<span class="status-dot-pulse dot-green"></span>' : (s.status === 'RUNNING' ? '<span class="status-dot-pulse dot-blue"></span>' : '<span class="status-dot-pulse dot-red"></span>');
+                    const isCompleted = s.status === 'COMPLETED';
+                    const isRunning = s.status === 'RUNNING';
+                    const isCancelled = s.status === 'CANCELLED';
+                    const statusClass = isCompleted ? 'status-COMPLETED' : (isRunning ? 'status-RUNNING' : (isCancelled ? 'status-CANCELLED' : 'status-FAILED'));
+                    const statusDot = isCompleted ? '<span class="status-dot-pulse dot-green"></span>' : (isRunning ? '<span class="status-dot-pulse dot-blue"></span>' : (isCancelled ? '<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#9ca3af;"></span>' : '<span class="status-dot-pulse dot-red"></span>'));
                     const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '--';
                     return `
                         <tr>
@@ -399,8 +568,8 @@ async function loadScans(triggerBtn) {
                             <td style="font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                             <td>
                                 <div style="display: flex; gap: 6px;">
-                                    <button class="btn btn-xs btn-primary hover-elevate" onclick="openAssessmentDetailsModal('${s.id}')" style="font-weight: 700; padding: 4px 12px; border-radius: 6px;">View</button>
-                                    <button class="btn btn-xs btn-outline hover-elevate" onclick="openReportFormatModal('${s.id}')" style="padding: 4px 10px; border-radius: 6px;">📄 Report ▾</button>
+                                    <button type="button" class="btn btn-xs btn-primary hover-elevate" onclick="openAssessmentDetailsModal('${s.id}'); event.stopPropagation();" style="font-weight: 700; padding: 4px 12px; border-radius: 6px;">View</button>
+                                    <button type="button" class="btn btn-xs btn-outline hover-elevate" onclick="openReportFormatModal('${s.id}')" style="padding: 4px 10px; border-radius: 6px;">📄 Report ▾</button>
                                 </div>
                             </td>
                         </tr>
@@ -416,7 +585,10 @@ async function loadScans(triggerBtn) {
                 allTbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 30px;">No assessment records found.</td></tr>`;
             } else {
                 allTbody.innerHTML = scans.map(s => {
-                    const statusClass = s.status === 'COMPLETED' ? 'status-COMPLETED' : (s.status === 'RUNNING' ? 'status-RUNNING' : 'status-FAILED');
+                    const isCompleted = s.status === 'COMPLETED';
+                    const isRunning = s.status === 'RUNNING';
+                    const isCancelled = s.status === 'CANCELLED';
+                    const statusClass = isCompleted ? 'status-COMPLETED' : (isRunning ? 'status-RUNNING' : (isCancelled ? 'status-CANCELLED' : 'status-FAILED'));
                     const dateStr = s.created_at ? new Date(s.created_at).toLocaleString() : '--';
                     return `
                         <tr>
@@ -427,8 +599,8 @@ async function loadScans(triggerBtn) {
                             <td style="font-size: 12px; color: var(--text-muted);">${dateStr}</td>
                             <td style="text-align: right;">
                                 <div style="display: flex; gap: 6px; justify-content: flex-end;">
-                                    <button class="btn btn-xs btn-primary" onclick="openAssessmentDetailsModal('${s.id}')" style="font-weight: 700; padding: 3px 10px;">View</button>
-                                    <button class="btn btn-xs btn-outline" onclick="openReportFormatModal('${s.id}')" style="padding: 3px 8px;">📄 Report ▾</button>
+                                    <button type="button" class="btn btn-xs btn-primary" onclick="openAssessmentDetailsModal('${s.id}'); event.stopPropagation();" style="font-weight: 700; padding: 3px 10px;">View</button>
+                                    <button type="button" class="btn btn-xs btn-outline" onclick="openReportFormatModal('${s.id}')" style="padding: 3px 8px;">📄 Report ▾</button>
                                 </div>
                             </td>
                         </tr>
@@ -445,6 +617,13 @@ async function loadScans(triggerBtn) {
             `).join('');
         }
 
+        // Auto-select latest active scan or maintain current selection
+        if (!currentScanId && scans.length > 0) {
+            selectScan(scans[0].id);
+        } else if (currentScanId && scansData[currentScanId]) {
+            selectScan(currentScanId);
+        }
+
         if (triggerBtn) {
             if (typeof loadDashboardFindings === 'function') loadDashboardFindings();
             if (typeof showToast === 'function') showToast(`Refreshed ${scans.length} assessments & telemetry`);
@@ -459,17 +638,25 @@ async function loadScans(triggerBtn) {
     }
 }
 
-function selectScan(scanId) {
-    if (!scanId || !scansData[scanId]) return;
+async function selectScan(scanId) {
+    if (!scanId) return;
     currentScanId = scanId;
-    const scan = scansData[scanId];
+    let scan = scansData[scanId];
+
+    if (!scan || !scan.recon_data) {
+        try {
+            const res = await fetch(`/api/scans/${scanId}`);
+            if (res.ok) {
+                scan = await res.json();
+                scansData[scanId] = scan;
+            }
+        } catch (_) {}
+    }
+    if (!scan) return;
 
     const pane = document.getElementById('activeDetailsContent');
     if (pane) {
         pane.style.display = 'block';
-        try {
-            pane.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        } catch (_) {}
     }
 
     const tEl = document.getElementById('activeScanTarget');
@@ -494,6 +681,26 @@ function selectScan(scanId) {
     const pctText = document.getElementById('activeScanProgressText');
     if (bar) bar.style.width = (scan.status === 'COMPLETED' ? '100%' : '50%');
     if (pctText) pctText.textContent = (scan.status === 'COMPLETED' ? '100%' : '50%');
+
+    // Synchronize Topbar Assessment Dropdown
+    const topSelect = document.getElementById('topbarAssessmentSelect');
+    if (topSelect && topSelect.value !== scanId) {
+        topSelect.value = scanId;
+    }
+
+    // Update Subdomains Badge and Content
+    const recon = scan.recon_data || {};
+    const subs = recon.subdomains || [];
+    renderSubdomains(subs);
+
+    // Update Fuzzed Assets Badge and Content
+    const fuzzed = recon.fuzzing_results || [];
+    renderFuzzingResults(fuzzed);
+
+    // Update Blue Team Defenses badge
+    if (typeof loadDefensiveRules === 'function') {
+        loadDefensiveRules();
+    }
 
     loadFindings(scanId);
     if (typeof recalculateActiveScanScore === 'function') {
@@ -1448,6 +1655,11 @@ function stopScanTimer() {
 
 // Master SOC Navigation Dispatcher & View Switcher (Generation 3 Unified Architecture)
 const VIEW_CONTAINER_MAP = {
+    'universal_scanner': 'viewUniversalScanner',
+    'security_flags': 'viewSecurityFlags',
+    'crypto_workbench': 'viewCryptoWorkbench',
+    'pcap_analyzer': 'viewPcapAnalyzer',
+    'correlation': 'viewCorrelation',
     'dashboard': 'viewDashboard',
     'assessments': 'viewAssessments',
     'assessment_details': 'viewAssessments',
@@ -1547,6 +1759,35 @@ const BREADCRUMB_MAP = {
     'siem': 'Platform / Audit Logs & SIEM Telemetry'
 };
 
+// Top-bar project selector. Previously this handler did not exist and the
+// onchange attribute threw a ReferenceError. It now persists the selection
+// locally and refreshes project-scoped data from the real API.
+async function switchProject(projectId) {
+  try {
+    if (projectId) sessionStorage.setItem('snmk_active_project', projectId);
+    else sessionStorage.removeItem('snmk_active_project');
+    if (typeof loadScans === 'function') await loadScans();
+    if (typeof showToast === 'function') {
+      showToast(projectId ? `Project ${projectId} selected` : 'All projects selected', 'success');
+    }
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Project switch failed: ' + e.message, 'error');
+  }
+}
+
+// DFIR evidence-image mount action. Defined here (loaded before
+// digital_forensics.js) so the generated button no longer throws a
+// ReferenceError. Opening a real mount requires a backend ingestion call.
+function addDataSourceModal(caseId) {
+  const caseInput = document.getElementById('dfirMountCaseId');
+  if (caseInput) caseInput.value = caseId || '';
+  const modal = document.getElementById('dfirMountModal');
+  if (modal && typeof modal.showModal === 'function') modal.showModal();
+  else if (typeof showToast === 'function') {
+    showToast(`Mount evidence image for case ${caseId || 'unknown'}`, 'info');
+  }
+}
+
 function navToView(view, updateHash = true) {
     document.title = 'SNMK — Autonomous Cybersecurity Platform';
     if (!view) view = 'dashboard';
@@ -1604,8 +1845,11 @@ function navToView(view, updateHash = true) {
     }
 
     // 6. Trigger live data loaders for the active view
-    if (targetContainerId === 'viewMap') {
-        if (typeof initMapView === 'function') initMapView();
+    if (targetContainerId === 'viewUniversalScanner') {
+        if (typeof loadUniversalMetrics === 'function') loadUniversalMetrics();
+        if (typeof loadUniversalHistory === 'function') loadUniversalHistory();
+    } else if (targetContainerId === 'viewMap') {
+        if (typeof initMapView === 'function') if (typeof window.initMapView === 'function') window.initMapView();
     } else if (targetContainerId === 'viewDashboard') {
         loadScans();
         loadRecentActivity();
@@ -3152,7 +3396,7 @@ function globalSearch(query) {
     const input = document.getElementById('vulnSearchInput');
     if (input) {
         input.value = query;
-        if (typeof filterFindings === 'function') filterFindings();
+        if (typeof window.filterFindings === 'function') window.filterFindings();
     }
 }
 
@@ -3184,6 +3428,14 @@ function switchTab(tabId, btn) {
         } else {
             loadFindings(currentScanId || null);
         }
+    } else if (tabId === 'tabSubdomains') {
+        const scan = currentScanId ? scansData[currentScanId] : null;
+        const subs = (scan && scan.recon_data && scan.recon_data.subdomains) || [];
+        renderSubdomains(subs);
+    } else if (tabId === 'tabFuzzing') {
+        const scan = currentScanId ? scansData[currentScanId] : null;
+        const fuzzed = (scan && scan.recon_data && scan.recon_data.fuzzing_results) || [];
+        renderFuzzingResults(fuzzed);
     } else if (tabId === 'tabReports') {
         loadReportsCenter();
     } else if (tabId === 'tabAssets') {
@@ -3797,8 +4049,8 @@ async function loadDefenses() {
 }
 
 function escapeHtml(text) {
-    if (!text) return "";
-    return text
+    if (text === null || text === undefined) return "";
+    return String(text)
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
@@ -7625,7 +7877,7 @@ window.authorizeAndRerunTarget = async function(domain) {
             alert('Failed to authorize target: ' + (data.detail || res.statusText));
             return;
         }
-        atRunAllTools();
+        runAllTools();
     } catch (e) {
         alert('Error authorizing target: ' + e.message);
     }
@@ -11345,6 +11597,9 @@ async function loadAcceptanceChecklist(deploymentId = null) {
         const data = await resp.json();
         currentChecklistData = data;
         renderAcceptanceChecklist(data);
+        if (typeof loadAcceptanceCategoriesChecklist === 'function') {
+            loadAcceptanceCategoriesChecklist();
+        }
     } catch (e) {
         if (container) {
             const standby = document.createElement('div');
@@ -12388,7 +12643,7 @@ async function launchAssessmentFromView() {
 // 🚀 CYBER DEPLOY & ACCEPTANCE CHECKLIST MODULE
 // ═══════════════════════════════════════════════════════════════════════════════
 
-async function loadAcceptanceChecklist() {
+async function loadAcceptanceCategoriesChecklist() {
     const container = document.getElementById('checklistCategoriesContainer');
     if (!container) return;
     try {
@@ -12933,31 +13188,47 @@ async function updateAllTools() {
 // Assessment Details Inspector & Report Formats Modal Controllers
 // ==============================================================================
 
-async function openAssessmentDetailsModal(scanId) {
+function openAssessmentDetailsModal(scanId) {
     if (!scanId) return;
     currentScanId = scanId;
-    
-    // Also update background dashboard telemetry pane
-    if (typeof selectScan === 'function' && scansData[scanId]) {
-        selectScan(scanId);
-    }
 
     const modal = document.getElementById('assessmentDetailsModal');
-    if (!modal) return;
-
-    let scan = scansData[scanId];
-    if (!scan) {
-        try {
-            const res = await fetch(`/api/scans/${scanId}`);
-            if (res.ok) {
-                scan = await res.json();
-                scansData[scanId] = scan;
-            }
-        } catch (_) {}
+    if (!modal) {
+        console.error('assessmentDetailsModal element not found in DOM');
+        return;
     }
-    scan = scan || { id: scanId, target_url: 'Target Host', profile: 'standard', status: 'COMPLETED' };
 
-    // Fill Header
+    // 1. Instantly display modal so user gets immediate visual confirmation
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+
+    // Ensure backdrop click and ESC key listeners close the modal cleanly
+    modal.onclick = function(e) {
+        if (e.target === modal) closeAssessmentDetailsModal();
+    };
+    if (!window.__modalEscAttached) {
+        window.__modalEscAttached = true;
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeAssessmentDetailsModal();
+                if (typeof closeReportFormatsModal === 'function') closeReportFormatsModal();
+                if (typeof closeFindingModal === 'function') closeFindingModal();
+            }
+        });
+    }
+
+    // 2. Synchronize background dashboard pane safely
+    try {
+        if (typeof selectScan === 'function' && scansData[scanId]) {
+            selectScan(scanId);
+        }
+    } catch (err) {
+        console.debug('selectScan non-blocking error:', err);
+    }
+
+    // 3. Immediately populate headers and links from in-memory cache
+    let scan = scansData[scanId] || { id: scanId, target_url: 'Target Host', profile: 'standard', status: 'COMPLETED' };
+
     const targetEl = document.getElementById('modalScanTarget');
     const idEl = document.getElementById('modalScanId');
     const profileEl = document.getElementById('modalScanProfile');
@@ -12968,14 +13239,15 @@ async function openAssessmentDetailsModal(scanId) {
     if (idEl) idEl.textContent = scan.id;
     if (profileEl) profileEl.textContent = (scan.profile || 'standard').toUpperCase().replace('_', ' ');
     if (statusEl) {
-        statusEl.textContent = scan.status || 'COMPLETED';
-        statusEl.className = `badge-status status-${scan.status || 'COMPLETED'}`;
+        const sStatus = (scan.status || 'COMPLETED').toUpperCase();
+        statusEl.textContent = sStatus;
+        statusEl.className = `badge-status status-${sStatus}`;
     }
     if (startedEl) {
         startedEl.textContent = scan.created_at ? new Date(scan.created_at).toLocaleString() : 'Recent';
     }
 
-    // Configure Direct Multi-Format Download URLs
+    // Direct Multi-Format Download URLs
     const encId = encodeURIComponent(scanId);
     const pdfBtn = document.getElementById('modalDownloadPdf');
     const docxBtn = document.getElementById('modalDownloadDocx');
@@ -12993,95 +13265,137 @@ async function openAssessmentDetailsModal(scanId) {
     if (mdBtn) mdBtn.href = `/api/scans/${encId}/report?format=markdown`;
     if (sarifBtn) sarifBtn.href = `/api/scans/${encId}/report?format=sarif`;
 
-    // Fetch and render scan-specific findings
+    // Initialize Findings and Logs Loading State
     const listEl = document.getElementById('modalFindingsList');
     if (listEl) {
-        listEl.innerHTML = '<div style="color: var(--brand); text-align: center; padding: 20px;">Fetching vulnerability findings...</div>';
+        listEl.innerHTML = '<div style="color: var(--brand); text-align: center; padding: 24px;"><span class="status-dot-pulse dot-blue" style="margin-right: 6px;"></span> Fetching vulnerability findings...</div>';
     }
-
-    try {
-        const fRes = await fetch(`/api/scans/${encId}/findings`);
-        const findings = fRes.ok ? await fRes.json() : [];
-        
-        // Calculate counts
-        let crit = 0, high = 0, med = 0, low = 0;
-        findings.forEach(f => {
-            const sev = (f.severity || '').toUpperCase();
-            if (sev === 'CRITICAL') crit++;
-            else if (sev === 'HIGH') high++;
-            else if (sev === 'MEDIUM') med++;
-            else low++;
-        });
-
-        const totalEl = document.getElementById('modalCountTotal');
-        const critEl = document.getElementById('modalCountCrit');
-        const highEl = document.getElementById('modalCountHigh');
-        const medEl = document.getElementById('modalCountMed');
-        const lowEl = document.getElementById('modalCountLow');
-
-        if (totalEl) totalEl.textContent = findings.length;
-        if (critEl) critEl.textContent = crit;
-        if (highEl) highEl.textContent = high;
-        if (medEl) medEl.textContent = med;
-        if (lowEl) lowEl.textContent = low;
-
-        // Posture Score Badge
-        const scoreBadge = document.getElementById('modalScanScoreBadge');
-        if (scoreBadge) {
-            let score = 100 - (crit * 30 + high * 18 + med * 8 + low * 3);
-            score = Math.max(0, Math.min(100, score));
-            let grade = score >= 90 ? 'Grade A' : (score >= 75 ? 'Grade B' : (score >= 60 ? 'Grade C' : (score >= 40 ? 'Grade D' : 'Grade F')));
-            scoreBadge.textContent = `Score: ${score}/100 (${grade})`;
-            scoreBadge.className = `score-badge ${score >= 90 ? 'score-A' : (score >= 75 ? 'score-B' : (score >= 60 ? 'score-C' : 'score-F'))}`;
-        }
-
-        if (listEl) {
-            if (findings.length === 0) {
-                listEl.innerHTML = '<div style="color: var(--safe); text-align: center; padding: 24px; font-weight: 600;">✓ Zero vulnerabilities detected in this assessment cycle. Clean perimeter verified.</div>';
-            } else {
-                listEl.innerHTML = findings.map((f, i) => `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: ${i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'};">
-                        <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
-                            <span class="sev-tag tag-${f.severity || 'LOW'}">${f.severity || 'LOW'}</span>
-                            <span style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.06); font-family: var(--mono); color: var(--text-muted);">CVSS ${f.cvss_score || '0.0'}</span>
-                            <strong style="color: var(--text-title); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.title || 'Finding')}</strong>
-                            <code style="color: var(--brand); font-size: 11px; margin-left: 6px;">${escapeHtml(f.method || 'GET')} ${escapeHtml(f.endpoint || '')}</code>
-                        </div>
-                        <button class="btn btn-xs btn-outline" onclick="openFindingModal('${f.id}')" style="margin-left: 10px;">Inspect & PoC</button>
-                    </div>
-                `).join('');
-            }
-        }
-    } catch (e) {
-        if (listEl) listEl.innerHTML = `<div style="color: var(--text-muted); padding: 16px; text-align: center;">Could not load findings: ${escapeHtml(e.message)}</div>`;
-    }
-
-    // Fetch and render scan logs
     const logsEl = document.getElementById('modalScanLogs');
     if (logsEl) {
-        try {
-            const lRes = await fetch(`/api/scans/${encId}/logs?limit=40`);
-            if (lRes.ok) {
-                const logs = await lRes.json();
+        logsEl.textContent = 'Streaming assessment logs and events...';
+    }
+
+    // Initial default count display from scan metadata if available
+    const totalEl = document.getElementById('modalCountTotal');
+    if (totalEl && scan.findings_count !== undefined) {
+        totalEl.textContent = scan.findings_count;
+    }
+
+    // 4. Asynchronously fetch full scan details if missing
+    if (!scansData[scanId]) {
+        fetch(`/api/scans/${encId}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(fullScan => {
+                if (fullScan) {
+                    scansData[scanId] = fullScan;
+                    if (targetEl) targetEl.textContent = fullScan.target_url || targetEl.textContent;
+                    if (profileEl) profileEl.textContent = (fullScan.profile || 'standard').toUpperCase().replace('_', ' ');
+                    if (statusEl) {
+                        statusEl.textContent = (fullScan.status || 'COMPLETED').toUpperCase();
+                        statusEl.className = `badge-status status-${(fullScan.status || 'COMPLETED').toUpperCase()}`;
+                    }
+                    if (startedEl && fullScan.created_at) {
+                        startedEl.textContent = new Date(fullScan.created_at).toLocaleString();
+                    }
+                }
+            })
+            .catch(e => console.debug('Scan metadata refresh non-blocking:', e));
+    }
+
+    // 5. Asynchronously fetch and render findings
+    fetch(`/api/scans/${encId}/findings`)
+        .then(r => r.ok ? r.json() : [])
+        .then(rawFindings => {
+            const findings = Array.isArray(rawFindings) ? rawFindings : (rawFindings.findings || rawFindings.items || []);
+            
+            // Calculate severity breakdown
+            let crit = 0, high = 0, med = 0, low = 0;
+            findings.forEach(f => {
+                const sev = (f.severity || '').toUpperCase();
+                if (sev === 'CRITICAL') crit++;
+                else if (sev === 'HIGH') high++;
+                else if (sev === 'MEDIUM') med++;
+                else low++;
+            });
+
+            const critEl = document.getElementById('modalCountCrit');
+            const highEl = document.getElementById('modalCountHigh');
+            const medEl = document.getElementById('modalCountMed');
+            const lowEl = document.getElementById('modalCountLow');
+
+            if (totalEl) totalEl.textContent = findings.length;
+            if (critEl) critEl.textContent = crit;
+            if (highEl) highEl.textContent = high;
+            if (medEl) medEl.textContent = med;
+            if (lowEl) lowEl.textContent = low;
+
+            // Posture Score Badge
+            const scoreBadge = document.getElementById('modalScanScoreBadge');
+            if (scoreBadge) {
+                let score = 100 - (crit * 30 + high * 18 + med * 8 + low * 3);
+                score = Math.max(0, Math.min(100, score));
+                let grade = score >= 90 ? 'Grade A' : (score >= 75 ? 'Grade B' : (score >= 60 ? 'Grade C' : (score >= 40 ? 'Grade D' : 'Grade F')));
+                scoreBadge.textContent = `Score: ${score}/100 (${grade})`;
+                scoreBadge.className = `score-badge ${score >= 90 ? 'score-A' : (score >= 75 ? 'score-B' : (score >= 60 ? 'score-C' : 'score-F'))}`;
+            }
+
+            if (listEl) {
+                if (findings.length === 0) {
+                    listEl.innerHTML = '<div style="color: var(--safe); text-align: center; padding: 24px; font-weight: 600;">✓ Zero vulnerabilities detected in this assessment cycle. Clean perimeter verified.</div>';
+                } else {
+                    listEl.innerHTML = findings.map((f, i) => `
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; border-bottom: 1px solid var(--border); background: ${i % 2 === 0 ? 'rgba(255,255,255,0.015)' : 'transparent'};">
+                            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">
+                                <span class="sev-tag tag-${f.severity || 'LOW'}">${f.severity || 'LOW'}</span>
+                                <span style="font-size: 11px; padding: 1px 5px; border-radius: 4px; background: rgba(255,255,255,0.06); font-family: var(--mono); color: var(--text-muted);">CVSS ${f.cvss_score || '0.0'}</span>
+                                <strong style="color: var(--text-title); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.title || 'Finding')}</strong>
+                                <code style="color: var(--brand); font-size: 11px; margin-left: 6px;">${escapeHtml(f.method || 'GET')} ${escapeHtml(f.endpoint || '')}</code>
+                            </div>
+                            <button type="button" class="btn btn-xs btn-outline" onclick="openFindingModal('${f.id}')" style="margin-left: 10px;">Inspect & PoC</button>
+                        </div>
+                    `).join('');
+                }
+            }
+        })
+        .catch(e => {
+            console.debug('Failed to load assessment findings:', e);
+            if (listEl) listEl.innerHTML = `<div style="color: var(--text-muted); padding: 16px; text-align: center;">Could not load findings: ${escapeHtml(e.message)}</div>`;
+        });
+
+    // 6. Asynchronously fetch logs with a 5s timeout
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    fetch(`/api/scans/${encId}/logs?limit=40`, { signal: controller.signal })
+        .then(r => {
+            clearTimeout(timeoutId);
+            return r.ok ? r.json() : [];
+        })
+        .then(logs => {
+            if (logsEl) {
                 if (Array.isArray(logs) && logs.length > 0) {
-                    logsEl.textContent = logs.map(ev => `[${ev.created_at ? ev.created_at.substring(11, 19) : '--'}] [${ev.agent || 'ScanEngine'}] ${ev.message}`).join('\n');
+                    logsEl.textContent = logs.map(ev => {
+                        const ts = ev.timestamp || (ev.created_at ? ev.created_at.substring(11, 19) : '--');
+                        return `[${ts}] [${ev.agent || 'ScanEngine'}] ${ev.message}`;
+                    }).join('\n');
                 } else {
                     logsEl.textContent = `[${new Date().toLocaleTimeString()}] Assessment initialized and completed successfully. No execution warnings logged.`;
                 }
-            } else {
-                logsEl.textContent = 'Log stream unavailable for this assessment.';
             }
-        } catch (_) {
-            logsEl.textContent = 'Log stream unavailable for this assessment.';
-        }
-    }
-
-    modal.classList.add('open');
+        })
+        .catch(e => {
+            clearTimeout(timeoutId);
+            if (logsEl) {
+                logsEl.textContent = `[${new Date().toLocaleTimeString()}] Telemetry log stream closed or empty for this assessment.`;
+            }
+        });
 }
 
 function closeAssessmentDetailsModal() {
     const modal = document.getElementById('assessmentDetailsModal');
-    if (modal) modal.classList.remove('open');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
 }
 
 function goToVulnerabilitiesFromModal() {
@@ -13108,6 +13422,13 @@ function openReportFormatModal(scanId) {
     const modal = document.getElementById('reportFormatsModal');
     if (!modal) return;
 
+    modal.classList.add('open');
+    modal.style.display = 'flex';
+
+    modal.onclick = function(e) {
+        if (e.target === modal) closeReportFormatsModal();
+    };
+
     const scan = scansData[scanId] || { id: scanId, target_url: 'Target System' };
     const targetLabel = document.getElementById('reportFormatsModalTarget');
     if (targetLabel) {
@@ -13130,14 +13451,23 @@ function openReportFormatModal(scanId) {
     if (json) json.href = `/api/scans/${enc}/report?format=json`;
     if (md) md.href = `/api/scans/${enc}/report?format=markdown`;
     if (sarif) sarif.href = `/api/scans/${enc}/report?format=sarif`;
-
-    modal.classList.add('open');
 }
 
 function closeReportFormatsModal() {
     const modal = document.getElementById('reportFormatsModal');
-    if (modal) modal.classList.remove('open');
+    if (modal) {
+        modal.classList.remove('open');
+        modal.style.display = 'none';
+    }
 }
+
+// Ensure global accessibility for inline onclick handlers
+window.openAssessmentDetailsModal = openAssessmentDetailsModal;
+window.closeAssessmentDetailsModal = closeAssessmentDetailsModal;
+window.openReportFormatModal = openReportFormatModal;
+window.closeReportFormatsModal = closeReportFormatsModal;
+window.goToVulnerabilitiesFromModal = goToVulnerabilitiesFromModal;
+window.copyScanIdDirect = copyScanIdDirect;
 
 // =====================================================================
 // CYBER AI EXECUTIVE DASHBOARD CONTROLLERS (Match Reference UI)
@@ -16197,7 +16527,7 @@ function renderToolHealthPopover() {
                     <div class="tool-diag-name-wrap">
                         <span class="tool-diag-name">${escapeHtml(t.name)}</span>
                         <span class="tool-diag-category">${escapeHtml(t.category)}</span>
-                        ${t.installed_version ? `<span style="font-size: 10px; color: #38bdf8; font-family: var(--mono); background: rgba(56,189,248,0.1); padding: 1px 6px; border-radius: 4px;">v${escapeHtml(t.installed_version)}</span>` : ''}
+                        ${t.installed_version ? `<span style="font-size: 10px; color: #38bdf8; font-family: var(--mono); background: rgba(56,189,248,0.1); padding: 1px 6px; border-radius: 4px;">${/^\d/.test(t.installed_version) ? 'v' : ''}${escapeHtml(t.installed_version)}</span>` : ''}
                     </div>
                     <span class="tool-status-badge ${badgeClass}">${escapeHtml(t.status)}</span>
                 </div>
@@ -16228,10 +16558,11 @@ function toggleToolDetailsTray(trayId) {
     if (tray) tray.classList.toggle('open');
 }
 
-function setPopoverFilter(filter) {
+function setPopoverFilter(filter, evt) {
     window.toolHealthState.filter = filter;
     document.querySelectorAll('.tool-filter-pill').forEach(p => p.classList.remove('active'));
-    event.target.classList.add('active');
+    const target = (evt || window.event)?.target;
+    if (target && target.classList) target.classList.add('active');
     renderToolHealthPopover();
 }
 
@@ -16485,6 +16816,474 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
 }
 
 
+// =====================================================================
+// Universal Vulnerability Scanner Controller (Phase 1 & 11)
+// =====================================================================
+
+let stagedUniversalFiles = [];
+let currentUniversalScanId = null;
+let universalScanPollTimer = null;
+let universalScanStartTime = 0;
+let currentUniversalFindings = [];
+let activeUniversalTab = 'url';
+
+function switchUniversalTab(mode) {
+    activeUniversalTab = mode;
+    const btnUrl = document.getElementById('tabModeUrl');
+    const btnFiles = document.getElementById('tabModeFiles');
+    const btnFolder = document.getElementById('tabModeFolder');
+    const secUrl = document.getElementById('univSectionUrl');
+    const secFiles = document.getElementById('univSectionFiles');
+
+    if (!btnUrl || !btnFiles || !btnFolder || !secUrl || !secFiles) return;
+
+    btnUrl.className = mode === 'url' ? 'btn btn-primary' : 'btn btn-secondary';
+    btnFiles.className = mode === 'files' ? 'btn btn-primary' : 'btn btn-secondary';
+    btnFolder.className = mode === 'folder' ? 'btn btn-primary' : 'btn btn-secondary';
+
+    if (mode === 'url') {
+        secUrl.style.display = 'block';
+        secFiles.style.display = 'none';
+    } else {
+        secUrl.style.display = 'none';
+        secFiles.style.display = 'block';
+        if (mode === 'folder') {
+            triggerFolderInput();
+        }
+    }
+}
+
+function triggerFileInput() {
+    const el = document.getElementById('univFileInput');
+    if (el) el.click();
+}
+
+function triggerFolderInput() {
+    const el = document.getElementById('univFolderInput');
+    if (el) el.click();
+}
+
+function handleUnivFileSelect(e) {
+    const files = Array.from(e.target.files || []);
+    addStagedFiles(files);
+}
+
+function handleUnivFolderSelect(e) {
+    const files = Array.from(e.target.files || []);
+    addStagedFiles(files);
+}
+
+function handleUnivDragOver(e) {
+    e.preventDefault();
+    const zone = document.getElementById('univDropZone');
+    if (zone) zone.style.borderColor = '#10b981';
+}
+
+function handleUnivDragLeave(e) {
+    e.preventDefault();
+    const zone = document.getElementById('univDropZone');
+    if (zone) zone.style.borderColor = '#334155';
+}
+
+function handleUnivDrop(e) {
+    e.preventDefault();
+    const zone = document.getElementById('univDropZone');
+    if (zone) zone.style.borderColor = '#334155';
+    const files = Array.from(e.dataTransfer.files || []);
+    addStagedFiles(files);
+}
+
+function addStagedFiles(files) {
+    for (const f of files) {
+        if (!stagedUniversalFiles.some(existing => existing.name === f.name && existing.size === f.size)) {
+            stagedUniversalFiles.push(f);
+        }
+    }
+    renderStagedFiles();
+}
+
+function removeStagedFile(idx) {
+    stagedUniversalFiles.splice(idx, 1);
+    renderStagedFiles();
+}
+
+function renderStagedFiles() {
+    const listEl = document.getElementById('univStagedFileList');
+    const badge = document.getElementById('univSelectedCountBadge');
+    if (!listEl || !badge) return;
+
+    badge.innerText = `${stagedUniversalFiles.length} file(s) staged`;
+
+    if (stagedUniversalFiles.length === 0) {
+        listEl.style.display = 'none';
+        listEl.innerHTML = '';
+        return;
+    }
+
+    listEl.style.display = 'block';
+    listEl.innerHTML = stagedUniversalFiles.map((f, idx) => {
+        const sizeMb = (f.size / (1024 * 1024)).toFixed(2);
+        return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 4px 8px; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 12px;">
+                <div style="display: flex; align-items: center; gap: 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <span style="color: #38bdf8; font-family: monospace;">[FILE]</span>
+                    <span style="color: #f8fafc;">${escapeHtml(f.name)}</span>
+                    <span style="color: var(--text-muted); font-size: 11px;">(${sizeMb} MB)</span>
+                </div>
+                <button onclick="removeStagedFile(${idx})" style="background: none; border: none; color: #ef4444; cursor: pointer; font-size: 14px; padding: 2px 6px;">&times;</button>
+            </div>
+        `;
+    }).join('');
+}
+
+function resetUniversalScannerForm() {
+    stagedUniversalFiles = [];
+    renderStagedFiles();
+    const urlInput = document.getElementById('univTargetUrl');
+    if (urlInput) urlInput.value = '';
+    const progressCard = document.getElementById('univProgressCard');
+    if (progressCard) progressCard.style.display = 'none';
+    const btnCancel = document.getElementById('btnUnivCancel');
+    if (btnCancel) btnCancel.disabled = true;
+    if (universalScanPollTimer) {
+        clearInterval(universalScanPollTimer);
+        universalScanPollTimer = null;
+    }
+}
+
+async function startUniversalScan() {
+    if (activeUniversalTab === 'url') {
+        const urlInput = document.getElementById('univTargetUrl');
+        const modeSelect = document.getElementById('univScanMode');
+        const url = (urlInput ? urlInput.value : '').trim();
+        if (!url) {
+            alert('Please enter a target website or application URL.');
+            return;
+        }
+
+        const mode = modeSelect ? modeSelect.value : 'safe_active';
+        showUniversalScanProgress(`Dispatching red team reconnaissance on ${url}...`);
+
+        try {
+            const res = await fetch('/api/universal-scanner/scan/url', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url, scan_mode: mode })
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Failed to initialize scan');
+            }
+            currentUniversalScanId = data.scan_id;
+            universalScanStartTime = Date.now();
+            pollUniversalScanProgress(currentUniversalScanId);
+        } catch (e) {
+            alert('Scan Initiation Error: ' + e.message);
+            hideUniversalScanProgress();
+        }
+    } else {
+        if (stagedUniversalFiles.length === 0) {
+            alert('Please select or drag-and-drop at least one file or folder to analyze.');
+            return;
+        }
+
+        const formData = new FormData();
+        for (const file of stagedUniversalFiles) {
+            formData.append('files', file);
+        }
+        formData.append('scan_type', activeUniversalTab === 'folder' ? 'folder' : 'file');
+        formData.append('scan_mode', 'safe_active');
+
+        showUniversalScanProgress(`Uploading and analyzing ${stagedUniversalFiles.length} file(s)...`);
+
+        try {
+            const res = await fetch('/api/universal-scanner/scan/upload', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.detail || 'Upload failed');
+            }
+            currentUniversalScanId = data.scan_id;
+            universalScanStartTime = Date.now();
+            pollUniversalScanProgress(currentUniversalScanId);
+        } catch (e) {
+            alert('Upload Scan Error: ' + e.message);
+            hideUniversalScanProgress();
+        }
+    }
+}
+
+function showUniversalScanProgress(msg) {
+    const card = document.getElementById('univProgressCard');
+    const stage = document.getElementById('univCurrentStage');
+    const bar = document.getElementById('univProgressBar');
+    const pct = document.getElementById('univProgressPercent');
+    const btnCancel = document.getElementById('btnUnivCancel');
+    const btnIdentify = document.getElementById('btnUnivIdentify');
+
+    if (card) card.style.display = 'block';
+    if (stage) stage.innerText = msg;
+    if (bar) bar.style.width = '10%';
+    if (pct) pct.innerText = '10%';
+    if (btnCancel) btnCancel.disabled = false;
+    if (btnIdentify) btnIdentify.disabled = true;
+}
+
+function hideUniversalScanProgress() {
+    const card = document.getElementById('univProgressCard');
+    const btnCancel = document.getElementById('btnUnivCancel');
+    const btnIdentify = document.getElementById('btnUnivIdentify');
+    if (card) card.style.display = 'none';
+    if (btnCancel) btnCancel.disabled = true;
+    if (btnIdentify) btnIdentify.disabled = false;
+    if (universalScanPollTimer) {
+        clearInterval(universalScanPollTimer);
+        universalScanPollTimer = null;
+    }
+}
+
+function pollUniversalScanProgress(scanId) {
+    if (universalScanPollTimer) clearInterval(universalScanPollTimer);
+
+    universalScanPollTimer = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/universal-scanner/scans/${scanId}`);
+            if (!res.ok) return;
+            const job = await res.json();
+
+            const bar = document.getElementById('univProgressBar');
+            const pct = document.getElementById('univProgressPercent');
+            const stage = document.getElementById('univCurrentStage');
+            const filesStat = document.getElementById('univProgressFilesStatus');
+            const duration = document.getElementById('univProgressDuration');
+
+            if (bar) bar.style.width = `${job.progress_percent}%`;
+            if (pct) pct.innerText = `${job.progress_percent}%`;
+            if (stage) stage.innerText = job.current_stage || 'Processing...';
+            if (filesStat) {
+                filesStat.innerText = job.scan_type === 'url' ?
+                    `Target: ${job.target}` :
+                    `Files: ${job.completed_files} completed, ${job.failed_files} failed (of ${job.total_files})`;
+            }
+            if (duration) {
+                const elapsedSec = Math.floor((Date.now() - universalScanStartTime) / 1000);
+                duration.innerText = `Elapsed: ${elapsedSec}s`;
+            }
+
+            if (job.status === 'COMPLETED' || job.status === 'FAILED' || job.status === 'CANCELLED') {
+                clearInterval(universalScanPollTimer);
+                universalScanPollTimer = null;
+                const btnCancel = document.getElementById('btnUnivCancel');
+                const btnIdentify = document.getElementById('btnUnivIdentify');
+                if (btnCancel) btnCancel.disabled = true;
+                if (btnIdentify) btnIdentify.disabled = false;
+
+                // Load and render findings
+                currentUniversalFindings = job.findings || [];
+                renderUniversalFindings(currentUniversalFindings);
+                loadUniversalMetrics();
+                loadUniversalHistory();
+            }
+        } catch (e) {
+            console.warn('Poll error:', e);
+        }
+    }, 1000);
+}
+
+async function cancelUniversalScan() {
+    if (!currentUniversalScanId) return;
+    try {
+        await fetch(`/api/universal-scanner/scans/${currentUniversalScanId}/cancel`, { method: 'POST' });
+        const stage = document.getElementById('univCurrentStage');
+        if (stage) stage.innerText = 'Scan cancelled by user.';
+        hideUniversalScanProgress();
+    } catch (e) {
+        console.warn('Cancel error:', e);
+    }
+}
+
+function rescanUniversalTarget() {
+    startUniversalScan();
+}
+
+function renderUniversalFindings(findings) {
+    const container = document.getElementById('univFindingsContainer');
+    const summary = document.getElementById('univFindingsSummaryLabel');
+    if (!container) return;
+
+    if (summary) {
+        summary.innerText = `Showing ${findings.length} correlated vulnerability findings across evaluated assets`;
+    }
+
+    if (!findings || findings.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" style="margin-bottom: 8px;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                <div style="font-weight: 700; color: #f8fafc; margin-bottom: 4px;">Zero Critical Vulnerabilities Detected</div>
+                <div>The scanned target passed baseline security posture tests without critical finding indicators.</div>
+            </div>
+        `;
+        return;
+    }
+
+    const sevColors = {
+        'CRITICAL': '#ef4444',
+        'HIGH': '#f97316',
+        'MEDIUM': '#eab308',
+        'LOW': '#3b82f6',
+        'INFORMATIONAL': '#64748b'
+    };
+
+    container.innerHTML = findings.map((f, idx) => {
+        const color = sevColors[f.severity] || '#64748b';
+        return `
+            <div style="background: #0f172a; border-left: 4px solid ${color}; border-radius: 8px; padding: 16px; margin-bottom: 12px; border-top: 1px solid var(--border); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+                    <div>
+                        <span style="background: ${color}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: 800; font-size: 11px; margin-right: 8px;">${escapeHtml(f.severity)}</span>
+                        <strong style="font-size: 14.5px; color: #f8fafc;">${escapeHtml(f.finding_title)}</strong>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); font-family: monospace;">
+                        ${f.cwe_id ? `<span style="background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px; margin-right: 6px;">${escapeHtml(f.cwe_id)}</span>` : ''}
+                        ${f.cvss_score ? `<span style="color: #f59e0b; font-weight: 700;">CVSS ${f.cvss_score}</span>` : ''}
+                    </div>
+                </div>
+
+                <div style="font-size: 12.5px; color: #94a3b8; margin-bottom: 10px;">
+                    ${escapeHtml(f.description)}
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 12px; margin-bottom: 10px;">
+                    <div>
+                        <span style="color: var(--text-muted); font-weight: 600;">Location / Asset:</span>
+                        <code style="color: #38bdf8; background: rgba(56, 189, 248, 0.1); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 2px;">${escapeHtml(f.location || 'N/A')}</code>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); font-weight: 600;">Detection Engine:</span>
+                        <span style="color: #cbd5e1; display: inline-block; margin-top: 2px;">${escapeHtml(f.scanner_name)}</span>
+                    </div>
+                </div>
+
+                ${f.evidence ? `
+                    <div style="margin-bottom: 10px;">
+                        <span style="font-size: 11.5px; color: var(--text-muted); font-weight: 600; display: block; margin-bottom: 4px;">Technical Evidence:</span>
+                        <pre style="background: #020617; border: 1px solid #1e293b; color: #38bdf8; padding: 8px 12px; border-radius: 6px; font-size: 11.5px; margin: 0; overflow-x: auto; font-family: monospace;">${escapeHtml(f.evidence)}</pre>
+                    </div>
+                ` : ''}
+
+                <div style="background: rgba(16, 185, 129, 0.06); border-left: 2px solid #10b981; padding: 8px 12px; border-radius: 4px; font-size: 12px; color: #e2e8f0;">
+                    <strong style="color: #10b981;">Remediation:</strong> ${escapeHtml(f.remediation || 'Follow enterprise secure coding and configuration guidelines.')}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function filterUniversalFindings() {
+    const search = (document.getElementById('univFindingsFilterInput')?.value || '').toLowerCase();
+    const sev = document.getElementById('univSeverityFilter')?.value || 'ALL';
+
+    const filtered = currentUniversalFindings.filter(f => {
+        const matchesSev = sev === 'ALL' || f.severity === sev;
+        const matchesSearch = !search ||
+            f.finding_title.toLowerCase().includes(search) ||
+            f.description.toLowerCase().includes(search) ||
+            (f.location && f.location.toLowerCase().includes(search));
+        return matchesSev && matchesSearch;
+    });
+
+    renderUniversalFindings(filtered);
+}
+
+function downloadUniversalReport(format) {
+    if (!currentUniversalScanId) {
+        alert('Please run a vulnerability scan before exporting a report.');
+        return;
+    }
+    window.open(`/api/universal-scanner/scans/${currentUniversalScanId}/report?format=${format}`, '_blank');
+}
+
+async function loadUniversalMetrics() {
+    try {
+        const res = await fetch('/api/universal-scanner/scans?limit=1');
+        if (!res.ok) return;
+        const data = await res.json();
+        const m = data.metrics || {};
+
+        const updateEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined ? val : 0;
+        };
+
+        updateEl('univTotalScans', m.total_scans);
+        updateEl('univUrlsScanned', m.urls_scanned);
+        updateEl('univFilesAnalyzed', m.files_analyzed);
+        updateEl('univFoldersAnalyzed', m.folders_analyzed);
+        updateEl('univTotalVulns', m.total_vulnerabilities);
+        updateEl('univCritCount', m.critical_findings);
+        updateEl('univHighCount', m.high_findings);
+        updateEl('univMedCount', m.medium_findings);
+        updateEl('univLowCount', m.low_findings);
+    } catch (e) {
+        console.warn('loadUniversalMetrics error:', e);
+    }
+}
+
+async function loadUniversalHistory() {
+    const tbody = document.getElementById('univHistoryTbody');
+    if (!tbody) return;
+
+    try {
+        const res = await fetch('/api/universal-scanner/scans?limit=25');
+        if (!res.ok) return;
+        const data = await res.json();
+        const scans = data.scans || [];
+
+        if (scans.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No scan history recorded yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = scans.map(s => {
+            const dateStr = s.started_at ? s.started_at.replace('T', ' ').substring(0, 19) : '—';
+            const statusColor = s.status === 'COMPLETED' ? '#10b981' : (s.status === 'FAILED' ? '#ef4444' : '#38bdf8');
+            return `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 8px 12px; color: var(--text-muted); font-size: 11.5px;">${dateStr}</td>
+                    <td style="padding: 8px 12px; font-weight: 700; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(s.target)}</td>
+                    <td style="padding: 8px 12px;"><span style="text-transform: uppercase; font-size: 11px; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 4px;">${escapeHtml(s.scan_type)}</span></td>
+                    <td style="padding: 8px 12px;"><span style="color: ${statusColor}; font-weight: 700; font-size: 12px;">${escapeHtml(s.status)}</span></td>
+                    <td style="padding: 8px 12px; font-weight: 700; color: #f59e0b;">${s.total_findings}</td>
+                    <td style="padding: 8px 12px;">
+                        <button class="btn btn-secondary" onclick="viewHistoricalScan('${s.id}')" style="padding: 3px 8px; font-size: 11px; margin-right: 4px;">View</button>
+                        <button class="btn btn-secondary" onclick="window.open('/api/universal-scanner/scans/${s.id}/report?format=html', '_blank')" style="padding: 3px 8px; font-size: 11px;">Report</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.warn('loadUniversalHistory error:', e);
+    }
+}
+
+async function viewHistoricalScan(scanId) {
+    currentUniversalScanId = scanId;
+    try {
+        const res = await fetch(`/api/universal-scanner/scans/${scanId}`);
+        if (!res.ok) return;
+        const job = await res.json();
+        currentUniversalFindings = job.findings || [];
+        renderUniversalFindings(currentUniversalFindings);
+        // Scroll to findings deck
+        const deck = document.getElementById('univResultsDeck');
+        if (deck) deck.scrollIntoView({ behavior: 'smooth' });
+    } catch (e) {
+        console.warn('viewHistoricalScan error:', e);
+    }
+}
+
 function platformEscape(value) {
     const div = document.createElement('div');
     div.textContent = value === null || value === undefined ? '' : String(value);
@@ -16573,3 +17372,245 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     observer.observe(target, { attributes: true, attributeFilter: ['class'] });
 });
+
+// =====================================================================
+// Security Flags & Multi-Module Controllers (Phases 7, 8, 9, 10)
+// =====================================================================
+
+async function loadSecurityFlags() {
+    try {
+        const cat = document.getElementById('flagCategoryFilter')?.value || '';
+        const url = cat ? `/api/v1/flags?category=${encodeURIComponent(cat)}` : '/api/v1/flags';
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = await res.json();
+        const flags = data.flags || [];
+        const summary = data.summary || {};
+
+        const updateEl = (id, val) => {
+            const el = document.getElementById(id);
+            if (el) el.innerText = val !== undefined ? val : 0;
+        };
+
+        updateEl('flagTotalCount', summary.total_flags);
+        updateEl('flagConfirmedCount', (summary.by_status && summary.by_status['CONFIRMED']) || 0);
+        updateEl('flagSuspectedCount', (summary.by_status && summary.by_status['SUSPECTED']) || 0);
+        updateEl('flagCritCount', summary.critical_count);
+        updateEl('flagHighCount', summary.high_count);
+
+        const tbody = document.getElementById('flagsTableBody');
+        if (!tbody) return;
+        if (flags.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No security flags recorded yet.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = flags.map(f => {
+            const sevColor = f.severity === 'CRITICAL' ? '#ef4444' : (f.severity === 'HIGH' ? '#f97316' : '#f59e0b');
+            return `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 8px 12px; font-weight: 700;">${escapeHtml(f.flag_name)}</td>
+                    <td style="padding: 8px 12px; font-size: 11px; color: var(--text-muted);">${escapeHtml(f.category)}</td>
+                    <td style="padding: 8px 12px;"><span style="color: ${sevColor}; font-weight: 700;">${escapeHtml(f.severity)}</span></td>
+                    <td style="padding: 8px 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(f.target_ref || f.affected_component || '—')}</td>
+                    <td style="padding: 8px 12px;"><span style="font-size: 11px; padding: 2px 6px; border-radius: 4px; background: rgba(255,255,255,0.06); font-weight: 600;">${escapeHtml(f.verification_status)}</span></td>
+                    <td style="padding: 8px 12px;">
+                        <button class="btn btn-secondary" onclick="updateFlagStatusUI('${f.id}', 'CONFIRMED')" style="padding: 3px 6px; font-size: 10.5px; margin-right: 4px;">Confirm</button>
+                        <button class="btn btn-secondary" onclick="updateFlagStatusUI('${f.id}', 'FALSE_POSITIVE')" style="padding: 3px 6px; font-size: 10.5px;">FP</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    } catch (e) {
+        console.warn('loadSecurityFlags error:', e);
+    }
+}
+
+async function updateFlagStatusUI(flagId, newStatus) {
+    try {
+        const res = await fetch(`/api/v1/flags/${flagId}/review`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: newStatus, reviewer: 'soc_analyst' })
+        });
+        if (res.ok) loadSecurityFlags();
+    } catch (e) {
+        console.warn('updateFlagStatusUI error:', e);
+    }
+}
+
+async function executeCryptoOperation() {
+    const input = document.getElementById('cryptoInputText')?.value || '';
+    const scheme = document.getElementById('cryptoSchemeSelect')?.value || 'hash_sha256';
+    const outputEl = document.getElementById('cryptoOutputText');
+    const badgeEl = document.getElementById('cryptoStatusBadge');
+    const warningEl = document.getElementById('cryptoWarningBox');
+
+    if (!input) {
+        alert('Please enter payload or text to process.');
+        return;
+    }
+
+    if (badgeEl) { badgeEl.innerText = 'PROCESSING...'; badgeEl.style.color = '#38bdf8'; }
+    if (warningEl) warningEl.style.display = 'none';
+
+    try {
+        let endpoint = '';
+        let payload = {};
+
+        if (scheme.startsWith('enc_')) {
+            endpoint = '/api/v1/crypto/encode';
+            payload = { text: input, scheme: scheme.replace('enc_', '') };
+        } else if (scheme.startsWith('dec_')) {
+            endpoint = '/api/v1/crypto/decode';
+            payload = { text: input, scheme: scheme.replace('dec_', '') };
+        } else if (scheme.startsWith('hash_')) {
+            endpoint = '/api/v1/crypto/hash';
+            payload = { data: input, algorithm: scheme.replace('hash_', '') };
+        } else if (scheme.startsWith('encrypt_')) {
+            endpoint = '/api/v1/crypto/encrypt';
+            payload = { plaintext: input, algorithm: scheme.replace('encrypt_', '').replace('_', '-') };
+        } else if (scheme === 'rot13') {
+            endpoint = '/api/v1/crypto/encode';
+            payload = { text: input, scheme: 'rot13' };
+        }
+
+        const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await res.json();
+        if (outputEl) {
+            outputEl.value = JSON.stringify(data, null, 2);
+        }
+        if (badgeEl) {
+            badgeEl.innerText = res.ok ? 'SUCCESS' : 'FAILED';
+            badgeEl.style.color = res.ok ? '#10b981' : '#ef4444';
+        }
+        if (data.warning && warningEl) {
+            warningEl.innerText = data.warning;
+            warningEl.style.display = 'block';
+        }
+    } catch (e) {
+        if (outputEl) outputEl.value = 'Operation failed: ' + e.message;
+        if (badgeEl) { badgeEl.innerText = 'ERROR'; badgeEl.style.color = '#ef4444'; }
+    }
+}
+
+let selectedPcapFile = null;
+
+function handlePcapFileSelect(input) {
+    if (input.files && input.files.length > 0) {
+        selectedPcapFile = input.files[0];
+        const label = document.getElementById('pcapSelectedFile');
+        if (label) label.innerText = `Selected capture: ${selectedPcapFile.name} (${(selectedPcapFile.size / 1024 / 1024).toFixed(2)} MB)`;
+        const btn = document.getElementById('pcapAnalyzeBtn');
+        if (btn) btn.disabled = false;
+    }
+}
+
+async function uploadAndAnalyzePcap() {
+    if (!selectedPcapFile) return;
+    const btn = document.getElementById('pcapAnalyzeBtn');
+    if (btn) { btn.disabled = true; btn.innerText = 'ANALYZING CAPTURE...'; }
+
+    const formData = new FormData();
+    formData.append('file', selectedPcapFile);
+
+    try {
+        const res = await fetch('/api/v1/pcap/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (res.ok && data.analysis_id) {
+            pollPcapAnalysis(data.analysis_id);
+        } else {
+            alert('Analysis failed: ' + (data.detail || 'Upload error'));
+            if (btn) { btn.disabled = false; btn.innerText = 'ANALYZE PACKET CAPTURE'; }
+        }
+    } catch (e) {
+        alert('PCAP analysis network error: ' + e.message);
+        if (btn) { btn.disabled = false; btn.innerText = 'ANALYZE PACKET CAPTURE'; }
+    }
+}
+
+async function pollPcapAnalysis(analysisId) {
+    const deck = document.getElementById('pcapResultsDeck');
+    const threatsList = document.getElementById('pcapThreatsList');
+    const btn = document.getElementById('pcapAnalyzeBtn');
+
+    try {
+        const res = await fetch(`/api/v1/pcap/analysis/${analysisId}`);
+        if (!res.ok) return;
+        const result = await res.json();
+
+        if (deck) deck.style.display = 'block';
+        if (btn) { btn.disabled = false; btn.innerText = 'ANALYZE PACKET CAPTURE'; }
+
+        const findings = result.findings || [];
+        if (threatsList) {
+            if (findings.length === 0) {
+                threatsList.innerHTML = '<div style="color: var(--text-muted); font-size: 13px;">No anomalies or threat indicators detected in this packet stream.</div>';
+            } else {
+                threatsList.innerHTML = findings.map(f => `
+                    <div style="background: var(--bg-dark); border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 10px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                            <span style="font-weight: 700; color: #ef4444; font-size: 13.5px;">${escapeHtml(f.title)}</span>
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;">${escapeHtml(f.severity)}</span>
+                        </div>
+                        <div style="font-size: 12.5px; color: var(--text-muted); margin-bottom: 6px;">${escapeHtml(f.description)}</div>
+                        <div style="font-family: monospace; font-size: 11.5px; color: #f59e0b; background: rgba(0,0,0,0.2); padding: 6px 10px; border-radius: 4px;">${escapeHtml(f.evidence)}</div>
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (e) {
+        console.warn('pollPcapAnalysis error:', e);
+    }
+}
+
+async function triggerCorrelationAnalysis() {
+    const container = document.getElementById('correlationIncidentsContainer');
+    if (container) container.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">Synthesizing multi-stage attack chains across all modules...</div>';
+
+    try {
+        const res = await fetch('/api/v1/correlation/analyze', { method: 'POST' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const incidents = data.incidents || [];
+
+        if (container) {
+            if (incidents.length === 0) {
+                container.innerHTML = '<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; color: var(--text-muted);">No compound security incidents detected across current active findings.</div>';
+                return;
+            }
+
+            container.innerHTML = incidents.map(inc => `
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: var(--shadow-card);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="font-size: 16px; font-weight: 800; color: #ef4444; margin: 0;">${escapeHtml(inc.title)}</h4>
+                        <div style="display: flex; gap: 8px; align-items: center;">
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(239, 68, 68, 0.15); color: #ef4444; font-weight: 700;">${escapeHtml(inc.severity)}</span>
+                            <span style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">CONFIDENCE: ${(inc.confidence_score * 100).toFixed(0)}%</span>
+                        </div>
+                    </div>
+                    <p style="font-size: 13px; color: var(--text-muted); margin: 0 0 10px 0;">${escapeHtml(inc.description)}</p>
+                    <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+                        ${(inc.attack_stages || []).map(s => `<span style="font-size: 10.5px; padding: 2px 8px; border-radius: 4px; background: rgba(168, 85, 247, 0.15); color: #c084fc; font-weight: 600;">STAGE: ${escapeHtml(s)}</span>`).join('')}
+                    </div>
+                    <div style="background: var(--bg-dark); padding: 10px 14px; border-radius: 8px; font-size: 12px; border: 1px solid var(--border);">
+                        <strong>Recommended Actions:</strong>
+                        <ul style="margin: 4px 0 0 0; padding-left: 20px;">
+                            ${(inc.recommended_actions || []).map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>
+            `).join('');
+        }
+    } catch (e) {
+        if (container) container.innerHTML = '<div style="padding: 24px; text-align: center; color: #ef4444;">Correlation analysis failed: ' + e.message + '</div>';
+    }
+}

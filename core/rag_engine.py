@@ -6,13 +6,14 @@ context assembly with strict citations, and tenant-isolated knowledge storage.
 
 from __future__ import annotations
 
-import re
-import math
-import uuid
+import datetime
 import json
 import logging
-import datetime
-from typing import Dict, Any, List, Optional, Tuple
+import math
+import re
+import uuid
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 from core.database import db
@@ -24,10 +25,10 @@ _TOKEN_RE = re.compile(r"\b[a-zA-Z0-9_\-\.]{2,}\b")
 
 
 def _utc_now() -> str:
-    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+    return datetime.datetime.now(datetime.UTC).isoformat()
 
 
-def _tokenize(text: str) -> List[str]:
+def _tokenize(text: str) -> list[str]:
     """Tokenize and normalize text into alphanumeric terms."""
     return _TOKEN_RE.findall(text.lower())
 
@@ -75,7 +76,7 @@ class RAGDocument(BaseModel):
     title: str
     source_type: str = "advisory"
     content: str
-    metadata: Dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
     chunk_count: int = 0
     created_at: str = Field(default_factory=_utc_now)
     updated_at: str = Field(default_factory=_utc_now)
@@ -106,10 +107,10 @@ class RAGKnowledgeEngine:
 
     def __init__(self):
         init_rag_schema()
-        self._chunk_cache: Dict[str, Dict[str, Any]] = {}
+        self._chunk_cache: dict[str, dict[str, Any]] = {}
         self._cache_max_projects = 16
 
-    def _load_project_chunks(self, project_id: str) -> List[Dict[str, Any]]:
+    def _load_project_chunks(self, project_id: str) -> list[dict[str, Any]]:
         """Load and parse project chunks with signature-based caching.
 
         Cache key: (chunk_count, MAX(created_at)) of rag_chunks for the project.
@@ -170,7 +171,7 @@ class RAGKnowledgeEngine:
         self._chunk_cache[project_id] = {"sig": signature, "chunks": parsed_chunks}
         return parsed_chunks
 
-    def chunk_text(self, text: str, chunk_size_words: int = 250, overlap_words: int = 40) -> List[str]:
+    def chunk_text(self, text: str, chunk_size_words: int = 250, overlap_words: int = 40) -> list[str]:
         """Splits document text into overlapping semantic passages."""
         words = text.split()
         if not words:
@@ -194,7 +195,7 @@ class RAGKnowledgeEngine:
         content: str,
         source_type: str = "security_advisory",
         project_id: str = "proj_default",
-        metadata: Optional[Dict[str, Any]] = None
+        metadata: dict[str, Any] | None = None
     ) -> RAGDocument:
         """Ingests and indexes a knowledge document into chunked vector/BM25 store."""
         if not title or not content:
@@ -225,7 +226,7 @@ class RAGKnowledgeEngine:
             for idx, chk in enumerate(chunks_text):
                 chk_id = f"chk_{uuid.uuid4().hex[:10]}"
                 tokens = _tokenize(chk)
-                tf: Dict[str, int] = {}
+                tf: dict[str, int] = {}
                 for t in tokens:
                     tf[t] = tf.get(t, 0) + 1
 
@@ -263,7 +264,7 @@ class RAGKnowledgeEngine:
         project_id: str = "proj_default",
         top_k: int = 5,
         min_relevance: float = 0.05
-    ) -> List[RetrievalResult]:
+    ) -> list[RetrievalResult]:
         """Performs tenant-isolated hybrid BM25 retrieval across ingested chunks."""
         query_terms = _tokenize(query)
         if not query_terms:
@@ -276,7 +277,7 @@ class RAGKnowledgeEngine:
 
         total_docs = len(parsed_chunks)
         # Calculate Term Document Frequencies
-        df: Dict[str, int] = {}
+        df: dict[str, int] = {}
         for c in parsed_chunks:
             tf_data = c["tf"]
             for term in query_terms:
@@ -289,7 +290,7 @@ class RAGKnowledgeEngine:
         k1 = 1.2
         b = 0.75
 
-        scored: List[Tuple[float, Dict[str, Any]]] = []
+        scored: list[tuple[float, dict[str, Any]]] = []
         for c in parsed_chunks:
             score = 0.0
             doc_len = c["token_count"]
@@ -311,7 +312,7 @@ class RAGKnowledgeEngine:
                 scored.append((score, c))
 
         scored.sort(key=lambda x: x[0], reverse=True)
-        results: List[RetrievalResult] = []
+        results: list[RetrievalResult] = []
         for score, item in scored[:top_k]:
             citation = f"[{item['title']} - Chunk #{item['chunk_index'] + 1}]"
             results.append(RetrievalResult(
@@ -326,7 +327,7 @@ class RAGKnowledgeEngine:
         return results
 
     def assemble_grounded_context(self, query: str, project_id: str = "proj_default", top_k: int = 3,
-                                retrievals: Optional[List[RetrievalResult]] = None) -> Dict[str, Any]:
+                                retrievals: list[RetrievalResult] | None = None) -> dict[str, Any]:
         """Assembles context with explicit citations and confidence scores.
 
         ``retrievals`` may be supplied by a caller that has already
@@ -358,7 +359,7 @@ class RAGKnowledgeEngine:
             "sources_count": len(retrievals)
         }
 
-    def list_documents(self, project_id: str = "proj_default") -> List[Dict[str, Any]]:
+    def list_documents(self, project_id: str = "proj_default") -> list[dict[str, Any]]:
         """Returns all ingested documents for the project."""
         with db.get_connection() as conn:
             cursor = conn.cursor()

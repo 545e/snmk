@@ -1,6 +1,6 @@
 # SWA AI — Finding & Vulnerability Lifecycle Management
 **Document ID:** SEC-FIND-2026-019  
-**Generated:** 2026-11-01T06:13:28.585946+00:00  
+**Generated:** 2026-11-17T06:16:20.775787+00:00  
 
 ---
 

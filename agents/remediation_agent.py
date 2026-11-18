@@ -5,10 +5,11 @@ for validated vulnerabilities based on detected technology stack.
 """
 
 import asyncio
-from typing import List
-from core.models import VulnerabilityFinding, ReconResult, LogEvent
-from core.queue_manager import queue_manager
+
 from core.llm_client import SWALLMClient
+from core.models import LogEvent, ReconResult, VulnerabilityFinding
+from core.queue_manager import queue_manager
+
 
 class RemediationAgent:
     def __init__(self, scan_id: str, llm_client: SWALLMClient, recon: ReconResult):
@@ -20,7 +21,7 @@ class RemediationAgent:
         event = LogEvent(scan_id=self.scan_id, agent="RemediationAgent", level=level, message=message)
         await queue_manager.emit_log(event)
 
-    async def run(self, findings: List[VulnerabilityFinding]) -> List[VulnerabilityFinding]:
+    async def run(self, findings: list[VulnerabilityFinding]) -> list[VulnerabilityFinding]:
         await self.log("Generating tailored code patches and defensive remediations...", "INFO")
         tech_names = [t.get("technology", "") for t in self.recon.technologies] if self.recon and self.recon.technologies else []
 

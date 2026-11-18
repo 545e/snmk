@@ -205,8 +205,7 @@ class REAEngine:
             return False, str(resolved), f"Target path does not exist on disk: {resolved.name}"
 
         # Allowlist: the analyser may only read from the roots the operator
-        # has made available.  The blocklist above still applies, but it is
-        # a second line of defence rather than the only one.
+        # has made available.
         if not REAEngine._is_within_allowed_root(resolved):
             roots = ", ".join(str(root) for root in REAEngine.allowed_roots())
             return False, str(resolved), (
@@ -238,7 +237,8 @@ class REAEngine:
         target_path: str,
         target_type: Optional[str] = None,
         authorized: bool = False,
-        timeout_sec: int = 30
+        timeout_sec: int = 30,
+        force_native: bool = False,
     ) -> Dict[str, Any]:
         """
         Executes safe analysis on an authorized target artifact.
@@ -304,7 +304,7 @@ class REAEngine:
         bin_path = self.get_binary_path()
         job_record["rea_cli_installed"] = bool(bin_path)
 
-        if bin_path:
+        if bin_path and not force_native:
             cli_result, cli_error = await self._run_rea_cli(
                 bin_path, target_p, inferred_type, timeout_sec
             )

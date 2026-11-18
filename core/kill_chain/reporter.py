@@ -9,20 +9,18 @@ from __future__ import annotations
 
 import csv
 import datetime
-import io
 import json
 import os
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from core.kill_chain.db import save_report_record
 from core.kill_chain.models import (
-    KillChainStageEnum,
-    KillChainFinding,
-    EvidenceItem,
     CorrelatedAttackPath,
+    EvidenceItem,
+    KillChainFinding,
     SeverityEnum,
 )
-from core.kill_chain.db import save_report_record
 
 
 class KillChainReportGenerator:
@@ -30,24 +28,24 @@ class KillChainReportGenerator:
     Enterprise-grade security reporting engine producing compliant audit reports.
     """
 
-    def __init__(self, output_dir: Optional[str] = None):
+    def __init__(self, output_dir: str | None = None):
         self.output_dir = output_dir or os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "reports")
         os.makedirs(self.output_dir, exist_ok=True)
 
     def generate_report(
         self,
         title: str,
-        findings: List[KillChainFinding],
-        evidence: List[EvidenceItem],
-        attack_paths: List[CorrelatedAttackPath],
-        coverage_data: Dict[str, Any],
-        metadata: Optional[Dict[str, Any]] = None,
-        export_formats: Optional[List[str]] = None,
-    ) -> Dict[str, Any]:
+        findings: list[KillChainFinding],
+        evidence: list[EvidenceItem],
+        attack_paths: list[CorrelatedAttackPath],
+        coverage_data: dict[str, Any],
+        metadata: dict[str, Any] | None = None,
+        export_formats: list[str] | None = None,
+    ) -> dict[str, Any]:
         """
         Builds complete multi-format report packages (HTML, PDF, JSON, CSV, Markdown).
         """
-        now = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now = datetime.datetime.now(datetime.UTC).isoformat()
         report_id = f"kc_rep_{uuid.uuid4().hex[:10]}"
         formats = export_formats or ["html", "json", "csv", "markdown", "pdf"]
 
@@ -136,7 +134,7 @@ class KillChainReportGenerator:
             try:
                 self._render_pdf(pdf_path, meta, findings, attack_paths, avg_risk, avg_conf)
                 generated_files["pdf"] = pdf_path
-            except Exception as e:
+            except Exception:
                 # If reportlab encounters an issue, fallback record is kept
                 pass
 
@@ -171,11 +169,11 @@ class KillChainReportGenerator:
 
     def _render_markdown(
         self,
-        meta: Dict[str, Any],
-        findings: List[KillChainFinding],
-        evidence: List[EvidenceItem],
-        attack_paths: List[CorrelatedAttackPath],
-        coverage: Dict[str, Any],
+        meta: dict[str, Any],
+        findings: list[KillChainFinding],
+        evidence: list[EvidenceItem],
+        attack_paths: list[CorrelatedAttackPath],
+        coverage: dict[str, Any],
         avg_risk: float,
         avg_conf: float,
     ) -> str:
@@ -253,11 +251,11 @@ Prioritize investments in stages with high risk and low verified control coverag
 
     def _render_html(
         self,
-        meta: Dict[str, Any],
-        findings: List[KillChainFinding],
-        evidence: List[EvidenceItem],
-        attack_paths: List[CorrelatedAttackPath],
-        coverage: Dict[str, Any],
+        meta: dict[str, Any],
+        findings: list[KillChainFinding],
+        evidence: list[EvidenceItem],
+        attack_paths: list[CorrelatedAttackPath],
+        coverage: dict[str, Any],
         avg_risk: float,
         avg_conf: float,
     ) -> str:
@@ -510,17 +508,23 @@ pre {{
     def _render_pdf(
         self,
         pdf_path: str,
-        meta: Dict[str, Any],
-        findings: List[KillChainFinding],
-        attack_paths: List[CorrelatedAttackPath],
+        meta: dict[str, Any],
+        findings: list[KillChainFinding],
+        attack_paths: list[CorrelatedAttackPath],
         avg_risk: float,
         avg_conf: float,
     ) -> None:
         """Renders native PDF report using reportlab."""
         from reportlab.lib import colors
         from reportlab.lib.pagesizes import letter
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+        from reportlab.platypus import (
+            Paragraph,
+            SimpleDocTemplate,
+            Spacer,
+            Table,
+            TableStyle,
+        )
 
         doc = SimpleDocTemplate(pdf_path, pagesize=letter, rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         styles = getSampleStyleSheet()

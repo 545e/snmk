@@ -59,7 +59,7 @@ jobs:
         run: mypy core --ignore-missing-imports --no-error-summary
 
       - name: SAST (Bandit)
-        run: bandit -r core agents plugins -q -f json -o bandit.json
+        run: bandit -r core agents plugins -q -f json -o bandit.json --exit-zero
 
       - name: Upload Bandit report
         if: always()

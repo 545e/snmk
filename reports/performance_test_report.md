@@ -1,6 +1,6 @@
 # SWA AI — Performance & Concurrency Benchmark Report
 **Document ID:** SEC-PERF-2026-022  
-**Generated:** 2026-11-01T06:13:28.585946+00:00  
+**Generated:** 2026-11-17T06:16:20.775787+00:00  
 
 ---
 

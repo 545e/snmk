@@ -4,12 +4,12 @@ Defines Pydantic schemas for Multi-Agent Workforce, Security Knowledge Graph,
 Approval Gates, Enterprise Context, EASM Drift, and Explainable Risk Scoring.
 """
 
-from enum import Enum
-from typing import List, Dict, Optional, Any, Union
-from pydantic import BaseModel, Field
-import uuid
 import datetime
+import uuid
+from enum import Enum
+from typing import Any
 
+from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
 # Multi-Agent Workforce Schemas
@@ -36,7 +36,7 @@ class AgentRole(str, Enum):
 
 
 class AgentPermissionBoundary(BaseModel):
-    allowed_tools: List[str] = Field(default_factory=list)
+    allowed_tools: list[str] = Field(default_factory=list)
     can_execute_active_probes: bool = False
     requires_approval_for_exploits: bool = True
     can_access_production_targets: bool = False
@@ -50,35 +50,35 @@ class AgentManifest(BaseModel):
     name: str
     version: str = "2.2.0"
     description: str
-    responsibilities: List[str]
-    input_schema: Dict[str, Any]
-    output_schema: Dict[str, Any]
+    responsibilities: list[str]
+    input_schema: dict[str, Any]
+    output_schema: dict[str, Any]
     permission_boundary: AgentPermissionBoundary
     status: str = "active"  # "active", "standby", "executing", "disabled"
 
 
 class AgentTask(BaseModel):
     id: str = Field(default_factory=lambda: f"task_{uuid.uuid4().hex[:8]}")
-    agent_role: Union[AgentRole, str]
+    agent_role: AgentRole | str
     scan_id: str
     title: str
     status: str = "PENDING"  # PENDING, RUNNING, COMPLETED, FAILED, AWAITING_APPROVAL, CANCELLED
-    inputs: Dict[str, Any] = Field(default_factory=dict)
-    outputs: Optional[Dict[str, Any]] = None
-    evidence: List[Dict[str, Any]] = Field(default_factory=list)
-    error_message: Optional[str] = None
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    duration_seconds: Optional[float] = None
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] | None = None
+    evidence: list[dict[str, Any]] = Field(default_factory=list)
+    error_message: str | None = None
+    started_at: str | None = None
+    completed_at: str | None = None
+    duration_seconds: float | None = None
 
 
 class AgentMessage(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4())[:8])
-    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    sender: Union[AgentRole, str]
-    recipient: Union[AgentRole, str]
+    timestamp: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    sender: AgentRole | str
+    recipient: AgentRole | str
     message_type: str  # "TASK_DISPATCH", "EVIDENCE_SUBMIT", "APPROVAL_REQUEST", "TELEMETRY", "CORRELATION"
-    payload: Dict[str, Any]
+    payload: dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
@@ -109,15 +109,15 @@ class ApprovalRequest(BaseModel):
     action_type: ApprovalActionType
     target: str
     requested_by: str = "SWA AI Orchestrator"
-    agent_role: Optional[AgentRole] = None
+    agent_role: AgentRole | None = None
     rationale: str
     impact_assessment: str
-    scope_details: Dict[str, Any] = Field(default_factory=dict)
+    scope_details: dict[str, Any] = Field(default_factory=dict)
     status: ApprovalStatus = ApprovalStatus.PENDING
-    decided_by: Optional[str] = None
-    decision_reason: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    decided_at: Optional[str] = None
+    decided_by: str | None = None
+    decision_reason: str | None = None
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    decided_at: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -138,7 +138,7 @@ class Workspace(BaseModel):
     name: str
     description: str = ""
     organization: str = "Enterprise Security"
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class Project(BaseModel):
@@ -146,10 +146,10 @@ class Project(BaseModel):
     workspace_id: str
     name: str
     description: str = ""
-    authorized_domains: List[str] = Field(default_factory=list)
+    authorized_domains: list[str] = Field(default_factory=list)
     business_criticality: str = "HIGH"  # CRITICAL, HIGH, MEDIUM, LOW
     owner: str = "Security Team"
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class GlobalSecurityContext(BaseModel):
@@ -159,7 +159,7 @@ class GlobalSecurityContext(BaseModel):
     project_name: str = "Core Production Infrastructure"
     target: str = "127.0.0.1:8000"
     target_authorized: bool = True
-    active_scan_id: Optional[str] = None
+    active_scan_id: str | None = None
     active_scan_status: str = "READY"
     active_tasks_count: int = 0
     active_agents_count: int = 85
@@ -167,7 +167,7 @@ class GlobalSecurityContext(BaseModel):
     posture_score: float = 88.0
     posture_grade: str = "B"
     latest_findings_count: int = 0
-    last_completion_timestamp: Optional[str] = None
+    last_completion_timestamp: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -196,9 +196,9 @@ class GraphNode(BaseModel):
     id: str
     type: GraphNodeType
     label: str
-    properties: Dict[str, Any] = Field(default_factory=dict)
-    criticality: Optional[str] = None
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    properties: dict[str, Any] = Field(default_factory=dict)
+    criticality: str | None = None
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 class GraphEdge(BaseModel):
@@ -206,13 +206,13 @@ class GraphEdge(BaseModel):
     source_id: str
     target_id: str
     relationship: str  # e.g., "OWNS", "RESOLVES_TO", "RUNS_SERVICE", "EXPOSES_ENDPOINT", "AFFECTED_BY", "VERIFIED_BY"
-    properties: Dict[str, Any] = Field(default_factory=dict)
+    properties: dict[str, Any] = Field(default_factory=dict)
 
 
 class SecurityKnowledgeGraph(BaseModel):
-    nodes: List[GraphNode] = Field(default_factory=list)
-    edges: List[GraphEdge] = Field(default_factory=list)
-    summary: Dict[str, int] = Field(default_factory=dict)
+    nodes: list[GraphNode] = Field(default_factory=list)
+    edges: list[GraphEdge] = Field(default_factory=list)
+    summary: dict[str, int] = Field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -239,11 +239,11 @@ class AssetDriftEvent(BaseModel):
     drift_type: DriftType
     title: str
     description: str
-    previous_state: Optional[Dict[str, Any]] = None
-    current_state: Dict[str, Any] = Field(default_factory=dict)
+    previous_state: dict[str, Any] | None = None
+    current_state: dict[str, Any] = Field(default_factory=dict)
     confidence: str = "CONFIRMED"  # CONFIRMED, HIGH_PROBABILITY, SUSPECTED_TRANSIENT
     is_genuine_change: bool = True
-    detected_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    detected_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 # ---------------------------------------------------------------------------
@@ -294,7 +294,7 @@ class PoCVerificationState(str, Enum):
     NO_VERIFICATION_EVIDENCE = "NO VERIFICATION EVIDENCE"
 
 # Metadata mappings
-FINDING_STATUS_METADATA: Dict[str, Dict[str, str]] = {
+FINDING_STATUS_METADATA: dict[str, dict[str, str]] = {
     "NEW": {"label": "New", "color": "#3B82F6", "description": "Newly detected finding"},
     "NEEDS_VALIDATION": {"label": "Needs Validation", "color": "#F59E0B", "description": "Requires verification"},
     "IN_PROGRESS": {"label": "In Progress", "color": "#06B6D4", "description": "Investigation is underway"},
@@ -315,7 +315,7 @@ FINDING_STATUS_METADATA: Dict[str, Dict[str, str]] = {
     "CLOSED": {"label": "Closed", "color": "#22C55E", "description": "Closed finding"}
 }
 
-REMEDIATION_STATUS_METADATA: Dict[str, Dict[str, str]] = {
+REMEDIATION_STATUS_METADATA: dict[str, dict[str, str]] = {
     "OPEN": {"label": "Open", "color": "#EF4444"},
     "ASSIGNED": {"label": "Assigned", "color": "#3B82F6"},
     "IN_PROGRESS": {"label": "In Progress", "color": "#06B6D4"},
@@ -326,7 +326,7 @@ REMEDIATION_STATUS_METADATA: Dict[str, Dict[str, str]] = {
     "REOPENED": {"label": "Reopened", "color": "#DC2626"}
 }
 
-SEVERITY_COLOR_METADATA: Dict[str, Dict[str, str]] = {
+SEVERITY_COLOR_METADATA: dict[str, dict[str, str]] = {
     "CRITICAL": {"cvss": "9.0–10.0", "fg": "#F87171", "bg": "#3F151C"},
     "HIGH": {"cvss": "7.0–8.9", "fg": "#FB923C", "bg": "#42230F"},
     "MEDIUM": {"cvss": "4.0–6.9", "fg": "#FBBF24", "bg": "#40320D"},
@@ -335,7 +335,7 @@ SEVERITY_COLOR_METADATA: Dict[str, Dict[str, str]] = {
     "UNCLASSIFIED": {"cvss": "Not scored", "fg": "#A1A1AA", "bg": "#292A32"}
 }
 
-PERMITTED_LIFECYCLE_TRANSITIONS: Dict[str, set] = {
+PERMITTED_LIFECYCLE_TRANSITIONS: dict[str, set] = {
     "NEW": {"NEEDS_VALIDATION", "IN_PROGRESS", "CONFIRMED", "LIKELY_FALSE_POSITIVE", "FALSE_POSITIVE", "DUPLICATE"},
     "NEEDS_VALIDATION": {"IN_PROGRESS", "CONFIRMED", "LIKELY_FALSE_POSITIVE", "FALSE_POSITIVE", "DUPLICATE", "INCONCLUSIVE", "ACCEPTED_RISK"},
     "IN_PROGRESS": {"CONFIRMED", "LIKELY_FALSE_POSITIVE", "FALSE_POSITIVE", "INCONCLUSIVE", "FIX_IN_PROGRESS", "ACCEPTED_RISK"},
@@ -357,7 +357,7 @@ PERMITTED_LIFECYCLE_TRANSITIONS: Dict[str, set] = {
     "CLOSED": {"REOPENED", "RESOLVED_VERIFIED"}
 }
 
-PERMITTED_REMEDIATION_TRANSITIONS: Dict[str, set] = {
+PERMITTED_REMEDIATION_TRANSITIONS: dict[str, set] = {
     "OPEN": {"ASSIGNED", "IN_PROGRESS", "RISK_ACCEPTED"},
     "ASSIGNED": {"IN_PROGRESS", "RISK_ACCEPTED", "OPEN"},
     "IN_PROGRESS": {"FIX_SUBMITTED", "PENDING_RETEST", "ASSIGNED", "RISK_ACCEPTED", "OPEN"},
@@ -376,7 +376,7 @@ class RiskScoreBreakdown(BaseModel):
     exploitability_factor: float
     exposure_factor: float
     asset_criticality_factor: float
-    epss_percentile: Optional[float] = None
+    epss_percentile: float | None = None
     known_exploited_cisa_kev: bool = False
     mitigation_discount: float = 0.0
     rationale: str
@@ -391,15 +391,15 @@ class RemediationTicket(BaseModel):
     severity: str
     lifecycle_status: FindingLifecycleStatus = FindingLifecycleStatus.DISCOVERED
     owner: str = "Unassigned"
-    due_date: Optional[str] = None
-    patch_code: Optional[str] = None
-    mitigation_guidance: Optional[str] = None
-    retest_status: Optional[str] = None  # PENDING, PASSED_VERIFIED, FAILED_PERSISTS
-    retest_evidence: Optional[str] = None
-    suppression_reason: Optional[str] = None
-    history: List[Dict[str, Any]] = Field(default_factory=list)
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
-    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    due_date: str | None = None
+    patch_code: str | None = None
+    mitigation_guidance: str | None = None
+    retest_status: str | None = None  # PENDING, PASSED_VERIFIED, FAILED_PERSISTS
+    retest_evidence: str | None = None
+    suppression_reason: str | None = None
+    history: list[dict[str, Any]] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
+    updated_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 # ---------------------------------------------------------------------------
@@ -426,11 +426,11 @@ class ReportRecord(BaseModel):
     template_type: ReportTemplateType
     title: str
     target: str
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
     format: str = "html"  # html, json, sarif, csv, markdown
     summary: str = ""
     findings_count: int = 0
     risk_score: float = 0.0
     generated_by: str = "Report Generation Agent"
     content: str
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())

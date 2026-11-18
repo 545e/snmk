@@ -9,7 +9,6 @@ from __future__ import annotations
 import ipaddress
 import logging
 import socket
-from typing import Any, Dict, List, Optional
 
 from core.network.geo_engine import geo_engine, is_private_ip
 from core.network.infrastructure import infra_engine
@@ -57,8 +56,8 @@ class NetworkOriginEngine:
         is_gateway = (resolved_ip == local_info.gateway_ip)
         is_private = is_private_ip(resolved_ip)
 
-        evidence: List[str] = []
-        limitations: List[str] = [
+        evidence: list[str] = []
+        limitations: list[str] = [
             "Network origin identification establishes routing allocations, public BGP announcements, and ISP endpoints.",
             "Attribution does NOT identify individual personal identities due to NAT/CGNAT, shared hosting, and dynamic DHCP pools."
         ]

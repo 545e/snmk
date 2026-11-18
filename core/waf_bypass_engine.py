@@ -5,7 +5,7 @@ and generates context-aware bypass vectors and payload encodings.
 """
 
 import re
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 WAF_SIGNATURES = [
     {
@@ -112,7 +112,7 @@ WAF_BYPASS_TECHNIQUES = {
 
 class WAFBypassEngine:
     @staticmethod
-    def detect_waf(headers: Dict[str, str], body: str, cookies: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    def detect_waf(headers: dict[str, str], body: str, cookies: dict[str, str] | None = None) -> dict[str, Any]:
         """Analyzes HTTP response headers, body, and cookies to identify WAF signature."""
         headers_lower = {k.lower(): v.lower() for k, v in headers.items()}
         server_val = headers_lower.get("server", "")

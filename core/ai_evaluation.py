@@ -4,13 +4,13 @@ Calculates precision, recall, F1, confusion matrices, inference latency, through
 token usage, and cost estimates for baseline vs tuned AI models on held-out test splits.
 """
 
-import time
-import json
-import uuid
 import asyncio
 import datetime
 import re
-from typing import Dict, Any, List, Optional
+import time
+import uuid
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -46,14 +46,14 @@ class ConfusionMatrix(BaseModel):
 class EvaluationResult(BaseModel):
     id: str = Field(default_factory=lambda: f"eval_{uuid.uuid4().hex[:10]}")
     model_name: str
-    baseline_model_name: Optional[str] = "heuristic-baseline-v1"
-    dataset_id: Optional[str] = None
+    baseline_model_name: str | None = "heuristic-baseline-v1"
+    dataset_id: str | None = None
     task_type: str = "classification"  # "classification" or "llm_inference"
     # COMPLETED  - metrics below were measured against real records.
     # NOT_RUN    - no measurable data/provider was available; metrics are zero
     #              and status_reason explains why. NEVER presented as a score.
     status: str = "COMPLETED"
-    status_reason: Optional[str] = None
+    status_reason: str | None = None
     test_sample_count: int = 100
     accuracy: float = 0.0
     precision: float = 0.0
@@ -69,7 +69,7 @@ class EvaluationResult(BaseModel):
     regression_detected: bool = False
     improvement_percent: float = 0.0
     comparison_summary: str = ""
-    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.timezone.utc).isoformat())
+    created_at: str = Field(default_factory=lambda: datetime.datetime.now(datetime.UTC).isoformat())
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +155,7 @@ def classify_text(text: str) -> str:
     blob = str(text if text is not None else "")
     if not blob.strip():
         return "BENIGN"
-    scores: Dict[str, int] = {}
+    scores: dict[str, int] = {}
     for label, patterns in _COMPILED_SIGNATURES.items():
         hits = sum(1 for p in patterns if p.search(blob))
         if hits:
@@ -166,7 +166,7 @@ def classify_text(text: str) -> str:
     return max(scores.items(), key=lambda kv: (kv[1], kv[0]))[0]
 
 
-def _macro_averaged_metrics(y_true: List[str], y_pred: List[str]) -> tuple:
+def _macro_averaged_metrics(y_true: list[str], y_pred: list[str]) -> tuple:
     """Compute a genuine multi-class confusion matrix and macro metrics."""
     labels = sorted(set(y_true) | set(y_pred))
     tp = {l: 0 for l in labels}
@@ -209,7 +209,7 @@ class AIEvaluationEngine:
         self,
         model_name: str,
         baseline_name: str = "heuristic-baseline-v1",
-        dataset_id: Optional[str] = None,
+        dataset_id: str | None = None,
         test_samples: int = 150
     ) -> EvaluationResult:
         """
@@ -226,10 +226,10 @@ class AIEvaluationEngine:
         from core.database import db
 
         # --- Load real labelled records -------------------------------------
-        y_true: List[str] = []
-        y_pred: List[str] = []
-        label_field: Optional[str] = None
-        rows: List[Dict[str, Any]] = []
+        y_true: list[str] = []
+        y_pred: list[str] = []
+        label_field: str | None = None
+        rows: list[dict[str, Any]] = []
 
         if dataset_id:
             try:
@@ -251,13 +251,13 @@ class AIEvaluationEngine:
             )
 
         # Use the declared label column, else the last field of the record.
-        def _label_of(row: Dict[str, Any]) -> Any:
+        def _label_of(row: dict[str, Any]) -> Any:
             if label_field and label_field in row:
                 return row[label_field]
-            keys = [k for k in row.keys()]
+            keys = [k for k in row]
             return row[keys[-1]] if keys else None
 
-        def _text_of(row: Dict[str, Any]) -> str:
+        def _text_of(row: dict[str, Any]) -> str:
             for key in ("text", "content", "payload", "sample", "input", "value", "request"):
                 if row.get(key):
                     return str(row[key])
@@ -329,7 +329,7 @@ class AIEvaluationEngine:
         self,
         model_name: str,
         baseline_name: str,
-        dataset_id: Optional[str],
+        dataset_id: str | None,
         task_type: str,
         test_samples: int,
         reason: str,
@@ -379,7 +379,7 @@ class AIEvaluationEngine:
             )
 
         pricing = PROVIDER_PRICING.get(model_name.lower(), PROVIDER_PRICING["local-model"])
-        latencies: List[float] = []
+        latencies: list[float] = []
         prompt_tokens = 0
         completion_tokens = 0
 

@@ -110,6 +110,29 @@
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
                 <span>Scan Comparison</span>
             </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemUniversalScanner" onclick="navToView('universal_scanner')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><path d="M11 8v6M8 11h6"></path></svg>
+                <span>Universal Scanner</span>
+                <span class="nav-badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: auto; font-weight:700;">PRO</span>
+            </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemSecurityFlags" onclick="navToView('security_flags')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                <span>Security Flags</span>
+                <span class="nav-badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: auto;">70</span>
+            </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemCryptoWorkbench" onclick="navToView('crypto_workbench')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                <span>Crypto Workbench</span>
+            </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemPcapAnalyzer" onclick="navToView('pcap_analyzer')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                <span>PCAP Forensics</span>
+            </button>
+            <button class="swa-sidebar-link soc-nav-item" id="navItemCorrelation" onclick="navToView('correlation')">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                <span>Correlation Engine</span>
+                <span class="nav-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 9px; padding: 1px 5px; border-radius: 4px; margin-left: auto;">AI</span>
+            </button>
 
             </div>
             <div class="nav-sec" style="--sec:#06b6d4">
@@ -481,17 +504,14 @@
                     </div>
                 </div>
                 <div class="soc-kpi-body">
-                    <div class="soc-kpi-number" id="socKpiVulnsTotal">434 <span class="soc-kpi-unit">Findings</span></div>
+                    <div class="soc-kpi-number" id="socKpiVulnsTotal">&mdash; <span class="soc-kpi-unit">Findings</span></div>
                     <div class="soc-kpi-subtags">
-                        <span class="sev-tag sev-crit">0 Crit</span>
-                        <span class="sev-tag sev-high">4 High</span>
-                        <span class="sev-tag sev-med">2 Med</span>
-                        <span class="sev-tag sev-low">428 Low</span>
+                        <span class="sev-tag sev-crit">Loading&hellip;</span>
                     </div>
                     <div class="soc-kpi-bar-track">
-                        <div class="soc-kpi-bar-fill fill-high" style="width: 8%;" title="4 High Vulnerabilities"></div>
-                        <div class="soc-kpi-bar-fill fill-med" style="width: 5%;" title="2 Medium Vulnerabilities"></div>
-                        <div class="soc-kpi-bar-fill fill-low" style="width: 87%;" title="428 Low/Info Headers"></div>
+                        <div class="soc-kpi-bar-fill fill-high" style="width: 0%;" title="Awaiting live data"></div>
+                        <div class="soc-kpi-bar-fill fill-med" style="width: 0%;" title="Awaiting live data"></div>
+                        <div class="soc-kpi-bar-fill fill-low" style="width: 0%;" title="Awaiting live data"></div>
                     </div>
                 </div>
             </button>
@@ -505,17 +525,13 @@
                     </div>
                 </div>
                 <div class="soc-kpi-body">
-                    <div class="soc-kpi-number">85 <span class="soc-kpi-unit">Agents Ready</span></div>
-                    <div class="soc-kpi-subtags">
-                        <span class="agent-tier-tag">17 Specialists</span>
-                        <span class="agent-tier-tag">9 Recon</span>
-                        <span class="agent-tier-tag">10 OWASP</span>
-                        <span class="agent-tier-tag">32 AST</span>
-                        <span class="agent-tier-tag">17 Adapters</span>
+                    <div class="soc-kpi-number" id="socKpiAgents">&mdash; <span class="soc-kpi-unit">Agents Ready</span></div>
+                    <div class="soc-kpi-subtags" id="socKpiAgentTiers">
+                        <span class="agent-tier-tag">Loading&hellip;</span>
                     </div>
                     <div class="soc-kpi-status-row">
-                        <span class="soc-pulse-dot dot-green"></span>
-                        <span class="soc-status-text">100% Operational &bull; Multi-Agent Pipeline Ready</span>
+                        <span class="soc-pulse-dot dot-blue"></span>
+                        <span class="soc-status-text" id="socKpiAgentStatus">Checking live agent status&hellip;</span>
                     </div>
                 </div>
             </button>
@@ -529,14 +545,12 @@
                     </div>
                 </div>
                 <div class="soc-kpi-body">
-                    <div class="soc-kpi-number" id="socKpiGrade">Grade B <span class="soc-kpi-unit">(85/100)</span></div>
+                    <div class="soc-kpi-number" id="socKpiGrade">Grade &mdash; <span class="soc-kpi-unit"></span></div>
                     <div class="soc-kpi-subtags">
-                        <span class="defense-tag tag-safe">Low Exploit Risk</span>
-                        <span class="defense-tag tag-verified">434 PoCs Verified</span>
-                        <span class="defense-tag tag-patch">3 WAF Rules Ready</span>
+                        <span class="defense-tag tag-safe">Awaiting telemetry</span>
                     </div>
                     <div class="soc-posture-progress">
-                        <div class="soc-posture-fill" style="width: 85%;"></div>
+                        <div class="soc-posture-fill" style="width: 0%;"></div>
                     </div>
                 </div>
             </button>
@@ -557,7 +571,7 @@
                     </div>
                     <div class="soc-kpi-status-row">
                         <span class="soc-pulse-dot dot-blue"></span>
-                        <span class="soc-status-text">186 Scans Executed &bull; Target Ingress: 4ms</span>
+                        <span class="soc-status-text" id="socKpiTargetTelemetry">Awaiting live telemetry&hellip;</span>
                     </div>
                 </div>
             </button>
@@ -1651,8 +1665,8 @@
                                 <h4 style="margin:0 0 8px 0; font-size:13px; color:#818cf8;">Monitoring Vantage Point</h4>
                                 <div style="font-size:12px; line-height:1.7; color:#cbd5e1;">
                                     <div><strong>Host:</strong> krishna</div>
-                                    <div><strong>Local IP:</strong> 192.168.0.10</div>
-                                    <div><strong>Default Gateway:</strong> 192.168.0.1</div>
+                                    <div><strong>Local IP:</strong> <span id="overviewLocalIp">&mdash;</span></div>
+                                    <div><strong>Default Gateway:</strong> <span id="overviewGateway">&mdash;</span></div>
                                     <div><strong>Subnet:</strong> 192.168.0.0/24</div>
                                     <div><strong>DNS:</strong> 192.168.0.1, 1.1.1.1</div>
                                 </div>
@@ -1660,7 +1674,7 @@
                             <div class="map-input-panel">
                                 <h4 style="margin:0 0 8px 0; font-size:13px; color:#34d399;">Active Origin Infrastructure</h4>
                                 <div style="font-size:12px; line-height:1.7; color:#cbd5e1;">
-                                    <div><strong>Public IP:</strong> <span id="overviewPubIp">49.204.237.171</span></div>
+                                    <div><strong>Public IP:</strong> <span id="overviewPubIp">&mdash; (not measured)</span></div>
                                     <div><strong>ISP:</strong> Atria Convergence Technologies (ACT)</div>
                                     <div><strong>ASN:</strong> AS24309</div>
                                     <div><strong>Region:</strong> Andhra Pradesh, IN</div>
@@ -2021,8 +2035,415 @@
             </div>
         </div><!-- /viewMap -->
 
+        <!-- UNIVERSAL VULNERABILITY SCANNER VIEW -->
+        <div id="viewUniversalScanner" class="swa-view">
+            <div class="swa-view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <h2 class="swa-view-title" style="font-size: 22px; font-weight: 800; color: var(--text-title); margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><path d="M11 8v6M8 11h6"></path></svg>
+                        Universal Vulnerability Scanner
+                        <span class="nav-badge" style="background: rgba(16, 185, 129, 0.2); color: #10b981; font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight:700;">ENTERPRISE AI</span>
+                    </h2>
+                    <p class="swa-view-subtitle" style="font-size: 13.5px; color: var(--text-muted); margin: 0;">Multi-modal cybersecurity analysis engine for Web URLs, Documents, Images, Source Code, Compressed Archives, and Directory Trees</p>
+                </div>
+                <div class="swa-view-actions" style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="loadUniversalMetrics()" style="padding: 7px 14px; font-size: 12.5px; display: flex; align-items: center; gap: 6px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        Refresh
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetUniversalScannerForm()" style="padding: 7px 14px; font-size: 12.5px;">Clear Form</button>
+                </div>
+            </div>
 
-                    <div id="viewAssessments" class="swa-view">
+            <!-- Executive Metrics Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 12px; margin-bottom: 22px;">
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Total Scans</div>
+                    <div id="univTotalScans" style="font-size: 20px; font-weight: 800; color: var(--text-title);">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">URLs</div>
+                    <div id="univUrlsScanned" style="font-size: 20px; font-weight: 800; color: #38bdf8;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Files</div>
+                    <div id="univFilesAnalyzed" style="font-size: 20px; font-weight: 800; color: #818cf8;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Folders</div>
+                    <div id="univFoldersAnalyzed" style="font-size: 20px; font-weight: 800; color: #c084fc;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; margin-bottom: 4px;">Vulnerabilities</div>
+                    <div id="univTotalVulns" style="font-size: 20px; font-weight: 800; color: #f59e0b;">0</div>
+                </div>
+                <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #ef4444; font-weight: 700; margin-bottom: 4px;">Critical</div>
+                    <div id="univCritCount" style="font-size: 20px; font-weight: 800; color: #ef4444;">0</div>
+                </div>
+                <div style="background: rgba(249, 115, 22, 0.08); border: 1px solid rgba(249, 115, 22, 0.3); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #f97316; font-weight: 700; margin-bottom: 4px;">High</div>
+                    <div id="univHighCount" style="font-size: 20px; font-weight: 800; color: #f97316;">0</div>
+                </div>
+                <div style="background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.3); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #eab308; font-weight: 700; margin-bottom: 4px;">Medium</div>
+                    <div id="univMedCount" style="font-size: 20px; font-weight: 800; color: #eab308;">0</div>
+                </div>
+                <div style="background: rgba(59, 130, 246, 0.08); border: 1px solid rgba(59, 130, 246, 0.3); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; text-transform: uppercase; color: #3b82f6; font-weight: 700; margin-bottom: 4px;">Low</div>
+                    <div id="univLowCount" style="font-size: 20px; font-weight: 800; color: #3b82f6;">0</div>
+                </div>
+            </div>
+
+            <!-- Main Scanner Control Deck -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow-card);">
+                <!-- Input Mode Tabs -->
+                <div style="display: flex; gap: 10px; margin-bottom: 18px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+                    <button class="btn btn-primary" id="tabModeUrl" onclick="switchUniversalTab('url')" style="padding: 7px 18px; font-size: 13px; font-weight: 700; border-radius: 8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                        Website / Web Application URL
+                    </button>
+                    <button class="btn btn-secondary" id="tabModeFiles" onclick="switchUniversalTab('files')" style="padding: 7px 18px; font-size: 13px; font-weight: 700; border-radius: 8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                        Upload Files, Documents & Code
+                    </button>
+                    <button class="btn btn-secondary" id="tabModeFolder" onclick="switchUniversalTab('folder')" style="padding: 7px 18px; font-size: 13px; font-weight: 700; border-radius: 8px;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        Select Entire Folder / Project
+                    </button>
+                </div>
+
+                <!-- URL Section -->
+                <div id="univSectionUrl" style="display: block;">
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 14px; margin-bottom: 14px;">
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">TARGET WEBSITE / APPLICATION URL</label>
+                            <input type="text" id="univTargetUrl" class="input-target" placeholder="e.g. https://example.com or https://api.target.com" style="width: 100%; padding: 10px 14px; font-size: 13.5px; border-radius: 8px; background: #0f172a; border: 1px solid var(--border); color: #f8fafc;">
+                        </div>
+                        <div>
+                            <label style="font-size: 12px; font-weight: 700; color: var(--text-muted); display: block; margin-bottom: 6px;">ASSESSMENT SCAN MODE</label>
+                            <select id="univScanMode" class="swa-topbar-select" style="width: 100%; padding: 10px 12px; font-size: 13px; border-radius: 8px; background: #0f172a; border: 1px solid var(--border); color: #f8fafc;">
+                                <option value="passive">Passive Assessment (Headers, TLS, Recon)</option>
+                                <option value="safe_active" selected>Safe Active Assessment (Probing, Misconfigs)</option>
+                                <option value="full_authorized">Full Authorized Assessment (DAST Probing)</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 6px;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                        Strict SSRF and private-network protection enforced. Scans against localhost/internal infrastructure require approved lab scope.
+                    </div>
+                </div>
+
+                <!-- Files / Folder Upload Section -->
+                <div id="univSectionFiles" style="display: none;">
+                    <div id="univDropZone" style="border: 2px dashed #334155; border-radius: 12px; padding: 30px; text-align: center; background: rgba(15, 23, 42, 0.6); cursor: pointer; transition: all 0.2s ease; margin-bottom: 14px;"
+                         ondragover="handleUnivDragOver(event)" ondragleave="handleUnivDragLeave(event)" ondrop="handleUnivDrop(event)" onclick="triggerFileInput()">
+                        <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="1.5" style="margin-bottom: 10px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                        <div style="font-size: 15px; font-weight: 700; color: #f8fafc; margin-bottom: 4px;">Drag & Drop files or folder here, or click to browse</div>
+                        <div style="font-size: 12.5px; color: var(--text-muted);">
+                            Supported: PDF, DOC/DOCX, Images (PNG/JPG), Source Code (.py, .js, .ts, .java, .c, .cpp), Configs (.json, .yaml, .env), ZIP archives, Folders
+                        </div>
+                    </div>
+
+                    <div style="display: flex; gap: 10px; margin-bottom: 14px;">
+                        <button class="btn btn-secondary" onclick="triggerFileInput()" style="padding: 7px 16px; font-size: 12.5px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                            Browse Files
+                        </button>
+                        <button class="btn btn-secondary" onclick="triggerFolderInput()" style="padding: 7px 16px; font-size: 12.5px;">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                            Select Entire Folder
+                        </button>
+                        <input type="file" id="univFileInput" multiple style="display: none;" onchange="handleUnivFileSelect(event)">
+                        <input type="file" id="univFolderInput" webkitdirectory directory multiple style="display: none;" onchange="handleUnivFolderSelect(event)">
+                        <span id="univSelectedCountBadge" style="margin-left: auto; align-self: center; font-size: 12.5px; color: var(--text-muted); font-weight: 600;">0 files staged</span>
+                    </div>
+
+                    <!-- Staged File List -->
+                    <div id="univStagedFileList" style="max-height: 180px; overflow-y: auto; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 10px; display: none;"></div>
+                </div>
+
+                <!-- MAIN SCAN ACTION BUTTONS -->
+                <div style="display: flex; gap: 12px; align-items: center; margin-top: 20px; flex-wrap: wrap;">
+                    <button id="btnUnivIdentify" class="btn" onclick="startUniversalScan()" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: #fff; padding: 12px 28px; font-size: 14px; font-weight: 800; border-radius: 8px; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.4); display: flex; align-items: center; gap: 8px; cursor: pointer; border: none;">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><path d="M11 8v6M8 11h6"></path></svg>
+                        IDENTIFY VULNERABILITIES
+                    </button>
+                    <button id="btnUnivClear" class="btn btn-secondary" onclick="resetUniversalScannerForm()" style="padding: 10px 18px; font-size: 13px;">Clear</button>
+                    <button id="btnUnivCancel" class="btn btn-secondary" onclick="cancelUniversalScan()" disabled style="padding: 10px 18px; font-size: 13px; color: #ef4444;">Cancel Scan</button>
+                    <button id="btnUnivRescan" class="btn btn-secondary" onclick="rescanUniversalTarget()" style="padding: 10px 18px; font-size: 13px;">Rescan</button>
+
+                    <!-- Export Report Dropdown Group -->
+                    <div style="margin-left: auto; display: flex; gap: 6px; align-items: center;">
+                        <span style="font-size: 12px; color: var(--text-muted); font-weight: 600;">Export Report:</span>
+                        <button class="btn btn-secondary" onclick="downloadUniversalReport('html')" style="padding: 6px 12px; font-size: 12px;">HTML</button>
+                        <button class="btn btn-secondary" onclick="downloadUniversalReport('json')" style="padding: 6px 12px; font-size: 12px;">JSON</button>
+                        <button class="btn btn-secondary" onclick="downloadUniversalReport('csv')" style="padding: 6px 12px; font-size: 12px;">CSV</button>
+                        <button class="btn btn-secondary" onclick="downloadUniversalReport('md')" style="padding: 6px 12px; font-size: 12px;">MD</button>
+                        <button class="btn btn-secondary" onclick="downloadUniversalReport('sarif')" style="padding: 6px 12px; font-size: 12px;">SARIF</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Real-Time Progress Card (Dynamic) -->
+            <div id="univProgressCard" style="display: none; background: #0f172a; border: 1px solid #38bdf8; border-radius: 12px; padding: 18px; margin-bottom: 24px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <div class="spinner-border text-info" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                        <span id="univCurrentStage" style="font-size: 13.5px; font-weight: 700; color: #38bdf8;">Initializing Assessment...</span>
+                    </div>
+                    <span id="univProgressPercent" style="font-size: 14px; font-weight: 800; color: #38bdf8;">0%</span>
+                </div>
+                <div style="width: 100%; height: 8px; background: #1e293b; border-radius: 9999px; overflow: hidden; margin-bottom: 10px;">
+                    <div id="univProgressBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #38bdf8, #10b981); transition: width 0.3s ease;"></div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 12px; color: var(--text-muted);">
+                    <span id="univProgressFilesStatus">Files: 0 completed</span>
+                    <span id="univProgressDuration">Elapsed: 0s</span>
+                </div>
+            </div>
+
+            <!-- Vulnerability Results Table & Filtering Deck -->
+            <div id="univResultsDeck" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; margin-bottom: 24px; box-shadow: var(--shadow-card);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h3 style="font-size: 17px; font-weight: 800; color: var(--text-title); margin: 0 0 4px 0;">Vulnerability Findings</h3>
+                        <p id="univFindingsSummaryLabel" style="font-size: 12.5px; color: var(--text-muted); margin: 0;">Correlated findings with evidence, CWE mapping, and remediation guidance</p>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <input type="text" id="univFindingsFilterInput" onkeyup="filterUniversalFindings()" placeholder="Search findings or files..." style="padding: 7px 14px; font-size: 12.5px; border-radius: 8px; background: #0f172a; border: 1px solid var(--border); color: #f8fafc; width: 220px;">
+                        <select id="univSeverityFilter" onchange="filterUniversalFindings()" style="padding: 7px 12px; font-size: 12.5px; border-radius: 8px; background: #0f172a; border: 1px solid var(--border); color: #f8fafc;">
+                            <option value="ALL">All Severities</option>
+                            <option value="CRITICAL">Critical</option>
+                            <option value="HIGH">High</option>
+                            <option value="MEDIUM">Medium</option>
+                            <option value="LOW">Low</option>
+                            <option value="INFORMATIONAL">Informational</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div id="univFindingsContainer" style="overflow-x: auto;">
+                    <div style="text-align: center; padding: 36px 20px; color: var(--text-muted);">
+                        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; opacity: 0.6;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <div>No scan executed yet. Submit a URL or upload files above, then click <strong>IDENTIFY VULNERABILITIES</strong>.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Scan History -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; box-shadow: var(--shadow-card);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+                    <h3 style="font-size: 16px; font-weight: 800; color: var(--text-title); margin: 0;">Universal Scan History</h3>
+                    <button class="btn btn-secondary" onclick="loadUniversalHistory()" style="padding: 5px 12px; font-size: 12px;">Refresh History</button>
+                </div>
+                <div id="univHistoryContainer" style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-muted);">
+                                <th style="padding: 8px 12px;">Timestamp</th>
+                                <th style="padding: 8px 12px;">Target / Name</th>
+                                <th style="padding: 8px 12px;">Type</th>
+                                <th style="padding: 8px 12px;">Status</th>
+                                <th style="padding: 8px 12px;">Findings</th>
+                                <th style="padding: 8px 12px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="univHistoryTbody">
+                            <tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">Loading recent scans...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- /viewUniversalScanner -->
+
+        <!-- SECURITY FLAG IDENTIFICATION VIEW -->
+        <div id="viewSecurityFlags" class="swa-view">
+            <div class="swa-view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <h2 class="swa-view-title" style="font-size: 22px; font-weight: 800; color: var(--text-title); margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>
+                        Security Flag Identification & Review Engine
+                        <span class="nav-badge" style="background: rgba(245, 158, 11, 0.2); color: #f59e0b; font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight:700;">PHASE 7</span>
+                    </h2>
+                    <p class="swa-view-subtitle" style="font-size: 13.5px; color: var(--text-muted); margin: 0;">Standardized categorization across 70 security flag indicators with expert analyst review workflow</p>
+                </div>
+                <div class="swa-view-actions" style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="loadSecurityFlags()" style="padding: 7px 14px; font-size: 12.5px;">Refresh Flags</button>
+                </div>
+            </div>
+
+            <!-- Posture Metrics Grid -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 12px; margin-bottom: 22px;">
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Total Flags</div>
+                    <div id="flagTotalCount" style="font-size: 24px; font-weight: 900; color: var(--text-title); margin-top: 4px;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Confirmed</div>
+                    <div id="flagConfirmedCount" style="font-size: 24px; font-weight: 900; color: #10b981; margin-top: 4px;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Suspected</div>
+                    <div id="flagSuspectedCount" style="font-size: 24px; font-weight: 900; color: #f59e0b; margin-top: 4px;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Critical Flags</div>
+                    <div id="flagCritCount" style="font-size: 24px; font-weight: 900; color: #ef4444; margin-top: 4px;">0</div>
+                </div>
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 14px; text-align: center;">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">High Flags</div>
+                    <div id="flagHighCount" style="font-size: 24px; font-weight: 900; color: #f97316; margin-top: 4px;">0</div>
+                </div>
+            </div>
+
+            <!-- Active Flags Table -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 22px; box-shadow: var(--shadow-card);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="font-size: 16px; font-weight: 800; color: var(--text-title); margin: 0;">Identified Security Flags</h3>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border); text-align: left; color: var(--text-muted);">
+                                <th style="padding: 8px 12px;">Flag Name</th>
+                                <th style="padding: 8px 12px;">Category</th>
+                                <th style="padding: 8px 12px;">Severity</th>
+                                <th style="padding: 8px 12px;">Asset</th>
+                                <th style="padding: 8px 12px;">Status</th>
+                                <th style="padding: 8px 12px;">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="flagsTableBody">
+                            <tr><td colspan="6" style="padding: 16px; text-align: center; color: var(--text-muted);">No security flags recorded yet.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        <!-- /viewSecurityFlags -->
+
+        <!-- CRYPTOGRAPHY WORKBENCH VIEW -->
+        <div id="viewCryptoWorkbench" class="swa-view">
+            <div class="swa-view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <h2 class="swa-view-title" style="font-size: 22px; font-weight: 800; color: var(--text-title); margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+                        Cryptography Workbench & Transformation Engine
+                        <span class="nav-badge" style="background: rgba(56, 189, 248, 0.2); color: #38bdf8; font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight:700;">PORT 8001 / GATEWAY</span>
+                    </h2>
+                    <p class="swa-view-subtitle" style="font-size: 13.5px; color: var(--text-muted); margin: 0;">High-assurance cryptographic hashing, authenticated AES-GCM / ChaCha20 encryption, RSA-OAEP, and CyberChef recipe pipeline</p>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+                <!-- Input Panel -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="font-weight: 700; font-size: 13px;">Input Data / Payload</label>
+                        <select id="cryptoSchemeSelect" style="padding: 4px 8px; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-dark); color: var(--text-title);">
+                            <optgroup label="Encodings">
+                                <option value="enc_base64">Encode: Base64</option>
+                                <option value="dec_base64">Decode: Base64</option>
+                                <option value="enc_hex">Encode: Hex</option>
+                                <option value="dec_hex">Decode: Hex</option>
+                                <option value="rot13">ROT13</option>
+                            </optgroup>
+                            <optgroup label="Cryptographic Hashes">
+                                <option value="hash_sha256" selected>Hash: SHA-256</option>
+                                <option value="hash_sha512">Hash: SHA-512</option>
+                                <option value="hash_sha3">Hash: SHA-3 (256)</option>
+                                <option value="hash_blake2b">Hash: BLAKE2b</option>
+                                <option value="hash_md5">Hash: MD5 (Legacy Checksum)</option>
+                            </optgroup>
+                            <optgroup label="Authenticated Encryption">
+                                <option value="encrypt_aes_gcm">Encrypt: AES-256-GCM</option>
+                                <option value="encrypt_chacha20">Encrypt: ChaCha20-Poly1305</option>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <textarea id="cryptoInputText" rows="10" placeholder="Enter text, ciphertext, or payload to process..." style="width: 100%; padding: 12px; font-family: monospace; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: var(--text-title); resize: vertical; box-sizing: border-box;"></textarea>
+                    <div style="margin-top: 12px;">
+                        <button class="btn btn-primary" onclick="executeCryptoOperation()" style="width: 100%; padding: 10px; font-size: 13.5px; font-weight: 700;">EXECUTE OPERATION</button>
+                    </div>
+                </div>
+
+                <!-- Output Panel -->
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <label style="font-weight: 700; font-size: 13px;">Result & Cryptographic Telemetry</label>
+                        <span id="cryptoStatusBadge" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700;">IDLE</span>
+                    </div>
+                    <textarea id="cryptoOutputText" readonly rows="10" placeholder="Cryptographic result will appear here..." style="width: 100%; padding: 12px; font-family: monospace; font-size: 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg-dark); color: #38bdf8; resize: vertical; box-sizing: border-box;"></textarea>
+                    <div id="cryptoWarningBox" style="display: none; margin-top: 10px; padding: 8px 12px; border-radius: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; font-size: 12px;"></div>
+                </div>
+            </div>
+        </div>
+        <!-- /viewCryptoWorkbench -->
+
+        <!-- PCAP FORENSICS VIEW -->
+        <div id="viewPcapAnalyzer" class="swa-view">
+            <div class="swa-view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <h2 class="swa-view-title" style="font-size: 22px; font-weight: 800; color: var(--text-title); margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg>
+                        PCAP Analyzer & Deep Packet Inspection
+                        <span class="nav-badge" style="background: rgba(168, 85, 247, 0.2); color: #c084fc; font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight:700;">PORT 8002 / GATEWAY</span>
+                    </h2>
+                    <p class="swa-view-subtitle" style="font-size: 13.5px; color: var(--text-muted); margin: 0;">Offline packet capture analysis, conversation flows, SYN flood anomalies, port sweeps, and DNS exfiltration detection</p>
+                </div>
+            </div>
+
+            <!-- Upload Area -->
+            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; margin-bottom: 22px; text-align: center;">
+                <input type="file" id="pcapFileInput" accept=".pcap,.pcapng,.cap" style="display: none;" onchange="handlePcapFileSelect(this)">
+                <div onclick="document.getElementById('pcapFileInput').click()" style="border: 2px dashed var(--border); border-radius: 10px; padding: 30px; cursor: pointer; transition: border-color 0.2s;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#a855f7" stroke-width="2" style="margin-bottom: 10px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+                    <div style="font-size: 15px; font-weight: 700; color: var(--text-title); margin-bottom: 4px;">Click or Drag & Drop PCAP Capture File</div>
+                    <div style="font-size: 12px; color: var(--text-muted);">Supports .pcap, .pcapng, and .cap files (up to 50 MB threshold)</div>
+                    <div id="pcapSelectedFile" style="margin-top: 10px; font-weight: 700; color: #10b981; font-size: 13px;"></div>
+                </div>
+                <div style="margin-top: 14px;">
+                    <button id="pcapAnalyzeBtn" class="btn btn-primary" onclick="uploadAndAnalyzePcap()" style="padding: 10px 24px; font-size: 14px; font-weight: 700;" disabled>ANALYZE PACKET CAPTURE</button>
+                </div>
+            </div>
+
+            <!-- Analysis Findings Container -->
+            <div id="pcapResultsDeck" style="display: none;">
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                    <h3 style="font-size: 16px; font-weight: 800; color: var(--text-title); margin: 0 0 12px 0;">Network Anomalies & Threat Indicators</h3>
+                    <div id="pcapThreatsList"></div>
+                </div>
+            </div>
+        </div>
+        <!-- /viewPcapAnalyzer -->
+
+        <!-- SECURITY CORRELATION ENGINE VIEW -->
+        <div id="viewCorrelation" class="swa-view">
+            <div class="swa-view-header" style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+                <div>
+                    <h2 class="swa-view-title" style="font-size: 22px; font-weight: 800; color: var(--text-title); margin: 0 0 6px 0; display: flex; align-items: center; gap: 10px;">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ec4899" stroke-width="2.5"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                        Cross-Module Security Correlation Engine
+                        <span class="nav-badge" style="background: rgba(236, 72, 153, 0.2); color: #f472b6; font-size: 10px; padding: 2px 8px; border-radius: 6px; font-weight:700;">MITRE ATT&CK ALIGNED</span>
+                    </h2>
+                    <p class="swa-view-subtitle" style="font-size: 13.5px; color: var(--text-muted); margin: 0;">Multi-heuristic attack chain synthesis correlating findings across Universal Scanner, Security Flags, PCAP, and Cryptography</p>
+                </div>
+                <button class="btn btn-primary" onclick="triggerCorrelationAnalysis()" style="padding: 8px 16px; font-size: 13px; font-weight: 700;">TRIGGER CORRELATION ANALYSIS</button>
+            </div>
+
+            <!-- Incident Container -->
+            <div id="correlationIncidentsContainer" style="display: flex; flex-direction: column; gap: 16px;">
+                <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 30px; text-align: center; color: var(--text-muted);">
+                    Click "TRIGGER CORRELATION ANALYSIS" to synthesize compound security incidents across all active engines.
+                </div>
+            </div>
+        </div>
+        <!-- /viewCorrelation -->
+
+        <div id="viewAssessments" class="swa-view">
     <div class="swa-view-header" style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
         <div>
             <h2 class="swa-view-title" style="font-size: 20px; font-weight: 800; color: var(--text-title); margin: 0 0 4px 0;">Security Assessments & Scans</h2>
@@ -2842,11 +3263,11 @@ Content-Type: application/json
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2.2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
                     All Tools & Multi-Tool Integration
                 </h2>
-                <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600;">15 TOOL SUITES INTEGRATED</span>
+                <span class="badge" style="background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600;">16 TOOL SUITES INTEGRATED</span>
                 <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.3); font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600;">85 AGENTS SYNCED</span>
             </div>
             <p class="swa-view-subtitle" style="margin: 0; color: var(--text-muted); font-size: 13px;">
-                Unified orchestration across all 15 cybersecurity tool engines, active probers, and specialist agents. Generates detailed Nessus-style vulnerability assessment reports with one-click export.
+                Unified orchestration across all 16 cybersecurity tool engines, active probers, and specialist agents. Generates detailed Nessus-style vulnerability assessment reports with one-click export.
             </p>
         </div>
         <div style="display: flex; gap: 10px; align-items: center;">
@@ -2907,7 +3328,7 @@ Content-Type: application/json
             <div>
                 <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: var(--text-title); display: flex; align-items: center; gap: 8px;">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#38bdf8" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-                    Integrated Security Tools Suite (<span id="allToolsTotalCount">15</span> Tools)
+                    Integrated Security Tools Suite (<span id="allToolsTotalCount">16</span> Tools)
                 </h3>
                 <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">
                     Active probers, industry-standard vulnerability scanners, and native deterministic heuristic engines.
@@ -5782,7 +6203,7 @@ Content-Type: application/json
     </div>
 
     <!-- Assessment Details & Inspection Modal -->
-    <div class="modal-backdrop" id="assessmentDetailsModal">
+    <div class="modal-backdrop" id="assessmentDetailsModal" style="z-index: 10050;">
         <div class="modal-dialog" style="max-width: 900px; width: 95%;">
             <button class="modal-close" onclick="closeAssessmentDetailsModal()">&times;</button>
             
@@ -5891,7 +6312,7 @@ Content-Type: application/json
     </div>
 
     <!-- Quick Report Formats Modal -->
-    <div class="modal-backdrop" id="reportFormatsModal">
+    <div class="modal-backdrop" id="reportFormatsModal" style="z-index: 10050;">
         <div class="modal-dialog" style="max-width: 650px;">
             <button class="modal-close" onclick="closeReportFormatsModal()">&times;</button>
             <div style="margin-bottom: 16px;">

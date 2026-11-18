@@ -5,10 +5,10 @@ new open ports, technology drift, expiring certificates, and endpoint exposure.
 Distinguishes genuine enterprise drift from transient network collection errors.
 """
 
-from typing import List, Dict, Any, Optional
 import datetime
-from core.intelligence_models import AssetDriftEvent, DriftType
+
 from core.database import db
+from core.intelligence_models import AssetDriftEvent, DriftType
 from core.models import ReconResult, ScanJob
 
 
@@ -16,10 +16,10 @@ class AttackSurfaceIntelligenceEngine:
     """Monitors, tracks, and diffs external attack surfaces across assessment cycles."""
 
     @staticmethod
-    def evaluate_drift(scan_job: ScanJob, current_recon: ReconResult) -> List[AssetDriftEvent]:
+    def evaluate_drift(scan_job: ScanJob, current_recon: ReconResult) -> list[AssetDriftEvent]:
         """Compares current reconnaissance observations against historical baseline."""
         target = scan_job.target_url
-        drift_events: List[AssetDriftEvent] = []
+        drift_events: list[AssetDriftEvent] = []
 
         # Retrieve previous scans for this target to establish baseline
         past_scans = db.get_scans(limit=10)
@@ -29,7 +29,7 @@ class AttackSurfaceIntelligenceEngine:
                 previous_scan = s
                 break
 
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
         if not previous_scan or not previous_scan.recon_data:
             # Baseline initial observation event
@@ -176,7 +176,7 @@ class AttackSurfaceIntelligenceEngine:
         return drift_events
 
     @staticmethod
-    def get_history(limit: int = 50, project_id: Optional[str] = None) -> List[AssetDriftEvent]:
+    def get_history(limit: int = 50, project_id: str | None = None) -> list[AssetDriftEvent]:
         """Retrieves attack surface drift history."""
         raw_list = db.get_drift_events(limit=limit, project_id=project_id)
         return [AssetDriftEvent(**r) for r in raw_list]

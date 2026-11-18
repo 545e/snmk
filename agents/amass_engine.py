@@ -35,16 +35,17 @@ Architecture:
 """
 
 import asyncio
-import re
-import socket
-import shutil
-import json
-import os
-import html
-import uuid
 import datetime
-from typing import List, Dict, Any, Optional, Set, Tuple
+import html
+import os
+import re
+import shutil
+import socket
+import uuid
+from typing import Any
+import urllib.parse
 from urllib.parse import urlparse
+
 import httpx
 
 try:
@@ -54,7 +55,7 @@ try:
 except ImportError:
     HAS_DNSPYTHON = False
 
-from core.models import LogEvent, VulnerabilityFinding, Severity
+from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 from core import tls_policy
@@ -244,7 +245,7 @@ DEFAULT_HEADERS = {
 PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8", "9.9.9.9", "208.67.222.222"]
 
 # In-memory TTL cache for DNS and live resolution
-_SUBDOMAIN_DNS_CACHE: Dict[str, Tuple[float, Dict[str, Any]]] = {}
+_SUBDOMAIN_DNS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
 DNS_CACHE_TTL_SECONDS = 300
 
 
@@ -264,8 +265,8 @@ class AmassSubdomainEngine:
         concurrency: int = 20,
         timeout: int = 5,
         recursive: bool = True,
-        custom_resolvers: Optional[List[str]] = None,
-        wordlist: Optional[List[str]] = None
+        custom_resolvers: list[str] | None = None,
+        wordlist: list[str] | None = None
     ):
         self.scan_id = scan_id
         self.raw_target = base_domain.strip().lower()
@@ -279,16 +280,16 @@ class AmassSubdomainEngine:
         self.subfinder_binary_path = self._locate_subfinder_binary()
         
         # Discovered hostnames -> set of discovery source strings
-        self.discovered_subs: Dict[str, Set[str]] = {}
+        self.discovered_subs: dict[str, set[str]] = {}
         # Structured asset inventory records
-        self.detailed_results: List[Dict[str, Any]] = []
-        self.takeover_findings: List[VulnerabilityFinding] = []
-        self.provider_errors: Dict[str, str] = {}
+        self.detailed_results: list[dict[str, Any]] = []
+        self.takeover_findings: list[VulnerabilityFinding] = []
+        self.provider_errors: dict[str, str] = {}
         
         # Wildcard DNS Detection state
         self.wildcard_detected: bool = False
-        self.wildcard_ips: Set[str] = set()
-        self.wildcard_cnames: Set[str] = set()
+        self.wildcard_ips: set[str] = set()
+        self.wildcard_cnames: set[str] = set()
         
         # Performance & triage metrics
         self.start_time: float = 0.0
@@ -328,11 +329,18 @@ class AmassSubdomainEngine:
         if len(parts) >= 3:
             potential_cctld = f"{parts[-2]}.{parts[-1]}"
             if potential_cctld in MULTI_PART_SUFFIXES:
-                return ".".join(parts[-3:])
-            return ".".join(parts[-2:])
-        return d
+                res = ".".join(parts[-3:])
+            else:
+                res = ".".join(parts[-2:])
+        else:
+            res = d
 
-    def _locate_amass_binary(self) -> Optional[str]:
+        clean_d = re.sub(r"[^a-zA-Z0-9.-]", "", res)
+        if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$", clean_d):
+            return "example.com"
+        return clean_d
+
+    def _locate_amass_binary(self) -> str | None:
         """Auto-detects native OWASP Amass binary if installed on the host."""
         which_path = shutil.which("amass")
         if which_path:
@@ -352,7 +360,7 @@ class AmassSubdomainEngine:
                 return c
         return None
 
-    def _locate_subfinder_binary(self) -> Optional[str]:
+    def _locate_subfinder_binary(self) -> str | None:
         """Auto-detects native ProjectDiscovery Subfinder binary if installed on the host."""
         which_path = shutil.which("subfinder")
         if which_path:
@@ -443,7 +451,7 @@ class AmassSubdomainEngine:
         if not resolver:
             return
 
-        wildcard_hits: List[Set[str]] = []
+        wildcard_hits: list[set[str]] = []
         for _ in range(3):
             rnd_sub = f"swa-wc-{uuid.uuid4().hex[:10]}.{self.base_domain}"
             ips = set()
@@ -480,7 +488,7 @@ class AmassSubdomainEngine:
     # Main Execution Flow
     # =====================================================================
 
-    async def run(self) -> Tuple[List[Dict[str, Any]], List[VulnerabilityFinding]]:
+    async def run(self) -> tuple[list[dict[str, Any]], list[VulnerabilityFinding]]:
         """
         Executes layered autonomous discovery:
         1. Wildcard DNS baseline detection
@@ -509,7 +517,7 @@ class AmassSubdomainEngine:
         try:
             await self._detect_wildcard_dns()
         except Exception as e:
-            await self.log(f"Wildcard detection notice: {str(e)}", "WARN")
+            await self.log(f"Wildcard detection notice: {e!s}", "WARN")
 
         if self._check_cancelled():
             return self.detailed_results, self.takeover_findings
@@ -543,7 +551,7 @@ class AmassSubdomainEngine:
         try:
             await self._probe_dictionary_wordlist(self.base_domain)
         except Exception as e:
-            await self.log(f"Active dictionary probing notice: {str(e)}", "WARN")
+            await self.log(f"Active dictionary probing notice: {e!s}", "WARN")
 
         if self._check_cancelled():
             return self.detailed_results, self.takeover_findings
@@ -552,14 +560,14 @@ class AmassSubdomainEngine:
         try:
             await self._generate_and_probe_permutations()
         except Exception as e:
-            await self.log(f"AltDNS permutation notice: {str(e)}", "WARN")
+            await self.log(f"AltDNS permutation notice: {e!s}", "WARN")
 
         # Step 5: Recursive Subdomain Mining (Depth 2)
         if self.recursive and not self._check_cancelled():
             try:
                 await self._run_recursive_discovery()
             except Exception as e:
-                await self.log(f"Recursive mining notice: {str(e)}", "WARN")
+                await self.log(f"Recursive mining notice: {e!s}", "WARN")
 
         self.metrics["discovered"] = len(self.discovered_subs)
         await self.log(f"Total discovered candidates before live probing: {len(self.discovered_subs)}", "INFO")
@@ -569,7 +577,7 @@ class AmassSubdomainEngine:
         try:
             await self._resolve_and_verify_subdomains()
         except Exception as e:
-            await self.log(f"Live probing notice: {str(e)}", "WARN")
+            await self.log(f"Live probing notice: {e!s}", "WARN")
 
         # Sort results: live assets first, then by subdomain name
         self.detailed_results.sort(key=lambda x: (x.get("status") is None, x.get("subdomain", "")))
@@ -598,10 +606,10 @@ class AmassSubdomainEngine:
 
     async def _query_crt_sh(self):
         """Query Certificate Transparency logs via crt.sh with JSON & HTML regex fallback."""
-        url = f"https://crt.sh/?q=%25.{self.base_domain}&output=json"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=7.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=7.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://crt.sh/", params={"q": f"%.{safe_domain}", "output": "json"})
                 if resp.status_code == 200:
                     entries = resp.json()
                     count = 0
@@ -618,9 +626,8 @@ class AmassSubdomainEngine:
 
         # HTML regex fallback if crt.sh JSON endpoint times out or errors
         try:
-            html_url = f"https://crt.sh/?q=%25.{self.base_domain}"
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                r = await client.get(html_url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                r = await client.get("https://crt.sh/", params={"q": f"%.{safe_domain}"})
                 if r.status_code == 200:
                     matches = set(re.findall(rf"[\w\.-]+\.{re.escape(self.base_domain)}", r.text, re.IGNORECASE))
                     for m in matches:
@@ -630,10 +637,10 @@ class AmassSubdomainEngine:
 
     async def _query_hackertarget(self):
         """Query HackerTarget passive host search registry."""
-        url = f"https://api.hackertarget.com/hostsearch/?q={self.base_domain}"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://api.hackertarget.com/hostsearch/", params={"q": safe_domain})
                 if resp.status_code == 200 and "API count exceeded" not in resp.text:
                     lines = resp.text.strip().splitlines()
                     for line in lines:
@@ -645,9 +652,10 @@ class AmassSubdomainEngine:
 
     async def _query_alienvault_otx(self):
         """Query AlienVault OTX Passive DNS threat indicators."""
-        url = f"https://otx.alienvault.com/api/v1/indicators/domain/{self.base_domain}/passive_dns"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
+        url = f"https://otx.alienvault.com/api/v1/indicators/domain/{safe_domain}/passive_dns"
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     data = resp.json()
@@ -660,10 +668,13 @@ class AmassSubdomainEngine:
 
     async def _query_certspotter(self):
         """Query SSLMate CertSpotter CT log issuances."""
-        url = f"https://api.certspotter.com/v1/issuances?domain={self.base_domain}&include_subdomains=true&expand=dns_names"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get(
+                    "https://api.certspotter.com/v1/issuances",
+                    params={"domain": safe_domain, "include_subdomains": "true", "expand": "dns_names"}
+                )
                 if resp.status_code == 200:
                     data = resp.json()
                     for item in data[:100]:
@@ -674,10 +685,13 @@ class AmassSubdomainEngine:
 
     async def _query_wayback(self):
         """Query Internet Archive Wayback Machine CDX API."""
-        url = f"https://web.archive.org/cdx/search/cdx?url=*.{self.base_domain}/*&output=json&fl=original&collapse=urlkey&limit=150"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get(
+                    "https://web.archive.org/cdx/search/cdx",
+                    params={"url": f"*.{safe_domain}/*", "output": "json", "fl": "original", "collapse": "urlkey", "limit": "150"}
+                )
                 if resp.status_code == 200:
                     rows = resp.json()
                     if len(rows) > 1:
@@ -691,10 +705,10 @@ class AmassSubdomainEngine:
 
     async def _query_threatminer(self):
         """Query ThreatMiner cyber threat intelligence API."""
-        url = f"https://api.threatminer.org/v2/domain.php?q={self.base_domain}&rt=5"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://api.threatminer.org/v2/domain.php", params={"q": safe_domain, "rt": "5"})
                 if resp.status_code == 200:
                     data = resp.json()
                     for sub in data.get("results", []):
@@ -704,10 +718,10 @@ class AmassSubdomainEngine:
 
     async def _query_urlscan(self):
         """Query URLScan.io index for recorded domain appearances."""
-        url = f"https://urlscan.io/api/v1/search/?q=domain:{self.base_domain}&size=100"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=6.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get("https://urlscan.io/api/v1/search/", params={"q": f"domain:{safe_domain}", "size": "100"})
                 if resp.status_code == 200:
                     data = resp.json()
                     for res in data.get("results", []):
@@ -719,9 +733,10 @@ class AmassSubdomainEngine:
 
     async def _query_subdomain_center(self):
         """Query Subdomain Center API."""
-        url = f"https://api.subdomain.center/subdomains/{self.base_domain}"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
+        url = f"https://api.subdomain.center/subdomains/{safe_domain}"
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     subs = resp.json()
@@ -733,9 +748,10 @@ class AmassSubdomainEngine:
 
     async def _query_anubis(self):
         """Query Anubis DB threat intelligence."""
-        url = f"https://jldc.me/anubis/subdomains/{self.base_domain}"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
+        url = f"https://jldc.me/anubis/subdomains/{safe_domain}"
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
                 resp = await client.get(url)
                 if resp.status_code == 200:
                     entries = resp.json()
@@ -747,10 +763,10 @@ class AmassSubdomainEngine:
 
     async def _query_rapiddns(self):
         """Query RapidDNS public DNS records."""
-        url = f"https://rapiddns.io/subdomain/{self.base_domain}?full=1"
+        safe_domain = urllib.parse.quote(self.base_domain, safe="")
         try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS)) as client:
-                resp = await client.get(url)
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0, headers=DEFAULT_HEADERS, follow_redirects=False)) as client:
+                resp = await client.get(f"https://rapiddns.io/subdomain/{safe_domain}", params={"full": "1"})
                 if resp.status_code == 200:
                     matches = set(re.findall(rf"[\w\.-]+\.{re.escape(self.base_domain)}", resp.text, re.IGNORECASE))
                     for m in matches:
@@ -783,7 +799,7 @@ class AmassSubdomainEngine:
             await self.log(f"[OWASP Amass CLI] Harvested {len(lines)} discovered assets.", "SUCCESS")
         except Exception as e:
             self.provider_errors["AmassCLI"] = str(e)
-            await self.log(f"Amass CLI notice: {str(e)}", "INFO")
+            await self.log(f"Amass CLI notice: {e!s}", "INFO")
 
     async def _run_subfinder_cli(self):
         """Invokes external Subfinder binary if present on host."""
@@ -811,14 +827,26 @@ class AmassSubdomainEngine:
             await self.log(f"[Subfinder CLI] Harvested {len(lines)} discovered assets.", "SUCCESS")
         except Exception as e:
             self.provider_errors["SubfinderCLI"] = str(e)
-            await self.log(f"Subfinder CLI notice: {str(e)}", "INFO")
+            await self.log(f"Subfinder CLI notice: {e!s}", "INFO")
 
     # =====================================================================
     # Active Wordlist & Permutation Engines
     # =====================================================================
 
     async def _probe_dictionary_wordlist(self, zone: str):
-        """Active DNS probe using curated wordlist and async resolver."""
+        """Active DNS probe using curated wordlist, C++ native acceleration, and async resolver."""
+        # 1. C++ High-Speed Native Subdomain Probe
+        try:
+            from core.native_scanner import native_scanner
+            if native_scanner.is_available:
+                fast_results = await native_scanner.probe_subdomains(zone, timeout_ms=350, threads=32)
+                for res in fast_results:
+                    sub = res.get("subdomain")
+                    if sub and res.get("ips"):
+                        self._register(sub, "NativeCPP_FastScan")
+        except Exception:
+            pass
+
         resolver = self._create_resolver()
         sem = asyncio.Semaphore(self.concurrency)
 
@@ -960,16 +988,16 @@ class AmassSubdomainEngine:
         resolver = self._create_resolver()
         sem = asyncio.Semaphore(self.concurrency)
         all_hosts = list(self.discovered_subs.keys())
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
 
         async def inspect_single(sub: str):
             if self._check_cancelled():
                 return None
             async with sem:
-                ip_list: List[str] = []
-                aaaa_list: List[str] = []
+                ip_list: list[str] = []
+                aaaa_list: list[str] = []
                 cname = ""
-                aliases: List[str] = []
+                aliases: list[str] = []
                 dns_confirmed = False
 
                 # 1. DNS Resolution (Async resolver or socket fallback)
@@ -1086,7 +1114,7 @@ class AmassSubdomainEngine:
                         description=f"Host '{sub}' has a dangling CNAME pointer to {cname or provider_name}. {reason}",
                         reproduction_steps=f"1. Resolve CNAME for '{sub}': points to '{cname}'.\n2. Send HTTP request to '{sub}': returned cloud error signature from {provider_name}.\n3. Claim resource under provider.",
                         impact="Full compromise of domain asset, ability to serve malicious content, steal session cookies, and perform credential harvesting.",
-                        remediation_advice=f"Immediately remove or update the dangling DNS CNAME record for '{sub}' pointing to {provider_name}, or reclaim the orphaned asset in your cloud account.",
+                        remediation_advice=f"Immediately remove or update the dangling DNS CNAME record for '{sub}' pointing to {provider_name}, or reclaim the orphaned asset in your cloud account.",  # nosec B608 - false positive DNS zone remediation text
                         remediation_patch=f"; DNS zone update for {self.base_domain}\n; Remove dangling alias:\n{sub}. IN CNAME [REMOVE-DANGLING-RECORD]"
                     )
                     self.takeover_findings.append(finding)
@@ -1151,7 +1179,7 @@ class AmassSubdomainEngine:
         tasks = [inspect_single(s) for s in all_hosts[:500]]
         await asyncio.gather(*tasks, return_exceptions=True)
 
-    def _check_takeover(self, sub: str, cname: str, aliases: List[str], body: str) -> Tuple[bool, str, str]:
+    def _check_takeover(self, sub: str, cname: str, aliases: list[str], body: str) -> tuple[bool, str, str]:
         """Detects whether a dangling CNAME matches an unclaimed cloud resource."""
         all_targets = [cname] + aliases
         for target in all_targets:

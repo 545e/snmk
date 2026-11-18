@@ -5,21 +5,20 @@ and synchronizes live state with the database and real-time event bus.
 """
 
 import asyncio
-import time
 import datetime
-from typing import Optional
+import time
 
-from core.models import ScanJob, ScanStatus, ScanProfile, LogEvent
-from core.database import db
-from core.queue_manager import queue_manager
-from core.llm_client import SWALLMClient
-
-from agents.recon_agent import ReconAgent
 from agents.attack_surface_agent import AttackSurfaceAgent
-from agents.fuzzer_agent import FuzzerAgent
-from agents.vuln_hunter_agent import VulnHunterAgent
 from agents.exploit_validator_agent import ExploitValidatorAgent
+from agents.fuzzer_agent import FuzzerAgent
+from agents.recon_agent import ReconAgent
 from agents.remediation_agent import RemediationAgent
+from agents.vuln_hunter_agent import VulnHunterAgent
+from core.database import db
+from core.llm_client import SWALLMClient
+from core.models import LogEvent, ScanJob, ScanProfile, ScanStatus
+from core.queue_manager import queue_manager
+
 
 class SWAOrchestrator:
     @staticmethod
@@ -66,7 +65,7 @@ class SWAOrchestrator:
 
     async def execute(self):
         start_time = time.time()
-        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        now_iso = datetime.datetime.now(datetime.UTC).isoformat()
         db.update_scan_status(self.scan_id, ScanStatus.RUNNING, started_at=now_iso)
         await queue_manager.broadcast_event("SCAN_STARTED", {"scan_id": self.scan_id, "target": self.job.target_url})
 
@@ -265,7 +264,7 @@ class SWAOrchestrator:
             except Exception:
                 pass
         except Exception as e:
-            await self.log(f"Scan encountered an unexpected error: {str(e)}", "ERROR")
+            await self.log(f"Scan encountered an unexpected error: {e!s}", "ERROR")
             db.update_scan_status(self.scan_id, ScanStatus.FAILED)
             # Force the counter refresh (see the cancellation path).
             try:
@@ -279,7 +278,7 @@ class SWAOrchestrator:
 
     async def _finalize_scan(self, start_time: float, recon_data):
         duration = round(time.time() - start_time, 2)
-        completed_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        completed_iso = datetime.datetime.now(datetime.UTC).isoformat()
         db.update_scan_status(self.scan_id, ScanStatus.COMPLETED, completed_at=completed_iso, duration_seconds=duration)
         db.update_scan_progress(self.scan_id, 100, "Completed")
         db.update_scan_counts(self.scan_id)
@@ -295,7 +294,7 @@ class SWAOrchestrator:
                 knowledge_graph_engine.ingest_scan(updated_scan, findings, recon_data)
                 await self.log("Synchronized assessment into Security Knowledge Graph.", "INFO")
         except Exception as ge:
-            await self.log(f"Knowledge Graph sync warning: {str(ge)}", "WARN")
+            await self.log(f"Knowledge Graph sync warning: {ge!s}", "WARN")
 
         # 2. Continuous Attack Surface Intelligence & EASM Drift
         try:
@@ -304,7 +303,7 @@ class SWAOrchestrator:
                 drift_events = attack_surface_intel.evaluate_drift(updated_scan, recon_data)
                 await self.log(f"EASM drift evaluation: {len(drift_events)} change events recorded.", "INFO")
         except Exception as de:
-            await self.log(f"EASM drift warning: {str(de)}", "WARN")
+            await self.log(f"EASM drift warning: {de!s}", "WARN")
 
         # 3. Synchronize Findings to Remediation Lifecycle Board
         try:
@@ -313,16 +312,19 @@ class SWAOrchestrator:
                 remediation_engine.create_ticket_from_finding(f, self.job.target_url)
             await self.log(f"Remediation Board initialized with {len(findings)} lifecycle tickets.", "INFO")
         except Exception as re:
-            await self.log(f"Remediation ticket warning: {str(re)}", "WARN")
+            await self.log(f"Remediation ticket warning: {re!s}", "WARN")
 
         # 4. Generate Enterprise Reports Archive
         try:
-            from reports.enterprise_reports import enterprise_report_engine, ReportTemplateType
+            from reports.enterprise_reports import (
+                ReportTemplateType,
+                enterprise_report_engine,
+            )
             enterprise_report_engine.generate_report(ReportTemplateType.EXECUTIVE_ASSESSMENT, target=self.job.target_url, scan_id=self.scan_id)
             enterprise_report_engine.generate_report(ReportTemplateType.FULL_TECHNICAL_ASSESSMENT, target=self.job.target_url, scan_id=self.scan_id)
             await self.log("Enterprise Executive and Technical audit reports generated.", "SUCCESS")
         except Exception as rpe:
-            await self.log(f"Report generation warning: {str(rpe)}", "WARN")
+            await self.log(f"Report generation warning: {rpe!s}", "WARN")
 
         # 5. Update Global Application Security Context
         try:

@@ -4,15 +4,15 @@ Enforces mandatory human authorization gates for sensitive offensive operations,
 scope changes, aggressive scanning, and high-impact remediation.
 """
 
-from typing import List, Dict, Any, Optional
-import datetime
-from core.intelligence_models import (
-    ApprovalRequest,
-    ApprovalActionType,
-    ApprovalStatus,
-    AgentRole
-)
+from typing import Any
+
 from core.database import db
+from core.intelligence_models import (
+    AgentRole,
+    ApprovalActionType,
+    ApprovalRequest,
+    ApprovalStatus,
+)
 from core.queue_manager import queue_manager
 
 
@@ -44,8 +44,8 @@ class ApprovalEngine:
         target: str,
         rationale: str,
         impact_assessment: str,
-        agent_role: Optional[AgentRole] = None,
-        scope_details: Optional[Dict[str, Any]] = None,
+        agent_role: AgentRole | None = None,
+        scope_details: dict[str, Any] | None = None,
         requested_by: str = "SWA AI Orchestrator"
     ) -> ApprovalRequest:
         """Creates and broadcasts an auditable approval request."""
@@ -76,7 +76,7 @@ class ApprovalEngine:
         approved: bool,
         decided_by: str,
         reason: str = ""
-    ) -> Optional[ApprovalRequest]:
+    ) -> ApprovalRequest | None:
         """Records a human operator's decision on an approval gate."""
         status = ApprovalStatus.APPROVED if approved else ApprovalStatus.REJECTED
         success = db.update_approval_status(request_id, status.value, decided_by, reason)
@@ -98,7 +98,7 @@ class ApprovalEngine:
         return updated_req
 
     @staticmethod
-    def list_requests(status: Optional[ApprovalStatus] = None) -> List[ApprovalRequest]:
+    def list_requests(status: ApprovalStatus | None = None) -> list[ApprovalRequest]:
         """Lists pending or historical approval requests."""
         raw_list = db.get_approval_requests(status.value if status else None)
         return [ApprovalRequest(**r) for r in raw_list]

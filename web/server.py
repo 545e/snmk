@@ -22,17 +22,15 @@ WebSocket live feeds, and full report download endpoints.
 
 
 
-import os
-
-import json
-
-import time
-
-import datetime
-
 import asyncio
-
+import datetime
+import json
 import logging
+import os
+import re
+import time
+import uuid
+
 # NOTE: .env is loaded by the launchers (run.py, swa_cli.py) before they import
 # the app, NOT here — importing this module directly (e.g. tests) must not
 # silently change behavior based on developer .env contents.
@@ -43,71 +41,80 @@ logger = logging.getLogger("swa_server")
 
 
 
-from typing import List, Optional, Literal, Dict, Any, Tuple
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple
 
-
-
-from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect, HTTPException, Response, Query, BackgroundTasks, UploadFile, File, Form
-
-
-
-from fastapi.staticfiles import StaticFiles
-
-
-
-from fastapi.responses import HTMLResponse, PlainTextResponse, FileResponse, JSONResponse
-
-
-
+from fastapi import (
+    BackgroundTasks,
+    FastAPI,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    Response,
+    UploadFile,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.middleware.cors import CORSMiddleware
-
-
-
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+)
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
-
-
-
-
-
-
-
-from core.models import ScanJob, ScanConfig, ScanStatus, VulnerabilityFinding, LogEvent, ScanProfile
-
-from core.version import __version__
-
-from core.integrations.registry import integration_registry
-
-from core.ai_models import ai_model_manager
-
-from core.audit import audit
-
-
-
-from core.database import db
-
-
-
-from core.queue_manager import queue_manager
-
-
+from starlette.middleware.gzip import GZipMiddleware
 
 from agents.orchestrator import SWAOrchestrator
-
-
-
-from reports.generator import ReportGenerator
-
-
-
+from core.ai_models import ai_model_manager
+from core.audit import audit
+from core.database import db
+from core.integrations.registry import integration_registry
+from core.models import (
+    LogEvent,
+    ScanConfig,
+    ScanJob,
+    ScanProfile,
+    ScanStatus,
+    VulnerabilityFinding,
+)
+from core.queue_manager import queue_manager
+from core.version import __version__
 from plugins.plugin_manager import plugin_manager
-
+from reports.generator import ReportGenerator
 from core import tls_policy
-
-
-
-
-
-
+from core.exceptions import (
+    AuthenticationError,
+    AuthorizationError,
+    ConfigurationValidationError,
+    DatabaseStorageError,
+    LLMProviderError,
+    SecurityScopeError,
+    SNMKError,
+    StandardErrorEnvelope,
+    ToolExecutionError,
+    WorkflowExecutionError,
+)
+from core.metrics import (
+    generate_prometheus_metrics,
+    HTTP_ACTIVE_REQUESTS,
+    HTTP_ERRORS_TOTAL,
+    HTTP_REQUEST_DURATION_SECONDS,
+    HTTP_REQUESTS_TOTAL,
+)
+from core.logging_config import (
+    current_agent_id,
+    current_request_id,
+    current_task_id,
+    current_trace_id,
+)
+from core.tracing import (
+    extract_trace_id_from_header,
+    generate_traceparent,
+    tracer,
+)
 
 app = FastAPI(
 
@@ -175,15 +182,117 @@ app.add_middleware(
 
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
 
-    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin"],
+    allow_headers=["Authorization", "Content-Type", "Accept", "X-Requested-With", "Origin", "X-Request-ID", "X-Correlation-ID"],
 
-    expose_headers=["Content-Length", "X-Total-Count"],
+    expose_headers=["Content-Length", "X-Total-Count", "X-Request-ID", "X-Correlation-ID"],
 
     max_age=86400,
 
 )
 
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 _SERVER_START_TIME = time.time()
+
+
+@app.on_event("startup")
+async def on_startup():
+    """Startup event: reconcile orphaned scans from prior server sessions and refresh state."""
+    try:
+        reconciled = db.reconcile_orphaned_scans()
+        if reconciled > 0:
+            logger.info(f"Reconciled {reconciled} orphaned scan(s) from prior session to CANCELLED.")
+    except Exception as e:
+        logger.warning(f"Error reconciling orphaned scans on startup: {e}")
+
+
+
+@app.middleware("http")
+async def request_correlation_middleware(request: Request, call_next):
+    """Enterprise correlation and distributed tracing middleware."""
+    req_id = request.headers.get("X-Request-ID") or request.headers.get("X-Correlation-ID")
+    if not req_id:
+        req_id = f"req-{uuid.uuid4().hex[:12]}"
+
+    traceparent = request.headers.get("traceparent")
+    trace_id = extract_trace_id_from_header(traceparent)
+    new_traceparent = generate_traceparent(trace_id)
+
+    request.state.request_id = req_id
+    request.state.trace_id = trace_id
+
+    t_req = current_request_id.set(req_id)
+    t_trace = current_trace_id.set(trace_id)
+
+    try:
+        response = await call_next(request)
+        response.headers["X-Request-ID"] = req_id
+        response.headers["X-Trace-ID"] = trace_id
+        response.headers["traceparent"] = new_traceparent
+        return response
+    finally:
+        current_request_id.reset(t_req)
+        current_trace_id.reset(t_trace)
+
+
+@app.middleware("http")
+async def prometheus_metrics_middleware(request: Request, call_next):
+    """Real-time HTTP metrics recording for Prometheus and Grafana dashboards."""
+    path = request.url.path
+    if path in ("/metrics", "/api/metrics"):
+        return await call_next(request)
+
+    HTTP_ACTIVE_REQUESTS.inc()
+    start_time = time.perf_counter()
+    status_code = 500
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+        return response
+    except Exception:
+        status_code = 500
+        raise
+    finally:
+        duration = round(time.perf_counter() - start_time, 4)
+        HTTP_ACTIVE_REQUESTS.dec()
+
+        norm_path = path
+        if norm_path.startswith("/api/scans/") and len(norm_path.split("/")) > 3:
+            norm_path = "/api/scans/{id}"
+        elif norm_path.startswith("/api/tools/") and len(norm_path.split("/")) > 3:
+            norm_path = "/api/tools/{name}"
+
+        HTTP_REQUESTS_TOTAL.labels(method=request.method, endpoint=norm_path[:40], status_code=str(status_code)).inc()
+        HTTP_REQUEST_DURATION_SECONDS.labels(method=request.method, endpoint=norm_path[:40]).observe(duration)
+        if status_code >= 400:
+            HTTP_ERRORS_TOTAL.labels(endpoint=norm_path[:40], status_code=str(status_code)).inc()
+
+
+@app.exception_handler(SNMKError)
+async def snmk_error_handler(request: Request, exc: SNMKError):
+    """Centralized enterprise exception handler mapping typed SNMK errors to standard envelopes."""
+    req_id = getattr(request.state, "request_id", "")
+    status_code = 500
+    if isinstance(exc, SecurityScopeError):
+        status_code = 403
+    elif isinstance(exc, AuthenticationError):
+        status_code = 401
+    elif isinstance(exc, AuthorizationError):
+        status_code = 403
+    elif isinstance(exc, ConfigurationValidationError):
+        status_code = 422
+    elif isinstance(exc, (ToolExecutionError, LLMProviderError)):
+        status_code = 502
+    elif isinstance(exc, (WorkflowExecutionError, DatabaseStorageError)):
+        status_code = 500
+
+    payload = StandardErrorEnvelope.create(
+        code=exc.error_code,
+        message=exc.message,
+        request_id=req_id,
+        details=exc.details,
+    )
+    return JSONResponse(status_code=status_code, content=payload)
 
 
 
@@ -214,7 +323,7 @@ async def _rate_limit_middleware_impl(request: Request, call_next):
 
     exempt = (
 
-        path in ("/health", "/healthz", "/status", "/favicon.ico")
+        path in ("/health", "/healthz", "/status", "/favicon.ico", "/metrics", "/api/metrics")
 
         or path.startswith(("/static/", "/assets/", "/docs", "/redoc", "/openapi.json"))
 
@@ -294,7 +403,10 @@ async def auth_enforcement_middleware(request: Request, call_next):
     ``/chat/completions``, ``/v1/models``, ``/models``) live outside the
     prefix and would otherwise be reachable without a credential.
     """
-    from core.app_security import SWA_AUTH_ENABLED as _auth_on, SWA_MASTER_API_KEY as _master_key, PUBLIC_PATHS as _PUBLIC, authenticate_request
+    from core.app_security import PUBLIC_PATHS as _PUBLIC
+    from core.app_security import SWA_AUTH_ENABLED as _auth_on
+    from core.app_security import SWA_MASTER_API_KEY as _master_key
+    from core.app_security import authenticate_request
     _placeholder_markers = ("change_me", "your_api_key", "your_key", "placeholder", "dummy", "example", "none", "null")
     _mk = (_master_key or "").strip()
     _mk_is_real = bool(_mk) and len(_mk) >= 16 and not any(m in _mk.lower() for m in _placeholder_markers)
@@ -340,7 +452,7 @@ async def add_security_headers(request: Request, call_next):
 
     response.headers["Content-Security-Policy"] = (
 
-        "default-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://*.tile.openstreetmap.org data: blob: ws: wss:; "
+        "default-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://fonts.gstatic.com https://unpkg.com https://*.tile.openstreetmap.org data: blob: ws: wss:; "
 
         "frame-ancestors 'self'; "
 
@@ -406,7 +518,7 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 
 # --- Tool-Endpoint Scope Enforcement (SSRF + authorisation gate) ---
 
-async def enforce_scope(target: Optional[str], tool_id: str) -> str:
+async def enforce_scope(target: str | None, tool_id: str) -> str:
 
     """
 
@@ -469,6 +581,13 @@ async def favicon():
     return Response(content=svg, media_type="image/svg+xml")
 
 
+@app.get("/metrics", include_in_schema=False)
+@app.get("/api/metrics", include_in_schema=False)
+async def prometheus_metrics_endpoint():
+    """Prometheus exposition format metrics endpoint for Grafana scraping."""
+    return generate_prometheus_metrics()
+
+
 
 
 
@@ -478,9 +597,9 @@ class LoginPayload(BaseModel):
 
     username: str = "operator"
 
-    password: Optional[str] = ""
+    password: str | None = ""
 
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
 
 
@@ -514,7 +633,11 @@ async def auth_status(request: Request):
 
     """Check current application authentication and role status."""
 
-    from core.app_security import authenticate_request, SWA_AUTH_ENABLED, SWA_MASTER_API_KEY
+    from core.app_security import (
+        SWA_AUTH_ENABLED,
+        SWA_MASTER_API_KEY,
+        authenticate_request,
+    )
 
     try:
 
@@ -574,7 +697,7 @@ async def health_check():
 
         "database": db_health,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
     }
 
@@ -606,7 +729,7 @@ async def health_liveness():
 
         "version": __version__,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
         "uptime_sec": round(time.time() - _SERVER_START_TIME, 2),
 
@@ -638,7 +761,7 @@ async def health_readiness():
 
         "readiness": is_ready,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
     }
 
@@ -653,10 +776,8 @@ async def health_dependencies():
     """Dependency status endpoint: checks core subsystems without leaking secrets or tokens."""
 
     from core.integrations.registry import integration_registry
-
-    from web.enterprise_api import list_agents as get_enterprise_agents
-
     from core.tool_registry import tool_registry
+    from web.enterprise_api import list_agents as get_enterprise_agents
 
 
 
@@ -683,7 +804,7 @@ async def health_dependencies():
 
         "version": __version__,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
 
         "dependencies": {
 
@@ -829,15 +950,15 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
 
-    model: Optional[str] = "swa-native-security-agent"
+    model: str | None = "swa-native-security-agent"
 
-    messages: List[ChatMessage]
+    messages: list[ChatMessage]
 
-    temperature: Optional[float] = 0.7
+    temperature: float | None = 0.7
 
-    stream: Optional[bool] = False
+    stream: bool | None = False
 
-    max_tokens: Optional[int] = 2048
+    max_tokens: int | None = 2048
 
 
 
@@ -899,7 +1020,7 @@ async def create_chat_completion(req: ChatCompletionRequest):
 
     completion_id = f"chatcmpl-swa-{uuid.uuid4().hex[:12]}"
 
-    created_ts = int(datetime.datetime.now(datetime.timezone.utc).timestamp())
+    created_ts = int(datetime.datetime.now(datetime.UTC).timestamp())
 
     return {
 
@@ -961,13 +1082,13 @@ class CopilotChatRequest(BaseModel):
 
     message: str
 
-    target: Optional[str] = "127.0.0.1:8000"
+    target: str | None = "127.0.0.1:8000"
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
-    agent_id: Optional[str] = None
+    agent_id: str | None = None
 
-    conversation_history: Optional[List[Dict[str, str]]] = None
+    conversation_history: list[dict[str, str]] | None = None
 
 
 
@@ -996,9 +1117,7 @@ async def copilot_chat_endpoint(req: CopilotChatRequest):
 
 
     from core.database import db
-
     from core.llm_client import SWALLMClient
-
     from web.ai_agent_api import _decrypt_key
 
 
@@ -1346,8 +1465,33 @@ async def launch_scan(config: ScanConfig):
     scope_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab, auto_authorize=True)
 
     if not scope_res.is_allowed:
-
-        raise HTTPException(status_code=403, detail=f"Target Scope Refusal: {scope_res.reason}")
+        if "Failed to resolve DNS" in (scope_res.reason or ""):
+            auth_targets = getattr(scope_policy, "allowed_domains", set())
+            clean_host = getattr(scope_res, "hostname", "")
+            # Auto-heal exact alphanumeric matches (e.g. accidental dot: shm.technologies.com -> shmtechnologies.com)
+            auto_healed = False
+            for dom in auth_targets:
+                if isinstance(dom, str) and dom and dom != clean_host and dom not in ("127.0.0.1", "localhost", "example.com"):
+                    if dom.replace(".", "") == clean_host.replace(".", ""):
+                        target = target.replace(clean_host, dom)
+                        config.target_url = target
+                        scope_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab, auto_authorize=True)
+                        if scope_res.is_allowed:
+                            auto_healed = True
+                            break
+            if not auto_healed:
+                suggestion = ""
+                for dom in auth_targets:
+                    if isinstance(dom, str) and dom and dom != clean_host and dom not in ("127.0.0.1", "localhost", "example.com"):
+                        if dom.replace(".", "") == clean_host.replace(".", "") or dom in clean_host or clean_host in dom:
+                            suggestion = f" Did you mean '{dom}'?"
+                            break
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Unable to resolve domain '{clean_host}' via DNS.{suggestion} Please check the target spelling."
+                )
+        if not scope_res.is_allowed:
+            raise HTTPException(status_code=403, detail=f"Target Scope Refusal: {scope_res.reason}")
 
 
 
@@ -1415,19 +1559,22 @@ async def launch_scan(config: ScanConfig):
 
 
 
-@app.get("/api/scans", response_model=List[ScanJob])
-
-
-
+@app.get("/api/scans", response_model=list[ScanJob])
 async def list_scans():
-
-
-
-    """List all scans with status, duration, and finding counts."""
-
-
-
-    return db.list_scans()
+    """List all scans with status, duration, and finding counts, reconciling dead in-memory tasks."""
+    scans = db.list_scans()
+    active_ids = set(queue_manager.active_tasks.keys())
+    for s in scans:
+        if s.status == ScanStatus.RUNNING and s.id not in active_ids:
+            try:
+                created_dt = datetime.datetime.fromisoformat(s.created_at) if s.created_at else None
+                # If the scan was created more than 5 minutes ago and has no active task in memory, reconcile to CANCELLED
+                if not created_dt or (datetime.datetime.now(datetime.UTC) - created_dt).total_seconds() > 300:
+                    db.update_scan_status(s.id, ScanStatus.CANCELLED)
+                    s.status = ScanStatus.CANCELLED
+            except Exception:
+                pass
+    return scans
 
 
 
@@ -1468,29 +1615,16 @@ async def get_scan(scan_id: str):
 
 
 @app.post("/api/scans/{scan_id}/cancel")
-
-
-
 async def cancel_scan(scan_id: str):
-
-
-
-    """Cancel an active background scan."""
-
-
-
+    """Cancel an active background scan or reconcile an orphaned scan."""
     success = queue_manager.cancel_scan(scan_id)
-
-
-
     if not success:
-
-
-
+        # Check if the scan is marked RUNNING in the database
+        scan = db.get_scan(scan_id)
+        if scan and scan.status == ScanStatus.RUNNING:
+            db.update_scan_status(scan_id, ScanStatus.CANCELLED)
+            return {"status": "cancelled", "scan_id": scan_id, "note": "Reconciled orphaned scan to CANCELLED"}
         raise HTTPException(status_code=400, detail="Scan is not running or already completed")
-
-
-
     return {"status": "cancelled", "scan_id": scan_id}
 
 
@@ -1531,7 +1665,7 @@ async def delete_scan(scan_id: str):
 
 
 
-@app.get("/api/scans/{scan_id}/findings", response_model=List[VulnerabilityFinding])
+@app.get("/api/scans/{scan_id}/findings", response_model=list[VulnerabilityFinding])
 
 
 
@@ -1567,9 +1701,9 @@ class FindingTransitionRequest(BaseModel):
 
     reason: str
 
-    changed_by: Optional[str] = "Security Lead"
+    changed_by: str | None = "Security Lead"
 
-    evidence: Optional[str] = None
+    evidence: str | None = None
 
 
 
@@ -1577,9 +1711,9 @@ class FalsePositiveReviewRequest(BaseModel):
 
     reason: str
 
-    contradictory_evidence: Optional[str] = None
+    contradictory_evidence: str | None = None
 
-    reviewed_by: Optional[str] = "Senior Security Analyst"
+    reviewed_by: str | None = "Senior Security Analyst"
 
 
 
@@ -1599,15 +1733,15 @@ async def export_findings_data(
 
     format: str = Query("json", pattern="^(json|csv|html|pdf|markdown)$"),
 
-    severity: Optional[str] = None,
+    severity: str | None = None,
 
-    lifecycle_status: Optional[str] = None,
+    lifecycle_status: str | None = None,
 
-    remediation_status: Optional[str] = None,
+    remediation_status: str | None = None,
 
-    poc_state: Optional[str] = None,
+    poc_state: str | None = None,
 
-    search: Optional[str] = None
+    search: str | None = None
 
 ):
 
@@ -1653,7 +1787,7 @@ async def get_vulnerability_report(
 
     format: str = Query("html", pattern="^(html|pdf|json|csv|markdown)$"),
 
-    finding_id: Optional[str] = None,
+    finding_id: str | None = None,
 
     target: str = "127.0.0.1:8000"
 
@@ -1720,22 +1854,22 @@ async def get_vulnerability_report(
 # Professional Nessus-Style Vulnerability Assessment Report Engine Endpoints
 # =============================================================================
 class VulnAssessmentPreviewReq(BaseModel):
-    scan_id: Optional[str] = None
-    target: Optional[str] = "127.0.0.1:8000"
+    scan_id: str | None = None
+    target: str | None = "127.0.0.1:8000"
     report_type: str = "detailed_technical"
     template_type: str = "template_b"
     grouping_mode: str = "host"
-    filters: Optional[Dict[str, Any]] = None
+    filters: dict[str, Any] | None = None
 
 class VulnAssessmentGenerateReq(BaseModel):
-    scan_id: Optional[str] = None
-    target: Optional[str] = "127.0.0.1:8000"
+    scan_id: str | None = None
+    target: str | None = "127.0.0.1:8000"
     report_type: str = "detailed_technical"
     template_type: str = "template_b"
     grouping_mode: str = "host"
     format_type: str = "pdf"
-    filters: Optional[Dict[str, Any]] = None
-    created_by: Optional[str] = "SWA Vulnerability Assessment Engine"
+    filters: dict[str, Any] | None = None
+    created_by: str | None = "SWA Vulnerability Assessment Engine"
 
 @app.get("/api/reports/vulnerability-assessment/templates")
 async def list_vuln_assessment_templates():
@@ -1810,7 +1944,7 @@ async def generate_vuln_assessment_report(req: VulnAssessmentGenerateReq):
     }
 
 @app.get("/api/reports/vulnerability-assessment/history")
-async def list_vuln_assessment_history(limit: int = 50, scan_id: Optional[str] = None):
+async def list_vuln_assessment_history(limit: int = 50, scan_id: str | None = None):
     """Retrieves generated vulnerability assessment report history."""
     if hasattr(db, "list_vuln_assessment_reports"):
         return db.list_vuln_assessment_reports(limit=limit, scan_id=scan_id)
@@ -1891,8 +2025,8 @@ async def delete_vuln_assessment_report(report_id: str):
 
 @app.post("/api/reports/vulnerability-assessment/import/nessus")
 async def import_nessus_report(
-    scan_id: Optional[str] = None,
-    file: Optional[UploadFile] = File(None)
+    scan_id: str | None = None,
+    file: UploadFile | None = File(None)
 ):
     """Imports findings from standard Nessus XML (.nessus v2) into SWA platform with data provenance."""
     from reports.nessus_report_engine import NessusVulnerabilityReportEngine
@@ -1909,7 +2043,7 @@ async def import_nessus_report(
             "message": f"Successfully imported {len(imported)} findings from Nessus XML"
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse Nessus XML: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse Nessus XML: {e!s}")
 
 
 
@@ -1919,17 +2053,17 @@ async def list_all_findings(
 
     response: Response,
 
-    scan_id: Optional[str] = None,
+    scan_id: str | None = None,
 
-    search: Optional[str] = None,
+    search: str | None = None,
 
-    severity: Optional[str] = None,
+    severity: str | None = None,
 
-    lifecycle_status: Optional[str] = None,
+    lifecycle_status: str | None = None,
 
-    remediation_status: Optional[str] = None,
+    remediation_status: str | None = None,
 
-    poc_state: Optional[str] = None,
+    poc_state: str | None = None,
 
     limit: int = 100,
 
@@ -2139,7 +2273,7 @@ async def get_finding_history(finding_id: str):
 
 
 
-@app.get("/api/scans/{scan_id}/logs", response_model=List[LogEvent])
+@app.get("/api/scans/{scan_id}/logs", response_model=list[LogEvent])
 
 
 
@@ -2167,7 +2301,7 @@ async def export_report(
 
     format: Literal["html", "json", "sarif", "markdown", "csv", "pdf", "docx"] = "html",
 
-    download: Optional[bool] = False
+    download: bool | None = False
 
 ):
 
@@ -2282,12 +2416,12 @@ async def export_report(
 
 
 class AmassPayload(BaseModel):
-    domain: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
-    url: Optional[str] = None
-    recursive: Optional[bool] = True
-    concurrency: Optional[int] = 25
+    domain: str | None = None
+    target: str | None = None
+    host: str | None = None
+    url: str | None = None
+    recursive: bool | None = True
+    concurrency: int | None = 25
 
 @app.post("/api/recon/amass")
 @app.post("/api/tools/subdomains")
@@ -2297,37 +2431,98 @@ async def run_amass_standalone(payload: AmassPayload):
     clean_target = raw_target.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
     await enforce_scope(clean_target, "subdomains")
 
-    if clean_target in ["localhost", "127.0.0.1", "::1", "0.0.0.0"]:
-        subdomains = [
-            {"subdomain": clean_target, "ip": "127.0.0.1", "source": "local_loopback", "status": 200, "dns_confirmed": True, "validation_status": "active"},
-            {"subdomain": f"api.{clean_target}", "ip": "127.0.0.1", "source": "local_loopback", "status": 200, "dns_confirmed": True, "validation_status": "active"}
-        ]
+    # A bare IP address (including loopback) is not a registrable domain.
+    # Passive certificate-transparency / OSINT discovery cannot yield real
+    # subdomains for it.  Report that honestly instead of inventing entries,
+    # and persist the no-op so the record is auditable.
+    import ipaddress
+    try:
+        ipaddress.ip_address(clean_target)
+        is_ip_literal = True
+    except ValueError:
+        is_ip_literal = False
+
+    if is_ip_literal or clean_target.lower() == "localhost":
+        import uuid
+        from core.persistent_store import persistent_store
+
+        note = (
+            "Subdomain discovery requires a registrable domain. The supplied "
+            "target is an IP address or loopback name, so no enumeration was "
+            "performed and no subdomains are reported."
+        )
+        scan_id = f"amass_{uuid.uuid4().hex[:8]}"
+        persistent_store.create_scan(
+            scan_id=scan_id,
+            scan_type="subdomain",
+            target=clean_target,
+            configuration={
+                "recursive": payload.recursive,
+                "concurrency": payload.concurrency,
+            },
+        )
+        persistent_store.record_tool_execution(
+            scan_id=scan_id,
+            tool_name="amass_engine",
+            tool_id="recon_subdomain_amass",
+            execution_status="COMPLETED",
+            arguments={"target": clean_target},
+            error_message=note,
+            started_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            completed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            exit_code=0,
+        )
+        persistent_store.record_result(
+            scan_id, "subdomains", {"subdomains": [], "note": note, "discovery_sources": []}
+        )
+        persistent_store.update_scan(
+            scan_id,
+            status="COMPLETED",
+            completed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            duration_seconds=0.0,
+            total_findings=0,
+        )
+        persistent_store.add_report(scan_id, "json", f"/api/scans/{scan_id}/results")
         return {
             "domain": clean_target,
             "apex_domain": clean_target,
-            "count": len(subdomains),
-            "discovered_count": len(subdomains),
-            "resolved_count": len(subdomains),
+            "count": 0,
+            "discovered_count": 0,
+            "resolved_count": 0,
             "wildcard_filtered_count": 0,
             "failed_resolution_count": 0,
-            "live_count": len(subdomains),
+            "live_count": 0,
             "wildcard_detected": False,
             "takeover_count": 0,
-            "subdomains": subdomains,
-            "takeover_findings": []
+            "subdomains": [],
+            "takeover_findings": [],
+            "discovery_sources": [],
+            "failed_providers": [],
+            "scan_id": scan_id,
+            "discovery_mode": "not_applicable",
+            "note": note,
         }
+
+    import uuid
 
     from agents.amass_engine import AmassSubdomainEngine
 
 
 
-    import uuid
-
-
-
     scan_id = f"amass_{uuid.uuid4().hex[:8]}"
 
+    from core.persistent_store import persistent_store
 
+    _scan_started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    persistent_store.create_scan(
+        scan_id=scan_id,
+        scan_type="subdomain",
+        target=clean_target,
+        configuration={
+            "recursive": payload.recursive if payload.recursive is not None else True,
+            "concurrency": payload.concurrency or 25,
+        },
+    )
 
     engine = AmassSubdomainEngine(
 
@@ -2355,6 +2550,101 @@ async def run_amass_standalone(payload: AmassPayload):
 
     subdomains, takeovers = await engine.run()
 
+    # Persist every real discovery incrementally.  Each write is independent:
+    # a failure in one record cannot discard results from the other providers.
+    _finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    _states: set[str] = set()
+    _sources: set[str] = set()
+    for _sub in subdomains:
+        if not isinstance(_sub, dict):
+            continue
+        _name = str(_sub.get("subdomain") or "").strip().rstrip(".").lower()
+        if not _name:
+            continue
+        # The engine emits ``sources`` (a list) - preserve multi-source
+        # attribution instead of collapsing everything to "unknown".
+        _raw_sources = _sub.get("sources") or _sub.get("source") or _sub.get("discovery_source")
+        _source = _raw_sources if _raw_sources else "unknown"
+        if isinstance(_source, (list, tuple, set)):
+            _sources.update(str(s) for s in _source)
+            _source_text = ", ".join(sorted(str(s) for s in _source))
+        else:
+            _sources.add(str(_source))
+            _source_text = str(_source)
+        _state = persistent_store.record_subdomain(
+            scan_id=scan_id,
+            root_domain=getattr(engine, "base_domain", None) or clean_target,
+            subdomain=_name,
+            user_id="operator",
+            ip_addresses=_sub.get("ip_addresses") or (
+                [_sub["ip"]] if _sub.get("ip") else []
+            ),
+            cname_records=_sub.get("cname_records") or [],
+            dns_status=_sub.get("validation_status") or _sub.get("dns_status") or "UNKNOWN",
+            http_status=_sub.get("status") if isinstance(_sub.get("status"), int) else None,
+            discovery_source=_source_text,
+            discovery_type=_sub.get("discovery_type") or "passive",
+            confidence=(
+                float(_sub["confidence"]) if isinstance(_sub.get("confidence"), (int, float))
+                else (0.9 if str(_sub.get("confidence", "")).lower() == "high"
+                      else 0.7 if str(_sub.get("confidence", "")).lower() == "medium"
+                      else 0.4 if str(_sub.get("confidence", "")).lower() == "low"
+                      else 0.0)
+            ),
+            verification_timestamp=_finished,
+        )
+        _states.add(_state.value)
+
+    for _tf in takeovers:
+        _tf_data = _tf.model_dump() if hasattr(_tf, "model_dump") else (
+            dict(_tf) if isinstance(_tf, dict) else {"detail": str(_tf)}
+        )
+        persistent_store.record_finding(
+            scan_id=scan_id,
+            finding_title=str(_tf_data.get("title") or _tf_data.get("subdomain") or "Subdomain takeover indicator"),
+            severity=str(_tf_data.get("severity") or "HIGH"),
+            description=str(_tf_data.get("description") or _tf_data.get("evidence") or ""),
+            evidence=str(_tf_data.get("evidence") or ""),
+            remediation=str(_tf_data.get("remediation") or ""),
+            scanner_name="subdomain_takeover_check",
+        )
+
+    _tool_state = persistent_store.record_tool_execution(
+        scan_id=scan_id,
+        tool_name="amass_engine",
+        tool_id="recon_subdomain_amass",
+        execution_status="COMPLETED" if subdomains else "PARTIAL_SUCCESS",
+        arguments={
+            "target": clean_target,
+            "recursive": payload.recursive if payload.recursive is not None else True,
+            "concurrency": payload.concurrency or 25,
+        },
+        started_at=_scan_started,
+        completed_at=_finished,
+        exit_code=0,
+    )
+    _states.add(_tool_state.value)
+    _states.add(persistent_store.record_result(
+        scan_id, "subdomains", {"subdomains": subdomains, "takeovers": len(takeovers)}
+    ).value)
+    _states.add(persistent_store.add_report(
+        scan_id, "json", f"/api/scans/{scan_id}/results"
+    ).value)
+    persistent_store.update_scan(
+        scan_id,
+        status="COMPLETED" if subdomains else "PARTIAL_SUCCESS",
+        started_at=_scan_started,
+        completed_at=_finished,
+        duration_seconds=0.0,
+        total_findings=len(takeovers),
+    )
+    persistent_store.record_audit("operator", scan_id, "SUBDOMAIN_SCAN_COMPLETED", {
+        "target": clean_target,
+        "discovered": len(subdomains),
+        "takeovers": len(takeovers),
+        "persistence": sorted(_states),
+    })
+
     metrics = getattr(engine, "metrics", {})
 
     return {
@@ -2380,7 +2670,13 @@ async def run_amass_standalone(payload: AmassPayload):
 
         "subdomains": subdomains,
 
-        "takeover_findings": [f.model_dump() if hasattr(f, "model_dump") else f.__dict__ for f in takeovers]
+        "takeover_findings": [f.model_dump() if hasattr(f, "model_dump") else f.__dict__ for f in takeovers],
+
+        "scan_id": scan_id,
+        "discovery_sources": sorted(_sources),
+        "failed_providers": list(metrics.get("failed_providers", [])),
+        "persistence_status": sorted(_states) or ["LOCAL_ONLY"],
+        "results_endpoint": f"/api/scans/{scan_id}/results"
 
     }
 
@@ -2388,6 +2684,175 @@ async def run_amass_standalone(payload: AmassPayload):
 
 
 
+
+
+# ---------------------------------------------------------------------------
+# Durable persistence read APIs
+#
+# These endpoints read only from the authoritative SQLite store populated by
+# core.persistent_store.  They exist so results survive refreshes, logouts and
+# backend restarts, and so tool/subdomain/finding history is retrievable.
+# ---------------------------------------------------------------------------
+
+@app.get("/api/subdomains")
+@app.get("/api/subdomains/{scan_id}")
+async def get_persisted_subdomains(
+    scan_id: str | None = None,
+    user_id: str = "operator",
+    root_domain: str | None = None,
+    discovery_type: str | None = None,
+    limit: int = 500,
+    offset: int = 0,
+):
+    from core.persistent_store import persistent_store
+
+    rows = persistent_store.get_subdomains(scan_id) if scan_id else []
+    if not scan_id:
+        # Cross-scan history: query the authoritative local store directly.
+        with db.get_connection() as conn:
+            rows = [dict(r) for r in conn.execute(
+                "SELECT * FROM subdomains ORDER BY last_seen DESC LIMIT ? OFFSET ?",
+                (min(max(limit, 1), 5000), max(offset, 0)),
+            ).fetchall()]
+    if root_domain:
+        rows = [r for r in rows if r.get("root_domain") == root_domain]
+    if discovery_type:
+        rows = [r for r in rows if r.get("discovery_type") == discovery_type]
+    rows = [r for r in rows if (r.get("user_id") or "operator") == user_id]
+    for row in rows:
+        for key in ("ip_addresses", "cname_records"):
+            if isinstance(row.get(key), str):
+                try:
+                    row[key] = json.loads(row[key])
+                except (TypeError, ValueError):
+                    row[key] = []
+    return {
+        "scan_id": scan_id,
+        "count": len(rows),
+        "subdomains": rows[: min(max(limit, 1), 5000)],
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/scans/{scan_id}/results")
+async def get_persisted_scan_results(scan_id: str):
+    from core.persistent_store import persistent_store
+
+    scan = persistent_store.get_scan(scan_id)
+    if not scan:
+        raise HTTPException(status_code=404, detail=f"Scan {scan_id} not found")
+    return {
+        "scan_id": scan_id,
+        "scan": scan,
+        "results": persistent_store.get_results(scan_id),
+        "findings": persistent_store.get_findings(scan_id),
+        "reports": persistent_store.get_reports(scan_id),
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/scans/{scan_id}/tools")
+async def get_persisted_scan_tools(scan_id: str):
+    from core.persistent_store import persistent_store
+
+    return {
+        "scan_id": scan_id,
+        "count": len(persistent_store.get_tool_executions(scan_id)),
+        "tool_executions": persistent_store.get_tool_executions(scan_id),
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/scans/{scan_id}/reports")
+async def get_persisted_scan_reports(scan_id: str):
+    from core.persistent_store import persistent_store
+
+    return {
+        "scan_id": scan_id,
+        "reports": persistent_store.get_reports(scan_id),
+        "source": "persistent_store",
+    }
+
+
+@app.get("/api/reports/export")
+async def export_latest_report(format: str = "json", scan_id: str | None = None):
+    """Export a report built from persisted records (never from frontend state).
+
+    ``format=json`` returns the structured record; ``format=csv`` returns a
+    flat finding list.  When ``scan_id`` is omitted the most recently updated
+    scan is used.
+    """
+    from fastapi.responses import PlainTextResponse
+
+    from core.persistent_store import persistent_store
+
+    with db.get_connection() as conn:
+        if scan_id:
+            row = conn.execute("SELECT id FROM scans WHERE id = ?", (scan_id,)).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT id FROM scans ORDER BY created_at DESC LIMIT 1"
+            ).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="No scan records available to export")
+    sid = row[0]
+    findings = persistent_store.get_findings(sid)
+    subdomains = persistent_store.get_subdomains(sid)
+    if format.lower() == "csv":
+        lines = ["scan_id,title,severity,scanner,evidence"]
+        for f in findings:
+            cells = [
+                sid,
+                f.get("finding_title", ""),
+                f.get("severity", ""),
+                f.get("scanner_name", ""),
+                f.get("evidence", ""),
+            ]
+            lines.append(",".join('"' + str(c).replace('"', '""') + '"' for c in cells))
+        return PlainTextResponse("\n".join(lines), media_type="text/csv")
+    if format.lower() == "json":
+        return {
+            "scan_id": sid,
+            "scan": persistent_store.get_scan(sid),
+            "findings": findings,
+            "subdomains": subdomains,
+            "tool_executions": persistent_store.get_tool_executions(sid),
+            "reports": persistent_store.get_reports(sid),
+            "generated_from": "persistent_store",
+        }
+    raise HTTPException(status_code=400, detail=f"Unsupported report format: {format}")
+
+
+@app.get("/api/persistence/status")
+async def get_persistence_status():
+    """Reports which backend is authoritative and how many writes are pending."""
+    from core.persistent_store import persistent_store
+
+    with db.get_connection() as conn:
+        tables = conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()[0]
+        pending = conn.execute(
+            "SELECT COUNT(*) FROM persistence_outbox WHERE status='PENDING'"
+        ).fetchone()[0]
+    return {
+        "authoritative_backend": "sqlite_wal",
+        "mirrored_backend": "mysql" if persistent_store._mysql_active() else None,
+        "persistent_tables": tables,
+        "pending_mysql_writes": pending,
+        "note": (
+            "SQLite is the authoritative store. MySQL is a mirror enabled via "
+            "SWA_DB_BACKEND=mysql; failed MySQL writes stay PENDING in the outbox "
+            "and are never reported as successful persistence."
+        ),
+    }
+
+
+@app.post("/api/persistence/outbox/flush")
+async def flush_persistence_outbox():
+    from core.persistent_store import persistent_store
+
+    return persistent_store.flush_outbox()
 
 
 class DefenseGeneratePayload(BaseModel):
@@ -2398,7 +2863,7 @@ class DefenseGeneratePayload(BaseModel):
 
 
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
 
 
@@ -2506,11 +2971,11 @@ class ForensicsPayload(BaseModel):
 
 
 
-    raw_logs: Optional[str] = ""
+    raw_logs: str | None = ""
 
 
 
-    sample_key: Optional[str] = None
+    sample_key: str | None = None
 
 
 
@@ -2970,19 +3435,19 @@ class SettingsPayload(BaseModel):
 
 
 
-    ai_provider: Optional[str] = None
+    ai_provider: str | None = None
 
 
 
-    ai_model: Optional[str] = None
+    ai_model: str | None = None
 
 
 
-    ai_api_key: Optional[str] = None
+    ai_api_key: str | None = None
 
 
 
-    ai_base_url: Optional[str] = None
+    ai_base_url: str | None = None
 
 
 
@@ -3112,7 +3577,7 @@ async def list_plugins():
 
 
 
-async def toggle_plugin(plugin_id: str, enabled: Optional[bool] = None):
+async def toggle_plugin(plugin_id: str, enabled: bool | None = None):
 
 
 
@@ -3146,7 +3611,7 @@ async def toggle_plugin(plugin_id: str, enabled: Optional[bool] = None):
 
 
 @app.post("/api/plugins/run")
-async def run_all_plugins_endpoint(payload: Optional[Dict[str, Any]] = None):
+async def run_all_plugins_endpoint(payload: dict[str, Any] | None = None):
     """Executes all enabled OWASP Top 10 security plugins against a target URL."""
     payload = payload or {}
     target = payload.get("target") or "127.0.0.1:8000"
@@ -3160,7 +3625,7 @@ async def run_all_plugins_endpoint(payload: Optional[Dict[str, Any]] = None):
 
 
 @app.post("/api/plugins/{plugin_id}/run")
-async def run_single_plugin_endpoint(plugin_id: str, payload: Optional[Dict[str, Any]] = None):
+async def run_single_plugin_endpoint(plugin_id: str, payload: dict[str, Any] | None = None):
     """Executes a single specified OWASP Top 10 security plugin against a target."""
     payload = payload or {}
     target = payload.get("target") or "127.0.0.1:8000"
@@ -3210,10 +3675,10 @@ async def get_owasp_matrix():
 
 
 class DNSLookupPayload(BaseModel):
-    domain: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
-    url: Optional[str] = None
+    domain: str | None = None
+    target: str | None = None
+    host: str | None = None
+    url: str | None = None
 
 @app.post("/api/tools/dns")
 async def run_dns_lookup(payload: DNSLookupPayload):
@@ -3225,10 +3690,10 @@ async def run_dns_lookup(payload: DNSLookupPayload):
     return await DNSLookupTool.resolve(clean_host)
 
 class SecurityHeadersPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    host: str | None = None
 
 @app.post("/api/tools/headers")
 async def run_security_headers(payload: SecurityHeadersPayload):
@@ -3240,11 +3705,11 @@ async def run_security_headers(payload: SecurityHeadersPayload):
     return await SecurityHeadersTool.evaluate(target_url)
 
 class SSLPayload(BaseModel):
-    target: Optional[str] = None
-    host: Optional[str] = None
-    domain: Optional[str] = None
-    url: Optional[str] = None
-    port: Optional[int] = 443
+    target: str | None = None
+    host: str | None = None
+    domain: str | None = None
+    url: str | None = None
+    port: int | None = 443
 
 @app.post("/api/tools/ssl")
 async def run_ssl_inspect(payload: SSLPayload):
@@ -3256,12 +3721,12 @@ async def run_ssl_inspect(payload: SSLPayload):
     return await SSLCertificateTool.inspect(clean_host, port=payload.port or 443)
 
 class PortScanPayload(BaseModel):
-    target: Optional[str] = None
-    host: Optional[str] = None
-    domain: Optional[str] = None
-    ip: Optional[str] = None
-    url: Optional[str] = None
-    ports: Optional[List[int]] = None
+    target: str | None = None
+    host: str | None = None
+    domain: str | None = None
+    ip: str | None = None
+    url: str | None = None
+    ports: list[int] | None = None
 
 @app.post("/api/tools/ports")
 async def run_port_scan(payload: PortScanPayload):
@@ -3274,11 +3739,11 @@ async def run_port_scan(payload: PortScanPayload):
     return await PortProberTool.scan(clean_host, ports=ports_list)
 
 class WhoisPayload(BaseModel):
-    target: Optional[str] = None
-    host: Optional[str] = None
-    domain: Optional[str] = None
-    ip: Optional[str] = None
-    url: Optional[str] = None
+    target: str | None = None
+    host: str | None = None
+    domain: str | None = None
+    ip: str | None = None
+    url: str | None = None
 
 @app.post("/api/tools/whois")
 async def run_whois_lookup(payload: WhoisPayload):
@@ -3344,10 +3809,10 @@ async def run_crypto_encoder(payload: CryptoEncoderPayload):
 
 
 class HashPayload(BaseModel):
-    text: Optional[str] = None
-    input: Optional[str] = None
-    hash_value: Optional[str] = None
-    data: Optional[str] = None
+    text: str | None = None
+    input: str | None = None
+    hash_value: str | None = None
+    data: str | None = None
 
 @app.post("/api/tools/hashes")
 async def run_calculate_hashes(payload: HashPayload):
@@ -3435,11 +3900,11 @@ async def run_subnet_calc(payload: SubnetPayload):
 
 
 class TargetedProbePayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    vuln_type: Optional[str] = "sqli"
-    parameter: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    vuln_type: str | None = "sqli"
+    parameter: str | None = None
 
 @app.post("/api/tools/probe")
 async def run_targeted_probe(payload: TargetedProbePayload):
@@ -3468,7 +3933,7 @@ class ShellPayload(BaseModel):
 
 
 
-    shell_type: Optional[str] = "all"
+    shell_type: str | None = "all"
 
 
 
@@ -3501,13 +3966,13 @@ async def run_revshell_gen(payload: ShellPayload):
 
 
 class JsScanPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    content: Optional[str] = None
-    code: Optional[str] = None
-    raw_js: Optional[str] = None
-    active_fetch: Optional[bool] = True
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    content: str | None = None
+    code: str | None = None
+    raw_js: str | None = None
+    active_fetch: bool | None = True
 
 @app.post("/api/tools/js-scan")
 async def run_js_scan(payload: JsScanPayload):
@@ -3563,7 +4028,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                 await websocket.send_json(event)
 
-            except asyncio.TimeoutError:
+            except TimeoutError:
 
                 await websocket.send_json({
 
@@ -3571,7 +4036,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
                     "status": "HEALTHY",
 
-                    "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                    "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
                 })
 
@@ -3595,17 +4060,14 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 
-from core.waf_bypass_engine import WAFBypassEngine
-
 from core.bug_bounty_hub import BugBountyHub
-
 from core.notifier import NotificationDispatcher
-
+from core.waf_bypass_engine import WAFBypassEngine
 
 
 @app.get("/api/bounty/programs")
 
-async def get_bug_bounty_programs(query: Optional[str] = None):
+async def get_bug_bounty_programs(query: str | None = None):
 
     """Built-in Directory of 90+ Bug Bounty Programs, VDP policies, scopes & platforms."""
 
@@ -3620,10 +4082,10 @@ async def get_bug_bounty_programs(query: Optional[str] = None):
 
 
 class WAFCheckPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
-    host: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
+    host: str | None = None
 
 
 
@@ -3646,6 +4108,16 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
     if not url.startswith("http://") and not url.startswith("https://"):
 
         url = "https://" + url
+
+    import urllib.parse
+    from core.scope_policy import scope_policy
+    parsed_u = urllib.parse.urlsplit(url)
+    if parsed_u.scheme not in ("http", "https") or not parsed_u.hostname:
+        raise HTTPException(status_code=400, detail="Invalid target URL scheme or host")
+    is_restr, restr_reason = scope_policy.is_private_or_restricted(parsed_u.hostname)
+    if is_restr:
+        raise HTTPException(status_code=403, detail=f"Target Scope Refusal: {restr_reason}")
+    url = urllib.parse.urlunsplit(parsed_u)
 
     await enforce_scope(url, "waf-check")
 
@@ -3687,9 +4159,9 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
 
 class FileScanPayload(BaseModel):
 
-    filename: Optional[str] = "upload.js"
+    filename: str | None = "upload.js"
 
-    content: Optional[str] = ""
+    content: str | None = ""
 
 
 
@@ -3708,9 +4180,9 @@ async def scan_uploaded_file(payload: FileScanPayload):
 
 
 class DepCheckPayload(BaseModel):
-    target_url: Optional[str] = None
-    url: Optional[str] = None
-    target: Optional[str] = None
+    target_url: str | None = None
+    url: str | None = None
+    target: str | None = None
 
 @app.post("/api/tools/dependency-check")
 async def check_dependency_confusion(payload: DepCheckPayload):
@@ -3769,7 +4241,7 @@ class WebhookPayload(BaseModel):
 
     webhook_url: str
 
-    channel_type: Optional[str] = "slack"
+    channel_type: str | None = "slack"
 
 
 
@@ -3840,9 +4312,9 @@ class AddScopeTargetPayload(BaseModel):
 
     domain: str
 
-    description: Optional[str] = "Authorized target domain"
+    description: str | None = "Authorized target domain"
 
-    profile: Optional[str] = "standard"
+    profile: str | None = "standard"
 
 
 
@@ -3858,7 +4330,7 @@ async def get_scope_targets():
 
     """Returns configured approved scope targets and default authorized lab targets."""
 
-    from core.scope_policy import scope_policy, DEFAULT_ALLOWED_LAB_TARGETS
+    from core.scope_policy import DEFAULT_ALLOWED_LAB_TARGETS, scope_policy
 
     scope_policy.check_reload()
 
@@ -3960,11 +4432,11 @@ class REAAnalyzePayload(BaseModel):
 
     target_path: str
 
-    target_type: Optional[str] = None
+    target_type: str | None = None
 
     authorized: bool = False
 
-    timeout_sec: Optional[int] = 30
+    timeout_sec: int | None = 30
 
 
 
@@ -4024,7 +4496,7 @@ async def run_rea_analysis(payload: REAAnalyzePayload):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"REA analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"REA analysis failed: {e!s}")
 
 
 
@@ -4034,7 +4506,7 @@ async def upload_and_analyze_rea(
 
     file: UploadFile = File(...),
 
-    target_type: Optional[str] = Form(None),
+    target_type: str | None = Form(None),
 
     authorized: bool = Form(False)
 
@@ -4043,7 +4515,6 @@ async def upload_and_analyze_rea(
     """Securely uploads an artifact and runs REA reverse engineering inspection."""
 
     import re
-
     import uuid
 
     from core.rea_engine import rea_engine
@@ -4100,7 +4571,7 @@ async def upload_and_analyze_rea(
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Upload analysis failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload analysis failed: {e!s}")
 
 
 
@@ -4191,53 +4662,7 @@ async def observability_status():
 
 
 
-@app.get("/api/alerts")
-
-async def list_alerts(
-    severity: Optional[str] = Query(None, pattern="^(critical|high|medium|low|info)$"),
-    status: Optional[str] = Query(None, pattern="^(open|acknowledged|assigned|suppressed|resolved)$"),
-    source: Optional[str] = None,
-    limit: int = Query(100, ge=1, le=500),
-):
-    """Lists real alerts with optional filtering."""
-
-    from core.alert_manager import manager as alerts
-
-    return {"alerts": alerts.list(severity=severity, status=status, source=source, limit=limit),
-            "summary": alerts.summary()}
-
-
-
-@app.get("/api/alerts/summary")
-
-async def alert_summary():
-
-    from core.alert_manager import manager as alerts
-
-    return alerts.summary()
-
-
-
-@app.post("/api/alerts")
-
-async def create_alert(req: AlertCreateRequest):
-
-    """Creates an alert from an observed event."""
-
-    from core.alert_manager import Severity, manager as alerts
-
-    alert = alerts.create(
-        title=req.title,
-        severity=Severity(req.severity),
-        source=req.source,
-        component=req.component,
-        description=req.description,
-        evidence=req.evidence,
-        related_id=req.related_id,
-        remediation=req.remediation,
-    )
-
-    return alert.to_dict()
+# (Alerts list, summary, and creation endpoints are implemented below with full category/status support)
 
 
 
@@ -4439,7 +4864,7 @@ async def get_dev_tool(tool_id: str):
 
 @app.get("/api/tools/registry")
 
-async def list_tool_registry(category: Optional[str] = None):
+async def list_tool_registry(category: str | None = None):
 
     """Returns the complete catalog of all implemented offensive and defensive tools.
 
@@ -4495,15 +4920,15 @@ async def get_tool_metadata(tool_id: str):
 
 class ToolExecuteRequest(BaseModel):
 
-    target: Optional[str] = Field(default=None, description="Target domain, URL, or IP address")
+    target: str | None = Field(default=None, description="Target domain, URL, or IP address")
 
-    url: Optional[str] = Field(default=None, description="Target URL")
+    url: str | None = Field(default=None, description="Target URL")
 
-    domain: Optional[str] = Field(default=None, description="Target domain")
+    domain: str | None = Field(default=None, description="Target domain")
 
-    host: Optional[str] = Field(default=None, description="Target host")
+    host: str | None = Field(default=None, description="Target host")
 
-    options: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    options: dict[str, Any] | None = Field(default_factory=dict)
 
     authorized: bool = Field(default=True)
 
@@ -4690,8 +5115,8 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
     """
 
-    from core.scope_policy import scope_policy
     from core.scanner_integrations import ScannerIntegrations
+    from core.scope_policy import scope_policy
     from core.tool_registry import tool_registry
 
     effective_target = (
@@ -4737,6 +5162,20 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
 
     t_start = time.time()
+
+    import uuid
+    from core.persistent_store import persistent_store
+
+    # Every real tool execution gets a scan record before the tool runs, so an
+    # interrupted or failed run is still recoverable afterwards.
+    tool_scan_id = f"tool_{uuid.uuid4().hex[:12]}"
+    tool_started = datetime.datetime.now(datetime.timezone.utc).isoformat()
+    persistent_store.create_scan(
+        scan_id=tool_scan_id,
+        scan_type="tool_execution",
+        target=effective_target,
+        configuration={"tool_id": tool_id_clean, "options": req.options or {}},
+    )
 
     result_data = {}
 
@@ -4872,9 +5311,9 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
         elif tool_id_clean in ["sqli", "websec_sqli_suite"]:
 
-            from core.sqli_engine import SQLiEngine
-
             import httpx
+
+            from core.sqli_engine import SQLiEngine
 
             engine = SQLiEngine()
 
@@ -4929,7 +5368,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
         elif (
             canonical_id in ScannerIntegrations.get_tool_inventory() or 
             tool_id_clean in ScannerIntegrations.get_tool_inventory() or 
-            tool_id_clean in ["nmap", "nuclei", "zap", "sqlmap", "nikto", "sslscan", "owasp_zap", "tshark", "semgrep", "bandit", "trivy", "gitleaks", "swa_native", "rea", "microsoft_defender", "clamav", "wazuh"]
+            tool_id_clean in ["nmap", "nuclei", "zap", "sqlmap", "nikto", "sslscan", "owasp_zap", "tshark", "semgrep", "bandit", "trivy", "gitleaks", "swa_native", "rea", "microsoft_defender", "clamav", "wazuh", "snmk_fast_scan"]
         ):
             from core.scanner_integrations import ScannerIntegrations
             lookup_key = canonical_id if canonical_id in ScannerIntegrations.get_tool_inventory() else tool_id_clean
@@ -4985,6 +5424,32 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
             if inner_status in ("NOT_IMPLEMENTED", "NOT_EXECUTABLE", "FAILED"):
                 outer_status = inner_status
 
+        tool_finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        _exec_state = persistent_store.record_tool_execution(
+            scan_id=tool_scan_id,
+            tool_name=tool_id_clean,
+            tool_id=tool_id_clean,
+            execution_status=outer_status,
+            arguments={"target": effective_target, "options": options},
+            started_at=tool_started,
+            completed_at=tool_finished,
+            exit_code=0 if outer_status == "COMPLETED" else 1,
+            stdout_reference=f"/api/scans/{tool_scan_id}/results",
+        )
+        persistent_store.record_result(tool_scan_id, "tool_execution", result_data)
+        persistent_store.update_scan(
+            tool_scan_id,
+            status=outer_status,
+            started_at=tool_started,
+            completed_at=tool_finished,
+            duration_seconds=exec_time,
+        )
+        persistent_store.record_audit("operator", tool_scan_id, "TOOL_EXECUTED", {
+            "tool_id": tool_id_clean,
+            "status": outer_status,
+            "persistence": _exec_state.value,
+        })
+
         return {
 
             "status": outer_status,
@@ -4995,7 +5460,9 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
             "result": result_data,
 
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+            "timestamp": datetime.datetime.now(datetime.UTC).isoformat(),
+            "scan_id": tool_scan_id,
+            "persistence_status": _exec_state.value,
 
         }
 
@@ -5006,8 +5473,29 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
     except Exception as e:
 
         logger.error(f"Error executing tool {tool_id}: {e}")
+        _failed_finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        persistent_store.record_tool_execution(
+            scan_id=tool_scan_id,
+            tool_name=tool_id_clean,
+            tool_id=tool_id_clean,
+            execution_status="FAILED",
+            arguments={"target": effective_target, "options": options},
+            started_at=tool_started,
+            completed_at=_failed_finished,
+            exit_code=1,
+            stderr_reference=f"/api/scans/{tool_scan_id}/results",
+            error_message=str(e)[:1000],
+        )
+        persistent_store.update_scan(
+            tool_scan_id,
+            status="FAILED",
+            started_at=tool_started,
+            completed_at=_failed_finished,
+            error_message=str(e)[:1000],
+            duration_seconds=round(time.time() - t_start, 3),
+        )
 
-        raise HTTPException(status_code=500, detail=f"Tool execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Tool execution failed: {e!s}")
 
 
 
@@ -5015,7 +5503,7 @@ class RunAllToolsRequest(BaseModel):
 
     target: str = Field(..., description="Target domain, URL, or IP address")
 
-    tools: Optional[List[str]] = Field(default_factory=lambda: ["recon", "pentest", "fuzzer", "waf", "forensics", "siem"])
+    tools: list[str] | None = Field(default_factory=lambda: ["recon", "pentest", "fuzzer", "waf", "forensics", "siem"])
 
     lab_mode: bool = Field(default=False)
 
@@ -5024,7 +5512,7 @@ class RunAllToolsRequest(BaseModel):
 @app.post("/api/tools/run-all")
 async def run_all_tools_endpoint(req: RunAllToolsRequest):
     """
-    Executes the unified cybersecurity assessment across all 15 integrated tool suites
+    Executes the unified cybersecurity assessment across all 16 integrated tool suites
     and all 85 registered agents, compiling findings and generating a detailed
     Nessus-style vulnerability assessment report.
     """
@@ -5046,11 +5534,19 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             )
         raise HTTPException(status_code=403, detail=f"Scope Policy Refusal: {scope_res.reason}")
 
-    from core.models import ScanJob, ScanProfile, ScanConfig, ScanStatus, VulnerabilityFinding, Severity
-    from core.scanner_integrations import ScannerIntegrations
+    from core.models import (
+        ScanConfig,
+        ScanJob,
+        ScanProfile,
+        ScanStatus,
+        Severity,
+        VulnerabilityFinding,
+    )
     from reports.nessus_report_engine import NessusVulnerabilityReportEngine
     nessus_report_engine = NessusVulnerabilityReportEngine()
-    import uuid, time, datetime
+    import datetime
+    import time
+    import uuid
 
     scan_id = f"all_tools_{uuid.uuid4().hex[:10]}"
     t_start = time.time()
@@ -5063,7 +5559,12 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     # Run active probers & integrations safely
     hostname = scope_res.hostname or req.target.replace("https://", "").replace("http://", "").split("/")[0].split(":")[0]
     try:
-        from core.cyber_tools import SecurityHeadersTool, SSLCertificateTool, DNSLookupTool, PortProberTool
+        from core.cyber_tools import (
+            DNSLookupTool,
+            PortProberTool,
+            SecurityHeadersTool,
+            SSLCertificateTool,
+        )
         # 1. DNS Lookup
         try:
             dns_res = await DNSLookupTool().resolve(hostname)
@@ -5181,7 +5682,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         logger.warning(f"Active prober phase error: {e}")
 
     # Run ScannerIntegrations tool suites
-    for tool_name in ["nmap", "nuclei", "owasp_zap", "sqlmap", "nikto", "semgrep", "bandit", "trivy", "gitleaks", "tshark", "microsoft_defender", "swa_native"]:
+    for tool_name in ["nmap", "nuclei", "owasp_zap", "sqlmap", "nikto", "semgrep", "bandit", "trivy", "gitleaks", "tshark", "microsoft_defender", "swa_native", "snmk_fast_scan"]:
         executed_tools.append(tool_name)
 
     # Run all enabled OWASP Top 10 plugins
@@ -5192,7 +5693,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             timeout=10.0
         )
         executed_tools.append("owasp_top10_plugins")
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("OWASP plugins timed out after 10s budget")
     except Exception as e:
         logger.warning(f"OWASP plugins execution notice: {e}")
@@ -5208,7 +5709,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             ),
             timeout=20.0
         )
-    except asyncio.TimeoutError:
+    except TimeoutError:
         logger.warning("Agent workforce reached 20s budget; finalizing unified report")
     except Exception as e:
         logger.warning(f"Agent workforce execution notice: {e}")
@@ -5216,7 +5717,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     # Mark Scan as COMPLETED
     t_dur = round(time.time() - t_start, 2)
     job.status = ScanStatus.COMPLETED
-    job.completed_at = datetime.datetime.now(datetime.timezone.utc)
+    job.completed_at = datetime.datetime.now(datetime.UTC)
     db.save_scan(job)
 
     # Retrieve all findings for scan (or fallback to existing scan findings)
@@ -5299,7 +5800,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         "target": req.target,
         "posture_score": posture_score,
         "posture_grade": grade,
-        "total_tools": 15,
+        "total_tools": 16,
         "executed_tools": executed_tools,
         "total_agents": 85,
         "agents_executed": workforce_results.get("executed_agents", 85),
@@ -5324,7 +5825,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
         "json_url": report_data.get("json_url") or f"/api/reports/vulnerability-assessment/{report_id}/download?format=json",
         "nessus_xml_url": report_data.get("nessus_xml_url") or f"/api/reports/vulnerability-assessment/{report_id}/download?format=nessus_xml",
         "sarif_url": report_data.get("sarif_url") or f"/api/reports/vulnerability-assessment/{report_id}/download?format=sarif",
-        "completed_at": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "completed_at": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
 
@@ -5362,7 +5863,6 @@ async def update_all_tools_endpoint():
     """
 
     from core.scanner_integrations import ScannerIntegrations
-
     from core.tool_registry import tool_registry
 
 
@@ -5383,7 +5883,7 @@ async def update_all_tools_endpoint():
 
         "registry_updates": registry_updates,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
     }
 
@@ -5411,7 +5911,7 @@ async def update_single_tool_endpoint(tool_id: str):
 
         "result": result,
 
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
 
     }
 
@@ -5423,16 +5923,16 @@ async def update_single_tool_endpoint(tool_id: str):
 # =====================================================================
 
 class ToolHealthCheckPayload(BaseModel):
-    tool_id: Optional[str] = None
+    tool_id: str | None = None
     level: int = 5
 
 class ToolInstallPayload(BaseModel):
     tool_id: str
-    target_version: Optional[str] = None
+    target_version: str | None = None
     isolated: bool = True
 
 class ToolInstallAllPayload(BaseModel):
-    tool_ids: Optional[List[str]] = None
+    tool_ids: list[str] | None = None
     skip_healthy: bool = True
 
 class ToolCancelPayload(BaseModel):
@@ -5471,7 +5971,7 @@ async def get_single_tool_health(tool_id: str, level: int = 5, force_refresh: bo
 
 
 @app.post("/api/tools/health/check")
-async def run_tool_health_check(payload: Optional[ToolHealthCheckPayload] = None, tool_id: Optional[str] = None):
+async def run_tool_health_check(payload: ToolHealthCheckPayload | None = None, tool_id: str | None = None):
     """Executes on-demand health check for a specific tool and broadcasts update."""
     t_id = (payload.tool_id if payload else None) or tool_id
     if not t_id:
@@ -5552,7 +6052,7 @@ async def install_tool_endpoint(payload: ToolInstallPayload, background_tasks: B
 
 
 @app.post("/api/tools/install-all")
-async def install_all_tools_endpoint(payload: Optional[ToolInstallAllPayload] = None):
+async def install_all_tools_endpoint(payload: ToolInstallAllPayload | None = None):
     """Installs all missing or degraded tools in topological dependency order."""
     from core.tool_dependency_manager import tool_dependency_manager
 
@@ -5594,7 +6094,7 @@ async def cancel_install_endpoint(payload: ToolCancelPayload):
 
 
 @app.get("/api/tools/install/status")
-async def get_install_status(job_id: Optional[str] = None, tool_id: Optional[str] = None):
+async def get_install_status(job_id: str | None = None, tool_id: str | None = None):
     """Retrieves real-time progress and status of installation jobs."""
     from core.tool_dependency_manager import tool_dependency_manager
     if job_id:
@@ -5728,7 +6228,7 @@ async def compare_scans(req: CompareScansRequest):
 
 async def list_assets(
 
-    parent_domain: Optional[str] = None,
+    parent_domain: str | None = None,
 
     limit: int = Query(default=100, ge=1, le=500),
 
@@ -5764,9 +6264,8 @@ async def export_assets(format: str = Query(default="json")):
 
     """Exports external asset inventory in JSON or CSV format."""
 
-    import io
-
     import csv
+    import io
 
     assets = db.get_assets(limit=5000)
 
@@ -5826,13 +6325,13 @@ async def upload_dataset(
 
     file: UploadFile = File(...),
 
-    name: Optional[str] = Form(None),
+    name: str | None = Form(None),
 
-    source: Optional[str] = Form("Security Audit"),
+    source: str | None = Form("Security Audit"),
 
-    license: Optional[str] = Form("Proprietary / Research"),
+    license: str | None = Form("Proprietary / Research"),
 
-    target_label: Optional[str] = Form(None)
+    target_label: str | None = Form(None)
 
 ):
 
@@ -5876,7 +6375,7 @@ async def upload_dataset(
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Upload processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload processing failed: {e!s}")
 
 
 
@@ -6042,7 +6541,7 @@ async def start_ai_training(config: dict):
 
     """Enqueues a reproducible model training experiment."""
 
-    from core.ai_training import ai_trainer, TrainingConfig
+    from core.ai_training import TrainingConfig, ai_trainer
 
     try:
 
@@ -6058,7 +6557,7 @@ async def start_ai_training(config: dict):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Failed to start training: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to start training: {e!s}")
 
 
 
@@ -6120,15 +6619,15 @@ class RunEvaluationRequest(BaseModel):
 
     model_name: str
 
-    baseline_model_name: Optional[str] = "heuristic-baseline-v1"
+    baseline_model_name: str | None = "heuristic-baseline-v1"
 
-    dataset_id: Optional[str] = None
+    dataset_id: str | None = None
 
     task_type: str = "classification"  # "classification" or "llm_inference"
 
     test_sample_count: int = 150
 
-    provider: Optional[str] = "auto"
+    provider: str | None = "auto"
 
 
 
@@ -6172,7 +6671,7 @@ async def run_ai_evaluation(req: RunEvaluationRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Model evaluation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Model evaluation failed: {e!s}")
 
 
 
@@ -6218,13 +6717,13 @@ class RunRedteamRequest(BaseModel):
 
     target_provider: str = "auto"
 
-    target_model: Optional[str] = None
+    target_model: str | None = None
 
-    api_key: Optional[str] = None
+    api_key: str | None = None
 
-    base_url: Optional[str] = None
+    base_url: str | None = None
 
-    category: Optional[str] = None
+    category: str | None = None
 
 
 
@@ -6256,13 +6755,13 @@ async def run_redteam_suite(req: RunRedteamRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Red-team execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Red-team execution failed: {e!s}")
 
 
 
 @app.get("/api/ai/redteam/runs")
 
-async def list_redteam_runs(run_id: Optional[str] = None):
+async def list_redteam_runs(run_id: str | None = None):
 
     """Retrieves saved test cases, evidence, and pass/fail statuses from LLM security evaluations."""
 
@@ -6280,15 +6779,16 @@ async def list_redteam_runs(run_id: Optional[str] = None):
 # 🧠 RAG KNOWLEDGE BASE & AGENT MEMORY API SUITE
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from core.rag_engine import rag_engine, RAGDocument
 from core.agent_memory import agent_memory_store
+from core.rag_engine import rag_engine
+
 
 class RAGIngestRequest(BaseModel):
     title: str
     content: str
     source_type: str = "security_advisory"
     project_id: str = "proj_default"
-    metadata: Optional[Dict[str, Any]] = None
+    metadata: dict[str, Any] | None = None
 
 class RAGQueryRequest(BaseModel):
     query: str
@@ -6301,11 +6801,11 @@ class MemoryClearRequest(BaseModel):
 
 class AIReasonRequest(BaseModel):
     prompt: str
-    system_instruction: Optional[str] = None
-    session_id: Optional[str] = None
+    system_instruction: str | None = None
+    session_id: str | None = None
     project_id: str = "proj_default"
     use_rag: bool = False
-    rag_query: Optional[str] = None
+    rag_query: str | None = None
 
 @app.post("/api/ai/rag/ingest")
 async def api_rag_ingest(req: RAGIngestRequest):
@@ -6395,7 +6895,7 @@ async def api_ai_reason(req: AIReasonRequest):
         "session_id": req.session_id,
         "project_id": req.project_id,
         "rag_used": req.use_rag or bool(req.rag_query),
-        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+        "timestamp": datetime.datetime.now(datetime.UTC).isoformat()
     }
 
 
@@ -6403,14 +6903,9 @@ async def api_ai_reason(req: AIReasonRequest):
 
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from core.cyber_export import cyber_exporter
-
-from core.cyber_test import cyber_tester
-
 from core.cyber_deploy import cyber_deployer
-
-import datetime
-
+from core.cyber_export import cyber_exporter
+from core.cyber_test import cyber_tester
 
 
 class CyberExportRequest(BaseModel):
@@ -6419,15 +6914,15 @@ class CyberExportRequest(BaseModel):
 
     format_type: str = "json"      # json, csv, html, pdf, xlsx
 
-    title: Optional[str] = None
+    title: str | None = None
 
-    scan_id: Optional[str] = None
+    scan_id: str | None = None
 
-    severity_filter: Optional[List[str]] = None
+    severity_filter: list[str] | None = None
 
-    category_filter: Optional[str] = None
+    category_filter: str | None = None
 
-    asset_filter: Optional[str] = None
+    asset_filter: str | None = None
 
     include_evidence: bool = True
 
@@ -6449,9 +6944,9 @@ class CyberDeployRequest(BaseModel):
 
     method: str = "local_process"
 
-    release_id: Optional[str] = None
+    release_id: str | None = None
 
-    approved_by: Optional[str] = None
+    approved_by: str | None = None
 
 
 
@@ -6503,7 +6998,7 @@ async def generate_cyber_export(req: CyberExportRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Export generation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Export generation failed: {e!s}")
 
 
 
@@ -6583,7 +7078,7 @@ async def run_cyber_tests(req: CyberTestRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Cyber test execution failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cyber test execution failed: {e!s}")
 
 
 
@@ -6641,7 +7136,7 @@ async def initiate_cyber_deploy(req: CyberDeployRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Deployment initiation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Deployment initiation failed: {e!s}")
 
 
 
@@ -6659,7 +7154,7 @@ async def approve_cyber_deploy(deployment_id: str, req: CyberDeployApprovalReque
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Deployment approval failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Deployment approval failed: {e!s}")
 
 
 
@@ -6677,7 +7172,7 @@ async def rollback_cyber_deploy(deployment_id: str, req: CyberDeployRollbackRequ
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Rollback failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Rollback failed: {e!s}")
 
 
 
@@ -6710,7 +7205,6 @@ async def get_cyber_deploy_status(deployment_id: str):
 # --- Mandatory Post-Deployment Acceptance Checklist Endpoints (§52) ---
 
 from core.post_deployment_checklist import post_deployment_checklist_engine
-
 
 
 @app.get("/api/cyber/deploy/{deployment_id}/acceptance-checklist")
@@ -6790,13 +7284,7 @@ async def get_cyber_audit_logs(limit: int = 100):
 # --- Expanded Cybersecurity Endpoints (Antivirus, Identity, SQLi & Multi-Injection) ---
 
 from core.antivirus_edr_manager import antivirus_edr_manager
-
 from core.identity_access_auditor import identity_access_auditor
-
-from core.sqli_engine import sqli_engine
-
-from core.injection_suite import injection_suite
-
 
 
 @app.get("/api/cyber/antivirus/status")
@@ -6870,10 +7358,12 @@ app.include_router(v1_router, prefix="/api/v1")
 
 # Include Cyber Kill Chain Intelligence & Attack Lifecycle Analyzer Router
 from web.kill_chain_router import kill_chain_router
+
 app.include_router(kill_chain_router)
 
 # Include MAP — Enterprise AI-Powered Network Intelligence & Forensics Router
 from web.network_api import router as network_router
+
 app.include_router(network_router)
 
 # Include Digital Forensics & Data Recovery Router
@@ -6906,7 +7396,7 @@ app.include_router(forensics_router)
 
 def _now() -> str:
 
-    return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    return datetime.datetime.now(datetime.UTC).isoformat(timespec="seconds")
 
 
 
@@ -6916,7 +7406,7 @@ def _component(cid: str, name: str, state: str, reason: str, *,
 
                correction: str = "", retry: bool = False,
 
-               evidence: Optional[dict] = None) -> dict:
+               evidence: dict | None = None) -> dict:
 
     return {
 
@@ -6944,7 +7434,7 @@ def _component(cid: str, name: str, state: str, reason: str, *,
 
 
 
-def _is_valid_api_key(k: Optional[str]) -> bool:
+def _is_valid_api_key(k: str | None) -> bool:
 
     if not k or not isinstance(k, str):
 
@@ -7286,7 +7776,7 @@ async def system_status():
 
     """Aggregate honest per-component health with full diagnostics."""
 
-    components: List[dict] = []
+    components: list[dict] = []
 
 
 
@@ -7824,24 +8314,24 @@ async def ai_status(probe: bool = False):
 
 class IntegrationCreateRequest(BaseModel):
     provider_id: str
-    display_name: Optional[str] = None
-    endpoint_url: Optional[str] = None
-    credentials: Dict[str, str] = {}
-    config: Optional[Dict[str, Any]] = None
+    display_name: str | None = None
+    endpoint_url: str | None = None
+    credentials: dict[str, str] = {}
+    config: dict[str, Any] | None = None
     enabled: bool = True
-    integration_id: Optional[str] = None
+    integration_id: str | None = None
 
 class IntegrationTestRequest(BaseModel):
     provider_id: str
-    credentials: Dict[str, str] = {}
-    endpoint_url: Optional[str] = None
+    credentials: dict[str, str] = {}
+    endpoint_url: str | None = None
 
 class IntegrationRotateRequest(BaseModel):
-    credentials: Dict[str, str] = {}
+    credentials: dict[str, str] = {}
 
 class DefaultAIProviderRequest(BaseModel):
     provider_id: str
-    model: Optional[str] = None
+    model: str | None = None
 
 @app.get("/api/integrations/providers")
 
@@ -8021,7 +8511,7 @@ class AIModelCreateRequest(BaseModel):
 
     display_name: str
 
-    description: Optional[str] = None
+    description: str | None = None
 
     max_tokens: int = 4096
 
@@ -8031,11 +8521,11 @@ class AIModelCreateRequest(BaseModel):
 
     is_default: bool = False
 
-    fallback_model_id: Optional[str] = None
+    fallback_model_id: str | None = None
 
     enabled: bool = True
 
-    model_pk: Optional[str] = None
+    model_pk: str | None = None
 
 
 
@@ -8173,9 +8663,8 @@ async def enterprise_agents_dispatch_alias(req: Request):
 
     role = body.get("agent_role", "supervisor")
 
-    from web.enterprise_api import dispatch_agent_task
-
     from core.models import AgentTaskRequest
+    from web.enterprise_api import dispatch_agent_task
 
     task_req = AgentTaskRequest(task=body.get("task", ""), context=body.get("context", {}))
 
@@ -8232,12 +8721,11 @@ async def enterprise_remediation_tickets_alias():
 from core.automation_engine import automation_engine
 
 
-
 class WorkflowRunPayload(BaseModel):
 
     target: str = "http://127.0.0.1:8000"
 
-    initiated_by: Optional[str] = "Security_Operator"
+    initiated_by: str | None = "Security_Operator"
 
 
 
@@ -8403,12 +8891,13 @@ async def get_automation_execution_details(exec_id: str):
 # Static asset cache correctness
 # =====================================================================
 
-_ASSET_VERSION_CACHE: Dict[str, Any] = {}
+_ASSET_VERSION_CACHE: dict[str, Any] = {}
 
 
-@app.middleware("http")
-async def _serve_assets_with_content_version(request, call_next):
-    """Serve ``index.html`` with content-addressed asset URLs.
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+@app.get("/index.html", response_class=HTMLResponse, include_in_schema=False)
+async def serve_index_with_content_version(request: Request):
+    """Serve ``index.html`` with content-addressed asset URLs and full security headers.
 
     The static assets used to be referenced with a hand-maintained
     ``?v=3.5.1`` query string that was never bumped when the files changed,
@@ -8422,28 +8911,485 @@ async def _serve_assets_with_content_version(request, call_next):
     * a changed asset always gets a new URL (no stale cache possible), and
     * an unchanged asset keeps its URL (so it can be cached immutably).
     """
-    path = request.url.path
-    if path in ("/", "/index.html") and request.method == "GET":
-        try:
-            index_path = os.path.join(STATIC_DIR, "index.html")
-            with open(index_path, "r", encoding="utf-8") as fh:
-                html = fh.read()
-            from core.asset_versions import inject_asset_versions
+    try:
+        index_path = os.path.join(STATIC_DIR, "index.html")
+        with open(index_path, "r", encoding="utf-8") as fh:
+            html = fh.read()
+        from core.asset_versions import inject_asset_versions
 
-            html = inject_asset_versions(html, STATIC_DIR, _ASSET_VERSION_CACHE)
-            return HTMLResponse(
-                content=html,
-                headers={
-                    # The document itself must never be cached, otherwise a
-                    # browser can hold on to a document that references an
-                    # asset URL that no longer exists.
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
-                    "Pragma": "no-cache",
-                },
-            )
-        except OSError:
-            pass
-    return await call_next(request)
+        html = inject_asset_versions(html, STATIC_DIR, _ASSET_VERSION_CACHE)
+        return HTMLResponse(
+            content=html,
+            headers={
+                # The document itself must never be cached, otherwise a
+                # browser can hold on to a document that references an
+                # asset URL that no longer exists.
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+            },
+        )
+    except OSError:
+        return HTMLResponse("<h1>SNMK Cybersecurity Platform</h1>", status_code=500)
+
+
+# =====================================================================
+# Database & MySQL Architecture Endpoints (Phase 4)
+# =====================================================================
+
+@app.get("/api/database/status")
+async def get_database_status_endpoint():
+    """Returns dual database architecture status covering both SQLite WAL and MySQL 8.x telemetry."""
+    from core.database import DB_PATH
+    from core.mysql_database import mysql_manager
+    sqlite_size_mb = 0.0
+    if os.path.exists(DB_PATH):
+        sqlite_size_mb = round(os.path.getsize(DB_PATH) / (1024 * 1024), 2)
+
+    mysql_health = mysql_manager.get_health_status(force_refresh=False)
+    with db.get_connection() as _conn:
+        _tables = _conn.execute(
+            "SELECT COUNT(*) FROM sqlite_master WHERE type='table'"
+        ).fetchone()[0]
+    return {
+        "primary_database": "sqlite_wal",
+        "sqlite": {
+            "status": "HEALTHY",
+            "journal_mode": "WAL",
+            "path": DB_PATH,
+            "size_mb": sqlite_size_mb,
+            "tables_count": _tables,
+            "connection_pooling": "thread_local_reused"
+        },
+        "mysql": mysql_health,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+    }
+
+@app.get("/api/database/mysql/health")
+async def get_mysql_health_endpoint():
+    """Detailed live MySQL connectivity, connection pool, and latency diagnostics."""
+    from core.mysql_database import mysql_manager
+    return mysql_manager.get_health_status(force_refresh=True)
+
+@app.post("/api/database/mysql/init-schema")
+async def init_mysql_schema_endpoint():
+    """Applies normalized MySQL DDL schemas for enterprise cyber tables."""
+    from core.mysql_database import mysql_manager
+    return mysql_manager.init_schema()
+
+# =====================================================================
+# Centralized Alert & Notification Management Endpoints (Phase 8)
+# =====================================================================
+
+@app.get("/api/alerts")
+async def list_alerts_endpoint(
+    severity: Optional[str] = None,
+    category: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Retrieves operational, security, AI, and infrastructure alerts with filtering and pagination."""
+    from core.alert_manager import alert_manager
+    return {
+        "alerts": alert_manager.get_alerts(severity=severity, category=category, status=status, limit=limit),
+        "total": len(alert_manager._alerts),
+        "summary": alert_manager.summary()
+    }
+
+@app.get("/api/alerts/summary")
+async def get_alerts_summary_endpoint():
+    """Provides high-level alert posture metrics for the SOC dashboard."""
+    from core.alert_manager import alert_manager
+    return alert_manager.get_summary()
+
+@app.post("/api/alerts")
+async def create_alert_endpoint(payload: Dict[str, Any]):
+    """Creates a deduplicated security or system operational alert."""
+    from core.alert_manager import alert_manager
+    title = payload.get("title", "Untitled Alert")
+    sev = payload.get("severity", "MEDIUM")
+    cat = payload.get("category", "SECURITY")
+    desc = payload.get("description", "")
+    asset = payload.get("affected_asset")
+    corr_id = payload.get("correlation_id")
+    rem = payload.get("remediation")
+    alert = alert_manager.create_alert(
+        severity=sev,
+        category=cat,
+        title=title,
+        description=desc,
+        affected_asset=asset,
+        correlation_id=corr_id,
+        remediation=rem,
+        source="api_gateway"
+    )
+    return alert.model_dump()
+
+@app.patch("/api/alerts/{alert_id}/status")
+async def update_alert_status_endpoint(alert_id: str, payload: Dict[str, Any]):
+    """Updates the lifecycle state (ACTIVE, ACKNOWLEDGED, RESOLVED, SUPPRESSED) of an alert."""
+    from core.alert_manager import alert_manager
+    status = payload.get("status", "ACKNOWLEDGED")
+    owner = payload.get("owner")
+    notes = payload.get("notes")
+    ok = alert_manager.update_status(alert_id, new_status=status, owner=owner, notes=notes)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Alert not found")
+    return {"success": True, "alert_id": alert_id, "status": status}
+
+
+# =====================================================================
+# Universal Vulnerability Scanner Endpoints (Master Module)
+# =====================================================================
+
+@app.post("/api/universal-scanner/scan/url")
+async def universal_scan_url_endpoint(
+    payload: Dict[str, Any],
+    background_tasks: BackgroundTasks,
+    request: Request
+):
+    """Initiates an asynchronous vulnerability scan for a website or web application URL."""
+    from core.universal_scanner import universal_scanner
+
+    url = (payload.get("url") or "").strip()
+    if not url:
+        raise HTTPException(status_code=400, detail="Missing required target URL")
+
+    scan_mode = payload.get("scan_mode", "passive")
+    config = {
+        "scan_mode": scan_mode,
+        "submitted_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "client_ip": request.client.host if request.client else "127.0.0.1"
+    }
+
+    job = universal_scanner.create_job(
+        scan_type="url",
+        target=url,
+        config=config,
+        user_id="operator"
+    )
+
+    background_tasks.add_task(universal_scanner.scan_url, job)
+
+    return {
+        "success": True,
+        "scan_id": job.id,
+        "target": url,
+        "scan_type": "url",
+        "status": job.status,
+        "message": f"Universal vulnerability scan started for '{url}' [{scan_mode} mode]"
+    }
+
+
+@app.post("/api/universal-scanner/scan/upload")
+async def universal_scan_upload_endpoint(
+    background_tasks: BackgroundTasks,
+    files: List[UploadFile] = File(...),
+    scan_type: str = Form("file"),
+    scan_mode: str = Form("safe_active"),
+):
+    """Handles multi-file and folder uploads for universal vulnerability analysis."""
+    from core.universal_scanner import UPLOAD_BASE_DIR, universal_scanner
+
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded for scanning")
+
+    target_name = f"{scan_type.upper()}_{len(files)}_files"
+    if len(files) == 1:
+        target_name = files[0].filename or "uploaded_file"
+
+    config = {
+        "scan_mode": scan_mode,
+        "submitted_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "total_files": len(files)
+    }
+
+    job = universal_scanner.create_job(
+        scan_type=scan_type,
+        target=target_name,
+        config=config,
+        user_id="operator"
+    )
+
+    scan_dir = os.path.join(UPLOAD_BASE_DIR, job.id)
+    os.makedirs(scan_dir, exist_ok=True)
+
+    saved_paths = []
+    total_size = 0
+
+    for upload in files:
+        # Sanitize filename preventing directory traversal (Zip Slip / Path Traversal)
+        raw_name = os.path.basename(upload.filename or f"file_{uuid.uuid4().hex[:8]}")
+        safe_name = re.sub(r"[^a-zA-Z0-9_.-]", "_", raw_name)
+        save_path = os.path.join(scan_dir, safe_name)
+
+        content = await upload.read()
+        total_size += len(content)
+        if len(content) > 25 * 1024 * 1024:
+            raise HTTPException(status_code=413, detail=f"File '{safe_name}' exceeds 25 MB size limit")
+
+        with open(save_path, "wb") as f:
+            f.write(content)
+        saved_paths.append(save_path)
+
+    if total_size > 100 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Total upload payload exceeds 100 MB limit")
+
+    background_tasks.add_task(universal_scanner.scan_files, job, saved_paths)
+
+    return {
+        "success": True,
+        "scan_id": job.id,
+        "scan_type": scan_type,
+        "target": target_name,
+        "total_files": len(saved_paths),
+        "status": job.status,
+        "message": f"Submitted {len(saved_paths)} file(s) for universal vulnerability analysis."
+    }
+
+
+@app.get("/api/universal-scanner/scans")
+async def list_universal_scans_endpoint(limit: int = 50):
+    """Returns recent universal vulnerability scan jobs and platform-wide metrics."""
+    from core.universal_scanner import universal_scanner
+    return {
+        "scans": universal_scanner.list_jobs(limit=limit),
+        "metrics": universal_scanner.get_metrics()
+    }
+
+
+@app.get("/api/universal-scanner/scans/{scan_id}")
+async def get_universal_scan_endpoint(scan_id: str):
+    """Retrieves real-time status, progress percentage, and summary counts for a scan."""
+    from core.universal_scanner import universal_scanner
+    job = universal_scanner.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+    return job.to_dict(include_details=True)
+
+
+@app.get("/api/universal-scanner/scans/{scan_id}/findings")
+async def get_universal_scan_findings_endpoint(scan_id: str):
+    """Retrieves the list of correlated vulnerability findings discovered in a scan."""
+    from core.universal_scanner import universal_scanner
+    job = universal_scanner.get_job(scan_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+    return {
+        "scan_id": job.id,
+        "target": job.target,
+        "status": job.status,
+        "total_findings": job.total_findings,
+        "findings": [f.to_dict() for f in job.findings]
+    }
+
+
+@app.post("/api/universal-scanner/scans/{scan_id}/cancel")
+async def cancel_universal_scan_endpoint(scan_id: str):
+    """Cancels an in-progress universal vulnerability scan."""
+    from core.universal_scanner import universal_scanner
+    ok = universal_scanner.cancel_job(scan_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Scan job not found")
+    return {"success": True, "scan_id": scan_id, "status": "CANCELLED"}
+
+
+@app.get("/api/universal-scanner/scans/{scan_id}/report")
+async def download_universal_scan_report_endpoint(scan_id: str, format: str = Query("json")):
+    """Generates and downloads a standardized vulnerability audit report in PDF/HTML/JSON/CSV/SARIF."""
+    from core.universal_scanner import universal_scanner
+    try:
+        content, media_type = universal_scanner.generate_report(scan_id, format_type=format)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    ext_map = {
+        "json": "json",
+        "html": "html",
+        "csv": "csv",
+        "md": "md",
+        "markdown": "md",
+        "sarif": "sarif"
+    }
+    ext = ext_map.get(format.lower(), "json")
+    filename = f"snmk_vuln_report_{scan_id[:8]}.{ext}"
+
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
+
+
+# =====================================================================
+# Security Flag Identification Engine Endpoints (Phase 7)
+# =====================================================================
+
+@app.get("/api/v1/flags/catalog")
+async def get_security_flags_catalog_endpoint(category: Optional[str] = None):
+    """Returns the standardized catalog of security flags across all 6 categories."""
+    from core.security_flags import FLAG_CATALOG
+    cat_items = {}
+    for name, meta in FLAG_CATALOG.items():
+        cat_val = meta.get("category").value if hasattr(meta.get("category"), "value") else str(meta.get("category"))
+        if not category or cat_val.lower() == category.lower():
+            cat_items[name] = {
+                "name": name,
+                "category": cat_val,
+                "severity": meta.get("severity").value if hasattr(meta.get("severity"), "value") else str(meta.get("severity")),
+                "impact": meta.get("impact", ""),
+                "rem": meta.get("rem", "")
+            }
+    return {
+        "catalog": cat_items,
+        "total": len(FLAG_CATALOG)
+    }
+
+@app.get("/api/v1/flags")
+async def list_security_flags_endpoint(
+    category: Optional[str] = None,
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 100
+):
+    """Lists identified security flag instances with filtering."""
+    from core.security_flags import security_flags_engine
+    return {
+        "flags": security_flags_engine.list_flags(
+            category=category,
+            severity=severity,
+            status=status,
+            limit=limit
+        ),
+        "summary": security_flags_engine.get_summary()
+    }
+
+@app.post("/api/v1/flags")
+async def record_security_flag_endpoint(payload: Dict[str, Any]):
+    """Records an identified security flag occurrence."""
+    from core.security_flags import security_flags_engine
+    flag_name = payload.get("flag_name") or payload.get("flag_code")
+    if not flag_name:
+        raise HTTPException(status_code=400, detail="Missing required 'flag_name' or 'flag_code'")
+    flag = security_flags_engine.raise_flag(
+        flag_name=flag_name,
+        target_ref=payload.get("affected_asset") or payload.get("target_ref", "Target Infrastructure"),
+        evidence=payload.get("evidence", ""),
+        confidence_score=float(payload.get("confidence", 0.85)),
+        detection_source=payload.get("source_module", "api"),
+    )
+    return flag.to_dict()
+
+@app.patch("/api/v1/flags/{flag_id}/review")
+async def review_security_flag_endpoint(flag_id: str, payload: Dict[str, Any]):
+    """Updates security flag verification status (CONFIRMED, FALSE_POSITIVE, RESOLVED, etc.)."""
+    from core.security_flags import security_flags_engine
+    status = payload.get("status", "CONFIRMED")
+    reviewer = payload.get("reviewer", "sec_engineer")
+    notes = payload.get("notes")
+    ok = security_flags_engine.update_verification_status(flag_id=flag_id, status=status, reviewer=reviewer, notes=notes)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Flag not found")
+    return {"success": True, "flag_id": flag_id, "verification_status": status}
+
+@app.get("/api/v1/flags/summary")
+async def get_security_flags_summary_endpoint():
+    """Provides high-level posture metrics for security flags."""
+    from core.security_flags import security_flags_engine
+    return security_flags_engine.get_summary()
+
+
+# =====================================================================
+# Cross-Module Security Correlation Engine Endpoints (Phase 10)
+# =====================================================================
+
+@app.post("/api/v1/correlation/analyze")
+async def trigger_correlation_analysis_endpoint(payload: Optional[Dict[str, Any]] = None):
+    """Runs cross-module correlation rules across Universal Scanner, Flags, PCAP, and Crypto."""
+    from core.correlation_engine import correlation_engine
+    from core.security_flags import security_flags_engine
+    from core.universal_scanner import universal_scanner
+
+    payload = payload or {}
+    scanner_findings = payload.get("scanner_findings")
+    if scanner_findings is None:
+        scanner_findings = []
+        for job in universal_scanner.list_jobs(limit=5):
+            scanner_findings.extend(job.get("findings", []))
+
+    sec_flags = payload.get("security_flags")
+    if sec_flags is None:
+        sec_flags = security_flags_engine.list_flags(limit=100)
+
+    pcap_anomalies = payload.get("pcap_anomalies", [])
+    crypto_findings = payload.get("crypto_findings", [])
+
+    incidents = correlation_engine.correlate(
+        scanner_findings=scanner_findings,
+        security_flags=sec_flags,
+        pcap_anomalies=pcap_anomalies,
+        crypto_findings=crypto_findings
+    )
+    return {
+        "success": True,
+        "correlated_incidents_generated": len(incidents),
+        "incidents": [i.to_dict() for i in incidents]
+    }
+
+@app.get("/api/v1/correlation/incidents")
+async def list_correlated_incidents_endpoint(
+    severity: Optional[str] = None,
+    status: Optional[str] = None,
+    limit: int = 50
+):
+    """Lists correlated multi-stage security incidents with MITRE mapping."""
+    from core.correlation_engine import correlation_engine
+    return {
+        "incidents": correlation_engine.list_incidents(severity=severity, status=status, limit=limit),
+        "metrics": correlation_engine.get_metrics()
+    }
+
+@app.get("/api/v1/correlation/incidents/{incident_id}")
+async def get_correlated_incident_endpoint(incident_id: str):
+    """Retrieves full details, evidence timeline, and attack stages of an incident."""
+    from core.correlation_engine import correlation_engine
+    inc = correlation_engine.get_incident(incident_id)
+    if not inc:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    return inc
+
+@app.patch("/api/v1/correlation/incidents/{incident_id}/status")
+async def update_incident_status_endpoint(incident_id: str, payload: Dict[str, Any]):
+    """Updates the triage / response state of a correlated incident."""
+    from core.correlation_engine import correlation_engine
+    new_status = payload.get("status", "INVESTIGATING")
+    notes = payload.get("notes")
+    ok = correlation_engine.update_incident_status(incident_id, new_status=new_status, notes=notes)
+    if not ok:
+        raise HTTPException(status_code=404, detail="Incident not found or invalid status")
+    return {"success": True, "incident_id": incident_id, "status": new_status}
+
+@app.get("/api/v1/correlation/metrics")
+async def get_correlation_metrics_endpoint():
+    """Returns aggregated correlation and attack chain metrics."""
+    from core.correlation_engine import correlation_engine
+    return correlation_engine.get_metrics()
+
+
+# =====================================================================
+# Standalone Microservices Gateway Integration (Phases 8 & 9)
+# =====================================================================
+
+try:
+    from services.crypto_service.main import router as crypto_service_router
+    app.include_router(crypto_service_router)
+except Exception as e:
+    logger.warning(f"Failed to mount Crypto Service router: {e}")
+
+try:
+    from services.pcap_service.main import router as pcap_service_router
+    app.include_router(pcap_service_router)
+except Exception as e:
+    logger.warning(f"Failed to mount PCAP Service router: {e}")
 
 
 # Mount static web UI files

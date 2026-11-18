@@ -11,7 +11,7 @@ import re
 import socket
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from core.network.geo_engine import geo_engine, is_private_ip
 from core.network.infrastructure import infra_engine
@@ -23,19 +23,37 @@ logger = logging.getLogger("snmk.map.routing")
 class RouteAnalysisEngine:
     """Path trace execution and hop enrichment analyzer."""
 
-    async def analyze_route(self, target: str, max_hops: int = 15, timeout: float = 3.0) -> Dict[str, Any]:
+    async def analyze_route(self, target: str, max_hops: int = 15, timeout: float = 3.0) -> dict[str, Any]:
         """Performs traceroute to target and geolocates reachable hops."""
         target = target.strip()
         max_hops = min(max(max_hops, 3), 30)
 
-        # Resolve domain if needed
-        dest_ip = target
-        try:
-            dest_ip = socket.gethostbyname(target)
-        except Exception:
-            pass
+        # Validate that target does not contain command switches or invalid characters
+        if not target or target.startswith("-") or not re.match(r"^[a-zA-Z0-9.:-]+$", target):
+            logger.warning(f"Invalid target for traceroute: {target}")
+            return {"target": target, "hops": [], "explanations": ["Target address contains invalid characters."]}
 
-        hops: List[RouteHop] = []
+        # Resolve domain to a validated IP address and reconstruct from integer octets
+        import ipaddress
+        try:
+            try:
+                ip_obj = ipaddress.ip_address(target)
+            except ValueError:
+                resolved = socket.gethostbyname(target)
+                ip_obj = ipaddress.ip_address(resolved)
+
+            if ip_obj.version == 4:
+                b = ip_obj.packed
+                dest_ip = f"{int(b[0])}.{int(b[1])}.{int(b[2])}.{int(b[3])}"
+            elif ip_obj.version == 6:
+                dest_ip = ip_obj.exploded
+            else:
+                return {"target": target, "hops": [], "explanations": ["Unsupported IP version."]}
+        except Exception:
+            logger.warning(f"Could not resolve target to IP: {target}")
+            return {"target": target, "hops": [], "explanations": ["Could not resolve target to a valid IP address."]}
+
+        hops: list[RouteHop] = []
 
         # Execute system traceroute
         if sys.platform.startswith("win"):

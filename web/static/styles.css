@@ -894,15 +894,15 @@ button[aria-disabled="true"],
 .modal-backdrop {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(4, 7, 12, 0.8);
+    background: rgba(4, 7, 12, 0.85);
     backdrop-filter: blur(8px);
     display: none;
     align-items: center;
     justify-content: center;
-    z-index: 100;
+    z-index: 10050 !important;
 }
 
-.modal-backdrop.open { display: flex; }
+.modal-backdrop.open { display: flex !important; }
 
 .modal-dialog {
     background: var(--bg-card);
