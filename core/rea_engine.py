@@ -120,15 +120,25 @@ class REAEngine:
         ]
         return roots
 
-    @staticmethod
-    def _is_within_allowed_root(resolved: Path) -> bool:
-        resolved_cands = [os.path.abspath(str(resolved)), os.path.realpath(str(resolved))]
-        for root in REAEngine.allowed_roots():
-            root_cands = [os.path.abspath(str(root)), os.path.realpath(str(root))]
-            for r_str in root_cands:
-                for target_str in resolved_cands:
+    @classmethod
+    def _is_within_allowed_root(cls, resolved: Path) -> bool:
+        resolved_str = str(resolved)
+        resolved_cands = [
+            os.path.abspath(resolved_str),
+            os.path.realpath(resolved_str),
+        ]
+        for root in cls.allowed_roots():
+            root_str = str(root)
+            root_cands = [
+                os.path.abspath(root_str),
+                os.path.realpath(root_str),
+            ]
+            for r_s in root_cands:
+                for t_s in resolved_cands:
+                    r_norm = os.path.normcase(r_s)
+                    t_norm = os.path.normcase(t_s)
                     try:
-                        if target_str.startswith(r_str) and os.path.commonpath([r_str, target_str]) == r_str:
+                        if t_norm.startswith(r_norm) and os.path.commonpath([r_norm, t_norm]) == r_norm:
                             return True
                     except (ValueError, Exception):
                         continue
@@ -137,19 +147,22 @@ class REAEngine:
     @classmethod
     def _get_confined_path(cls, path: Path) -> Optional[Path]:
         """Validates that path resides within an allowed root, returning a safely rebound Path."""
-        path_str = os.path.abspath(str(path))
-        path_real = os.path.realpath(str(path))
+        path_str = str(path)
+        path_cands = [os.path.abspath(path_str), os.path.realpath(path_str)]
         for r in cls.allowed_roots():
-            r_str = os.path.abspath(str(r))
-            r_real = os.path.realpath(str(r))
-            try:
-                if (path_str.startswith(r_str) and os.path.commonpath([r_str, path_str]) == r_str) or \
-                   (path_real.startswith(r_real) and os.path.commonpath([r_real, path_real]) == r_real):
-                    rel = os.path.relpath(path_real, r_real)
-                    if not (rel.startswith("..") or ".." in rel.replace("\\", "/").split("/")):
-                        return r / rel
-            except (ValueError, Exception):
-                continue
+            r_str = str(r)
+            r_cands = [os.path.abspath(r_str), os.path.realpath(r_str)]
+            for r_s in r_cands:
+                for p_s in path_cands:
+                    r_norm = os.path.normcase(r_s)
+                    p_norm = os.path.normcase(p_s)
+                    try:
+                        if p_norm.startswith(r_norm) and os.path.commonpath([r_norm, p_norm]) == r_norm:
+                            rel = os.path.relpath(p_norm, r_norm)
+                            if not (rel.startswith("..") or ".." in rel.replace("\\", "/").split("/")):
+                                return r / rel
+                    except (ValueError, Exception):
+                        continue
         return None
 
     @staticmethod
@@ -224,8 +237,7 @@ class REAEngine:
 
         # Normalize path
         try:
-            resolved_str = os.path.abspath(clean)
-            resolved = Path(resolved_str)
+            resolved = Path(clean).resolve()
         except Exception as e:
             return False, "", f"Malformed path format: {str(e)}"
 
@@ -273,15 +285,11 @@ class REAEngine:
             raise ValueError(f"Invalid target path: {err}")
 
         target_p = Path(clean_path)
-        target_str = os.path.abspath(str(target_p))
-        root_match = False
-        for r in self.allowed_roots():
-            r_str = os.path.abspath(str(r))
-            if target_str.startswith(r_str) and os.path.commonpath([r_str, target_str]) == r_str:
-                root_match = True
-                break
-        if not root_match:
+        confined_target = self._get_confined_path(target_p)
+        if confined_target is None and not self._is_within_allowed_root(target_p):
             raise ValueError("Target path is outside allowed analysis roots.")
+        if confined_target is not None:
+            target_p = confined_target
 
         inferred_type = target_type if (target_type and target_type in SUPPORTED_TARGET_TYPES) else self.infer_target_type(clean_path)
         
