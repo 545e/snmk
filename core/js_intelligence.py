@@ -1988,6 +1988,7 @@ class GhostJsAnalyzer:
         return {
             "source": source_url or "inline",
             "secrets_count": len(secrets),
+            "findings": secrets,
             "secrets": secrets,
             "api_endpoints": discovery["api_endpoints"],
             "cloud_storage": discovery["cloud_storage"],
@@ -2006,13 +2007,13 @@ class GhostJsAnalyzer:
     def scan_file(self, filepath: str) -> dict[str, Any]:
         """Scans local JavaScript, JSON, or HTML file."""
         if not os.path.exists(filepath):
-            return {"error": f"File not found: {filepath}", "secrets": []}
+            return {"error": f"File not found: {filepath}", "findings": [], "secrets": []}
         try:
             with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
             return self.scan_content(content, source_url=filepath)
         except Exception as e:
-            return {"error": str(e), "secrets": []}
+            return {"error": str(e), "findings": [], "secrets": []}
 
     async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> dict[str, Any]:
         """
@@ -2032,6 +2033,7 @@ class GhostJsAnalyzer:
             return {
                 "target_url": target_url,
                 "error": "Invalid target URL scheme or host",
+                "findings": [],
                 "secrets": [],
                 "api_endpoints": [],
                 "cloud_storage": [],
@@ -2042,6 +2044,7 @@ class GhostJsAnalyzer:
             return {
                 "target_url": target_url,
                 "error": "Target host belongs to private, loopback, or cloud metadata IP space",
+                "findings": [],
                 "secrets": [],
                 "api_endpoints": [],
                 "cloud_storage": [],
@@ -2065,6 +2068,7 @@ class GhostJsAnalyzer:
                 return {
                     "target_url": target_url,
                     "error": f"Failed to fetch initial target: {e}",
+                    "findings": [],
                     "secrets": [],
                     "api_endpoints": [],
                     "cloud_storage": [],
@@ -2137,6 +2141,7 @@ class GhostJsAnalyzer:
             "scanned_assets_count": len(scanned_assets),
             "scanned_assets": scanned_assets,
             "secrets_count": len(all_secrets),
+            "findings": all_secrets,
             "secrets": all_secrets,
             "api_endpoints": list(unique_endpoints),
             "cloud_storage": list(unique_cloud),

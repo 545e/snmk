@@ -429,6 +429,7 @@ def main():
         print(f"[+] Cloud Storage URLs:   {len(res.get('cloud_storage', []))}")
         print(f"[+] Source Map References: {len(res.get('source_maps', []))}")
 
+        raw_findings = res.get("findings") or []
         findings_meta = [
             {
                 "sev": str(item.get("severity") or "INFO"),
@@ -436,7 +437,7 @@ def main():
                 "line": str(item.get("line") or "")[:6],
                 "src": (str(item.get("source_url") or "").split("/")[-1] if "/" in str(item.get("source_url") or "") else str(item.get("source_url") or ""))[:25],
             }
-            for item in (res.get("secrets") or [])
+            for item in raw_findings
             if isinstance(item, dict)
         ]
 
@@ -476,7 +477,7 @@ def main():
                             "source_url": str(f.get("source_url") or ""),
                             "status": "REDACTED"
                         }
-                        for f in (res.get("secrets") or [])
+                        for f in raw_findings
                         if isinstance(f, dict)
                     ]
                     json.dump(export_payload, f, indent=2)
