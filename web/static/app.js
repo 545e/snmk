@@ -569,7 +569,7 @@ async function loadScans(triggerBtn) {
                             <td>
                                 <div style="display: flex; gap: 6px;">
                                     <button type="button" class="btn btn-xs btn-primary hover-elevate" onclick="openAssessmentDetailsModal('${s.id}'); event.stopPropagation();" style="font-weight: 700; padding: 4px 12px; border-radius: 6px;">View</button>
-                                    <button type="button" class="btn btn-xs btn-outline hover-elevate" onclick="openReportFormatModal('${s.id}'); event.stopPropagation();" style="padding: 4px 10px; border-radius: 6px;">📄 Report ▾</button>
+                                    <button type="button" class="btn btn-xs btn-outline hover-elevate" onclick="openReportFormatModal('${s.id}')" style="padding: 4px 10px; border-radius: 6px;">📄 Report ▾</button>
                                 </div>
                             </td>
                         </tr>
@@ -600,7 +600,7 @@ async function loadScans(triggerBtn) {
                             <td style="text-align: right;">
                                 <div style="display: flex; gap: 6px; justify-content: flex-end;">
                                     <button type="button" class="btn btn-xs btn-primary" onclick="openAssessmentDetailsModal('${s.id}'); event.stopPropagation();" style="font-weight: 700; padding: 3px 10px;">View</button>
-                                    <button type="button" class="btn btn-xs btn-outline" onclick="openReportFormatModal('${s.id}'); event.stopPropagation();" style="padding: 3px 8px;">📄 Report ▾</button>
+                                    <button type="button" class="btn btn-xs btn-outline" onclick="openReportFormatModal('${s.id}')" style="padding: 3px 8px;">📄 Report ▾</button>
                                 </div>
                             </td>
                         </tr>
