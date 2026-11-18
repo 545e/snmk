@@ -491,9 +491,11 @@ function finish() {
   console.log('----------------------------------------');
   console.log(`RESULTS: ${passes.length} PASS, ${fails.length} FAIL, total ${results.length}`);
   if (fails.length) fails.forEach((f) => console.log(`  FAIL ${f.id} ${f.name} — ${f.detail}`));
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'swa_rt_'));
   fs.writeFileSync(
-    path.join(os.tmpdir(), 'swa_rt_harness_results.json'),
-    JSON.stringify({ ranAt: new Date().toISOString(), port: serverPort, results }, null, 2)
+    path.join(tmpDir, 'swa_rt_harness_results.json'),
+    JSON.stringify({ ranAt: new Date().toISOString(), port: serverPort, results }, null, 2),
+    { mode: 0o600 }
   );
   return fails.length ? 1 : 0;
 }

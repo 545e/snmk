@@ -4639,12 +4639,20 @@ async function runAllTools() {
     if (mainInput && !mainInput.value.trim()) mainInput.value = rawTarget;
 
     // Target classification & scheme normalization
-    const targetLower = rawTarget.toLowerCase();
-    const isLocal = targetLower.includes("127.0.0.1") || 
-                    targetLower.includes("localhost") || 
-                    targetLower.includes("0.0.0.0") || 
-                    targetLower.includes("[::1]") || 
-                    targetLower.includes("web-security-academy.net");
+    let host = "";
+    try {
+        const u = new URL(rawTarget.includes('://') ? rawTarget : 'https://' + rawTarget);
+        host = (u.hostname || "").toLowerCase();
+    } catch (_) {
+        host = rawTarget.split('/')[0].split(':')[0].toLowerCase();
+    }
+    const isLocal = host === "127.0.0.1" || 
+                    host === "localhost" || 
+                    host === "0.0.0.0" || 
+                    host === "::1" || 
+                    host === "[::1]" || 
+                    host === "web-security-academy.net" ||
+                    host.endsWith(".web-security-academy.net");
 
     let target = rawTarget;
     if (!target.startsWith('http://') && !target.startsWith('https://')) {
@@ -5479,28 +5487,28 @@ async function ctRunDns() {
             body: JSON.stringify({domain})
         });
         const data = await res.json();
-        let html = `<div style="margin-bottom: 12px; font-weight: 700; color: var(--text-title);">Domain: ${data.domain}</div>`;
+        let html = `<div style="margin-bottom: 12px; font-weight: 700; color: var(--text-title);">Domain: ${htmlEscape(String(data.domain || ''))}</div>`;
         const es = data.email_security || {};
         const pColor = es.posture === 'EXCELLENT' ? '#10b981' : (es.posture === 'PARTIAL' ? '#f59e0b' : '#ef4444');
         html += `<div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 14px;">
-            <div style="font-weight: 700; margin-bottom: 6px;">Email Spoofing Defense: <span style="color: ${pColor};">${es.posture}</span></div>
-            ${es.spf_record ? `<div style="font-family: var(--mono); font-size: 11.5px; margin-top: 4px;"><strong>SPF:</strong> ${es.spf_record}</div>` : '<div style="color: #ef4444; font-size: 12px;">Missing SPF Record</div>'}
-            ${es.dmarc_record ? `<div style="font-family: var(--mono); font-size: 11.5px; margin-top: 4px;"><strong>DMARC:</strong> ${es.dmarc_record}</div>` : '<div style="color: #ef4444; font-size: 12px;">Missing DMARC Policy (_dmarc.' + domain + ')</div>'}
-            ${(es.notes || []).map(n => `<div style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">• ${n}</div>`).join('')}
+            <div style="font-weight: 700; margin-bottom: 6px;">Email Spoofing Defense: <span style="color: ${pColor};">${htmlEscape(String(es.posture || ''))}</span></div>
+            ${es.spf_record ? `<div style="font-family: var(--mono); font-size: 11.5px; margin-top: 4px;"><strong>SPF:</strong> ${htmlEscape(String(es.spf_record))}</div>` : '<div style="color: #ef4444; font-size: 12px;">Missing SPF Record</div>'}
+            ${es.dmarc_record ? `<div style="font-family: var(--mono); font-size: 11.5px; margin-top: 4px;"><strong>DMARC:</strong> ${htmlEscape(String(es.dmarc_record))}</div>` : '<div style="color: #ef4444; font-size: 12px;">Missing DMARC Policy (_dmarc.' + htmlEscape(domain) + ')</div>'}
+            ${(es.notes || []).map(n => `<div style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">• ${htmlEscape(String(n))}</div>`).join('')}
         </div>`;
         html += `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px;">`;
         for (const [rtype, vals] of Object.entries(data.records || {})) {
             if (vals && vals.length) {
                 html += `<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px;">
-                    <div style="font-weight: 700; color: var(--brand); font-size: 12px; margin-bottom: 4px;">${rtype} Records</div>
-                    ${vals.map(v => `<div style="font-family: var(--mono); font-size: 11px; word-break: break-all; color: var(--text-body);">${v}</div>`).join('')}
+                    <div style="font-weight: 700; color: var(--brand); font-size: 12px; margin-bottom: 4px;">${htmlEscape(String(rtype))} Records</div>
+                    ${vals.map(v => `<div style="font-family: var(--mono); font-size: 11px; word-break: break-all; color: var(--text-body);">${htmlEscape(String(v))}</div>`).join('')}
                 </div>`;
             }
         }
         html += `</div>`;
         out.innerHTML = html;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${htmlEscape(String(e.message || e))}</span>`;
     }
 }
 
@@ -5517,18 +5525,18 @@ async function ctRunHeaders() {
         });
         const data = await res.json();
         if (data.error) {
-            out.innerHTML = `<span style="color: #ef4444;">${data.error}</span>`;
+            out.innerHTML = `<span style="color: #ef4444;">${htmlEscape(String(data.error))}</span>`;
             return;
         }
         const gColor = ['A+','A'].includes(data.grade) ? '#10b981' : (['B','C'].includes(data.grade) ? '#f59e0b' : '#ef4444');
         let html = `<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; padding: 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px;">
             <div>
-                <div style="font-weight: 700; font-size: 15px; color: var(--text-title);">${data.final_url}</div>
-                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">HTTP Status Code: ${data.status_code}</div>
+                <div style="font-weight: 700; font-size: 15px; color: var(--text-title);">${htmlEscape(String(data.final_url || ''))}</div>
+                <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">HTTP Status Code: ${htmlEscape(String(data.status_code || ''))}</div>
             </div>
             <div style="text-align: right;">
-                <div style="font-size: 20px; font-weight: 800; color: ${gColor};">Grade: ${data.grade}</div>
-                <div style="font-size: 11.5px; color: var(--text-muted);">Score: ${data.score}/100</div>
+                <div style="font-size: 20px; font-weight: 800; color: ${gColor};">Grade: ${htmlEscape(String(data.grade || ''))}</div>
+                <div style="font-size: 11.5px; color: var(--text-muted);">Score: ${htmlEscape(String(data.score || '0'))}/100</div>
             </div>
         </div>`;
         html += `<div style="display: flex; flex-direction: column; gap: 8px;">`;
@@ -5537,10 +5545,10 @@ async function ctRunHeaders() {
             const sColor = pass ? '#10b981' : '#ef4444';
             html += `<div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 10px;">
                 <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-weight: 700; font-size: 12.5px; color: var(--text-title);">${h.header}</span>
-                    <span style="color: ${sColor}; font-weight: 700; font-size: 11.5px;">${h.status}</span>
+                    <span style="font-weight: 700; font-size: 12.5px; color: var(--text-title);">${htmlEscape(String(h.header || ''))}</span>
+                    <span style="color: ${sColor}; font-weight: 700; font-size: 11.5px;">${htmlEscape(String(h.status || ''))}</span>
                 </div>
-                ${pass ? `<div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 4px; word-break: break-all;">${h.value}</div>` : `<div style="color: #ef4444; font-size: 11.5px; margin-top: 4px;">${h.description} Recommendation: <code style="color: var(--brand);">${h.recommendation}</code></div>`}
+                ${pass ? `<div style="font-family: var(--mono); font-size: 11px; color: var(--text-muted); margin-top: 4px; word-break: break-all;">${htmlEscape(String(h.value || ''))}</div>` : `<div style="color: #ef4444; font-size: 11.5px; margin-top: 4px;">${htmlEscape(String(h.description || ''))} Recommendation: <code style="color: var(--brand);">${htmlEscape(String(h.recommendation || ''))}</code></div>`}
             </div>`;
         });
         html += `</div>`;
@@ -5598,7 +5606,7 @@ async function ctRunProbe() {
     const parameter = (document.getElementById('ctProbeParam').value || '').trim() || null;
     const out = document.getElementById('ctProbeOutput');
     if (!target_url) return;
-    out.innerHTML = `<span style="color: var(--brand);">Dispatching ${vuln_type.toUpperCase()} probes against target...</span>`;
+    out.innerHTML = `<span style="color: var(--brand);">Dispatching ${htmlEscape(vuln_type.toUpperCase())} probes against target...</span>`;
     try {
         const res = await fetch('/api/tools/probe', {
             method: 'POST',
@@ -5608,18 +5616,18 @@ async function ctRunProbe() {
         const data = await res.json();
         if (data.vulnerable) {
             out.innerHTML = `<div style="background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 14px;">
-                <div style="font-weight: 800; font-size: 15px; color: #ef4444; margin-bottom: 6px;">[!] Vulnerability Confirmed: ${data.vuln_type}</div>
-                <div style="font-size: 12.5px; color: var(--text-body); margin-bottom: 8px;">${data.evidence || data.summary}</div>
-                ${data.poc_curl ? `<div style="margin-top: 8px;"><div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Reproduction cURL PoC:</div><pre class="code-terminal" style="font-size: 11.5px; padding: 8px;">${data.poc_curl}</pre></div>` : ''}
+                <div style="font-weight: 800; font-size: 15px; color: #ef4444; margin-bottom: 6px;">[!] Vulnerability Confirmed: ${htmlEscape(String(data.vuln_type || ''))}</div>
+                <div style="font-size: 12.5px; color: var(--text-body); margin-bottom: 8px;">${htmlEscape(String(data.evidence || data.summary || ''))}</div>
+                ${data.poc_curl ? `<div style="margin-top: 8px;"><div style="font-size: 11px; font-weight: 700; color: var(--text-muted); margin-bottom: 4px;">Reproduction cURL PoC:</div><pre class="code-terminal" style="font-size: 11.5px; padding: 8px;">${htmlEscape(String(data.poc_curl))}</pre></div>` : ''}
             </div>`;
         } else {
             out.innerHTML = `<div style="background: rgba(16,185,129,0.1); border: 1px solid #10b981; border-radius: 8px; padding: 14px;">
-                <div style="font-weight: 700; font-size: 14px; color: #10b981;">[✓] ${data.summary || 'No vulnerability discovered with baseline probes.'}</div>
-                ${data.poc_curl ? `<pre class="code-terminal" style="font-size: 11.5px; margin-top: 8px; padding: 8px;">${data.poc_curl}</pre>` : ''}
+                <div style="font-weight: 700; font-size: 14px; color: #10b981;">[✓] ${htmlEscape(String(data.summary || 'No vulnerability discovered with baseline probes.'))}</div>
+                ${data.poc_curl ? `<pre class="code-terminal" style="font-size: 11.5px; margin-top: 8px; padding: 8px;">${htmlEscape(String(data.poc_curl))}</pre>` : ''}
             </div>`;
         }
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${htmlEscape(String(e.message || e))}</span>`;
     }
 }
 
@@ -5790,7 +5798,7 @@ async function ctRunSubdomains() {
     if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Harvesting Subdomains...'; }
     out.innerHTML = `
         <div style="padding: 24px; text-align: center; color: var(--brand);">
-            <div style="font-size: 15px; font-weight: 700; margin-bottom: 6px;">🔍 Autonomous Discovery in Progress for ${domain}...</div>
+            <div style="font-size: 15px; font-weight: 700; margin-bottom: 6px;">🔍 Autonomous Discovery in Progress for ${htmlEscape(domain)}...</div>
             <div style="font-size: 12px; color: var(--text-muted); max-width: 500px; margin: 0 auto; line-height: 1.5;">Querying 10+ OSINT registries (crt.sh, AlienVault OTX, HackerTarget, Wayback CDX, CertSpotter), active 350+ wordlists, AltDNS mutations & live HTTP probing.</div>
         </div>
     `;
@@ -6104,11 +6112,13 @@ function downloadReport(format) {
         showToast("Please select or start a scan first!");
         return;
     }
-    const url = `/api/scans/${currentScanId}/report?format=${format}`;
+    const safeScanId = encodeURIComponent(currentScanId);
+    const safeFormat = encodeURIComponent(format);
+    const url = `/api/scans/${safeScanId}/report?format=${safeFormat}`;
     const a = document.createElement("a");
     a.href = url;
     a.target = "_blank";
-    a.download = `SNMK_${currentScanId}_Report.${format === 'markdown' ? 'md' : format}`;
+    a.download = `SNMK_${safeScanId}_Report.${format === 'markdown' ? 'md' : safeFormat}`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

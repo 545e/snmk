@@ -429,18 +429,23 @@ def main():
         print(f"[+] Cloud Storage URLs:   {len(res.get('cloud_storage', []))}")
         print(f"[+] Source Map References: {len(res.get('source_maps', []))}")
 
-        if res.get("secrets"):
+        findings_meta = [
+            {
+                "sev": str(item.get("severity") or "INFO"),
+                "rule": str(item.get("name") or "Pattern")[:32],
+                "line": str(item.get("line") or "")[:6],
+                "src": (str(item.get("source_url") or "").split("/")[-1] if "/" in str(item.get("source_url") or "") else str(item.get("source_url") or ""))[:25],
+            }
+            for item in (res.get("secrets") or [])
+            if isinstance(item, dict)
+        ]
+
+        if findings_meta:
             print(f"\n\033[91m{'SEVERITY':<10} {'NAME':<32} {'MASKED VALUE':<32} {'LINE':<6} {'SOURCE'}\033[0m")
             print("-" * 110)
-            for item in res["secrets"]:
-                sev = str(item.get("severity", ""))
-                sev_color = "\033[91m" if sev in ["CRITICAL", "HIGH"] else "\033[93m"
-                src_url = str(item.get("source_url", ""))
-                src_short = src_url.split("/")[-1] if "/" in src_url else src_url
-                rule_name = str(item.get("name", ""))[:32]
-                masked_str = "[REDACTED]"
-                line_no = str(item.get("line", ""))[:6]
-                print(f"{sev_color}{sev:<10}\033[0m {rule_name:<32} {masked_str:<32} {line_no:<6} {src_short[:25]}")
+            for row in findings_meta:
+                sev_color = "\033[91m" if row["sev"] in ["CRITICAL", "HIGH"] else "\033[93m"
+                print(f"{sev_color}{row['sev']:<10}\033[0m {row['rule']:<32} [REDACTED]                       {row['line']:<6} {row['src']}")
 
         if res.get("cloud_storage"):
             print("\n\033[93m[!] Discovered Cloud Object Storage Buckets:\033[0m")
@@ -462,14 +467,25 @@ def main():
         if args.export_js:
             with open(args.export_js, "w", encoding="utf-8") as f:
                 if args.export_js.endswith(".json"):
-                    json.dump(res, f, indent=2)
+                    export_payload = dict(res)
+                    export_payload["secrets"] = [
+                        {
+                            "name": str(f.get("name") or ""),
+                            "severity": str(f.get("severity") or ""),
+                            "line": f.get("line"),
+                            "source_url": str(f.get("source_url") or ""),
+                            "status": "REDACTED"
+                        }
+                        for f in (res.get("secrets") or [])
+                        if isinstance(f, dict)
+                    ]
+                    json.dump(export_payload, f, indent=2)
                 else:
                     f.write("=== SWA GHOSTJS INTELLIGENCE REPORT ===\n")
                     f.write(f"Target: {res.get('target_url') or args.js_file}\n\n")
-                    f.write(f"--- SECRETS ({len(res.get('secrets', []))}) ---\n")
-                    for item in res.get("secrets", []):
-                        rule_name = str(item.get("name", ""))
-                        f.write(f"[{item.get('severity')}] {rule_name}: [REDACTED] (Line {item.get('line')}, File: {item.get('source_url')})\n")
+                    f.write(f"--- DETECTED AUDIT FINDINGS ({len(findings_meta)}) ---\n")
+                    for row in findings_meta:
+                        f.write(f"[{row['sev']}] {row['rule']}: [REDACTED] (Line {row['line']}, File: {row['src']})\n")
                     f.write(f"\n--- ENDPOINTS ({len(res.get('api_endpoints', []))}) ---\n")
                     for ep in res.get("api_endpoints", []):
                         f.write(f"{ep['path']} -> {ep['resolved_url']}\n")
