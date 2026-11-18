@@ -134,6 +134,24 @@ class REAEngine:
                         continue
         return False
 
+    @classmethod
+    def _get_confined_path(cls, path: Path) -> Optional[Path]:
+        """Validates that path resides within an allowed root, returning a safely rebound Path."""
+        path_str = os.path.abspath(str(path))
+        path_real = os.path.realpath(str(path))
+        for r in cls.allowed_roots():
+            r_str = os.path.abspath(str(r))
+            r_real = os.path.realpath(str(r))
+            try:
+                if (path_str.startswith(r_str) and os.path.commonpath([r_str, path_str]) == r_str) or \
+                   (path_real.startswith(r_real) and os.path.commonpath([r_real, path_real]) == r_real):
+                    rel = os.path.relpath(path_real, r_real)
+                    if not (rel.startswith("..") or ".." in rel.replace("\\", "/").split("/")):
+                        return r / rel
+            except (ValueError, Exception):
+                continue
+        return None
+
     @staticmethod
     def get_binary_path() -> Optional[str]:
         """Locates the installed REA binary or npx runner."""
@@ -225,21 +243,12 @@ class REAEngine:
 
     @classmethod
     def infer_target_type(cls, path_str: str) -> str:
-        """Infers target analysis type from file extension or directory structure."""
-        clean = os.path.normpath(str(path_str or "").strip().strip("'\""))
+        """Infers target analysis type from file extension."""
+        clean = os.path.basename(str(path_str or "").strip().strip("'\""))
         ext = os.path.splitext(clean)[1].lower()
         for t_type, meta in SUPPORTED_TARGET_TYPES.items():
             if ext in meta["extensions"]:
                 return t_type
-
-        try:
-            p = Path(clean)
-            if cls._is_within_allowed_root(p) and p.is_dir():
-                if (p / "package.json").is_file() or any(p.glob("*.js")):
-                    return "javascript"
-                return "javascript"
-        except Exception:
-            logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         # Binary fallback heuristic
         return "binary"
@@ -514,51 +523,45 @@ class REAEngine:
 
     async def _run_native_inspection(self, path: Path, target_type: str) -> Dict[str, Any]:
         """Provides safe, pure-Python static structure inspection when REA CLI is not installed."""
-        path_str = os.path.abspath(str(path))
-        root_match = False
-        for r in self.allowed_roots():
-            r_str = os.path.abspath(str(r))
-            if path_str.startswith(r_str) and os.path.commonpath([r_str, path_str]) == r_str:
-                root_match = True
-                break
-        if not root_match or not self._is_within_allowed_root(path):
+        safe_path = self._get_confined_path(path)
+        if safe_path is None:
             raise PermissionError("Target artifact is outside allowed roots")
 
-        if not path.is_file():
-            entries = list(path.iterdir()) if path.is_dir() else []
+        if not safe_path.is_file():
+            entries = list(safe_path.iterdir()) if safe_path.is_dir() else []
             return {
                 "metadata": {"type": "directory", "entry_count": len(entries)},
-                "summary": f"Directory analysis of {path.name}: {len(entries)} items found."
+                "summary": f"Directory analysis of {safe_path.name}: {len(entries)} items found."
             }
 
         # Calculate file hashes
         sha256_hash = hashlib.sha256()
-        with open(path, "rb") as f:
+        with open(safe_path, "rb") as f:
             for chunk in iter(lambda: f.read(65536), b""):
                 sha256_hash.update(chunk)
         digest = sha256_hash.hexdigest()
 
         meta: Dict[str, Any] = {
-            "filename": path.name,
-            "size_bytes": path.stat().st_size,
+            "filename": safe_path.name,
+            "size_bytes": safe_path.stat().st_size,
             "sha256": digest,
             "target_type": target_type
         }
         findings: List[Dict[str, Any]] = []
 
         if target_type == "sqlite":
-            meta.update(self._inspect_sqlite(path))
+            meta.update(self._inspect_sqlite(safe_path))
         elif target_type == "binary":
-            meta.update(self._inspect_binary_headers(path))
+            meta.update(self._inspect_binary_headers(safe_path))
         elif target_type == "javascript":
-            meta.update(self._inspect_javascript(path))
+            meta.update(self._inspect_javascript(safe_path))
         elif target_type == "pcap":
-            meta.update(self._inspect_pcap_headers(path))
+            meta.update(self._inspect_pcap_headers(safe_path))
         elif target_type == "dotnet":
-            meta.update(self._inspect_dotnet(path))
+            meta.update(self._inspect_dotnet(safe_path))
 
         summary = (
-            f"[SWA Native REA Inspector] Verified artifact '{path.name}' ({meta.get('size_bytes')} bytes)\n"
+            f"[SWA Native REA Inspector] Verified artifact '{safe_path.name}' ({meta.get('size_bytes')} bytes)\n"
             f"SHA256: {digest}\n"
             f"Detected Type: {target_type.upper()}\n"
             "Note: Full decompilation and dynamic tracing requires REA CLI ('npm install -g rea-agents')."
@@ -569,12 +572,13 @@ class REAEngine:
     @classmethod
     def _inspect_sqlite(cls, path: Path) -> Dict[str, Any]:
         """Safely inspects SQLite structure using read-only connection URI."""
-        if not cls._is_within_allowed_root(path):
+        safe_path = cls._get_confined_path(path)
+        if safe_path is None:
             return {"format": "Unknown"}
         info = {}
         conn = None
         try:
-            uri = f"file:{path.as_posix()}?mode=ro"
+            uri = f"file:{safe_path.as_posix()}?mode=ro"
             conn = sqlite3.connect(uri, uri=True, timeout=2.0)
             cursor = conn.cursor()
             cursor.execute("SELECT name, type FROM sqlite_master WHERE type IN ('table', 'index', 'view')")
@@ -611,9 +615,10 @@ class REAEngine:
     @classmethod
     def _inspect_binary_headers(cls, path: Path) -> Dict[str, Any]:
         """Inspects PE or ELF binary headers safely."""
-        if not cls._is_within_allowed_root(path):
+        safe_path = cls._get_confined_path(path)
+        if safe_path is None:
             return {"format": "Unknown"}
-        with open(path, "rb") as f:
+        with open(safe_path, "rb") as f:
             header_bytes = f.read(1024)
 
         if header_bytes.startswith(b"MZ"):
@@ -659,10 +664,11 @@ class REAEngine:
     @classmethod
     def _inspect_javascript(cls, path: Path) -> Dict[str, Any]:
         """Inspects JavaScript / JSON bundle text structure."""
-        if not cls._is_within_allowed_root(path):
+        safe_path = cls._get_confined_path(path)
+        if safe_path is None:
             return {"format": "JavaScript Inspection Error", "error": "Access blocked"}
         try:
-            with open(path, "r", encoding="utf-8", errors="replace") as f:
+            with open(safe_path, "r", encoding="utf-8", errors="replace") as f:
                 content = f.read(500000)
 
             routes = re.findall(r"['\"](/api/[a-zA-Z0-9_\-\./]+)['\"]", content)
@@ -711,9 +717,10 @@ class REAEngine:
     @classmethod
     def _inspect_pcap_headers(cls, path: Path) -> Dict[str, Any]:
         """Inspects pcap magic header."""
-        if not cls._is_within_allowed_root(path):
+        safe_path = cls._get_confined_path(path)
+        if safe_path is None:
             return {"format": "Unknown"}
-        with open(path, "rb") as f:
+        with open(safe_path, "rb") as f:
             magic = f.read(4)
 
         if magic in [b"\xd4\xc3\xb2\xa1", b"\xa1\xb2\xc3\xd4"]:
@@ -728,9 +735,10 @@ class REAEngine:
     @classmethod
     def _inspect_dotnet(cls, path: Path) -> Dict[str, Any]:
         """Inspects .NET CLR metadata presence."""
-        if not cls._is_within_allowed_root(path):
+        safe_path = cls._get_confined_path(path)
+        if safe_path is None:
             return {"format": "Unknown"}
-        with open(path, "rb") as f:
+        with open(safe_path, "rb") as f:
             data = f.read(4096)
 
         is_clr = b"BSJB" in data or b"mscorlib" in data or b"System.Runtime" in data

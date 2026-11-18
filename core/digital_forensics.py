@@ -159,20 +159,33 @@ def confine_to_evidence_root(target_path: str) -> Path:
     """
     root = forensics_evidence_root().resolve()
     root_str = os.path.abspath(str(root))
+    root_real = os.path.realpath(str(root))
+
     clean_target = os.path.normpath(str(target_path or "")).strip()
     parts = clean_target.replace("\\", "/").split("/")
     if ".." in parts:
         raise ValueError("Directory traversal sequence not permitted in evidence path")
 
-    target = Path(clean_target)
-    candidate = (root / target).resolve() if not target.is_absolute() else target.resolve()
-    cand_str = os.path.abspath(str(candidate))
+    if os.path.isabs(clean_target):
+        cand_str = os.path.abspath(clean_target)
+    else:
+        cand_str = os.path.abspath(os.path.join(root_str, clean_target))
+    cand_real = os.path.realpath(cand_str)
 
-    if not cand_str.startswith(root_str) and os.path.commonpath([root_str, cand_str]) != root_str:
+    is_safe = (
+        (cand_str.startswith(root_str) and os.path.commonpath([root_str, cand_str]) == root_str) or
+        (cand_real.startswith(root_real) and os.path.commonpath([root_real, cand_real]) == root_real)
+    )
+    if not is_safe:
         raise ValueError(
-            f"Path '{candidate}' is outside the evidence root '{root}'."
+            f"Path '{target_path}' is outside the evidence root '{root}'."
         )
-    return candidate
+
+    rel = os.path.relpath(cand_real, root_real)
+    if rel.startswith("..") or ".." in rel.replace("\\", "/").split("/"):
+        raise ValueError(f"Path '{target_path}' is outside the evidence root '{root}'.")
+
+    return root / rel
 
 
 class StorageMediaInspector:
@@ -828,7 +841,7 @@ class ChainOfCustodyLedger:
                 confined = confine_to_evidence_root(storage_path)
                 confined_str = os.path.abspath(str(confined))
                 root_str = os.path.abspath(str(forensics_evidence_root()))
-                if (confined_str.startswith(root_str) or os.path.commonpath([root_str, confined_str]) == root_str) and confined.is_file():
+                if confined_str.startswith(root_str) and os.path.commonpath([root_str, confined_str]) == root_str and confined.is_file():
                     p = confined
             except Exception:
                 p = None

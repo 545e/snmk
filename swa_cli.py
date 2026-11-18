@@ -5,12 +5,13 @@ on-demand semi-automatic cyber tools, and the real-time background Web Applicati
 """
 
 
-import logging
-import sys
-import os
 import argparse
 import asyncio
 import json
+import logging
+import os
+import re
+import sys
 import uvicorn
 
 
@@ -418,29 +419,38 @@ def main():
             print(f"[i] Active JS bundle resolution: {'Disabled' if args.no_active_fetch else 'Enabled'}")
             res = asyncio.run(analyzer.scan_url(args.js_scan, active_fetch_bundles=not args.no_active_fetch))
 
-        if "error" in res and not res.get("secrets"):
+        if "error" in res and not res.get("findings"):
             print(f"\033[91m[-] {res['error']}\033[0m")
             return
 
         s = res.get("summary", {})
         print("\n\033[92m[✓] JavaScript Intelligence Scan Completed!\033[0m")
         print(f"[+] Total Scanned Assets: {res.get('scanned_assets_count', 1)}")
-        print(f"[!] Discovered Secrets:   {len(res.get('secrets', []))} (Critical: {s.get('critical', 0)}, High: {s.get('high', 0)}, Med: {s.get('medium', 0)}, Low: {s.get('low', 0)})")
+        print(f"[!] Discovered Audit Items: {len(res.get('findings', []))} (Critical: {s.get('critical', 0)}, High: {s.get('high', 0)}, Med: {s.get('medium', 0)}, Low: {s.get('low', 0)})")
         print(f"[+] Discovered Endpoints: {len(res.get('api_endpoints', []))}")
         print(f"[+] Cloud Storage URLs:   {len(res.get('cloud_storage', []))}")
         print(f"[+] Source Map References: {len(res.get('source_maps', []))}")
 
         raw_findings = res.get("findings") or []
-        findings_meta = [
-            {
-                "sev": str(item.get("severity") or "INFO"),
-                "rule": str(item.get("name") or "Pattern")[:32],
-                "line": str(item.get("line") or "")[:6],
-                "src": (str(item.get("source_url") or "").split("/")[-1] if "/" in str(item.get("source_url") or "") else str(item.get("source_url") or ""))[:25],
-            }
-            for item in raw_findings
-            if isinstance(item, dict)
-        ]
+        findings_meta = []
+        for item in raw_findings:
+            if not isinstance(item, dict):
+                continue
+            s_val = str(item.get("severity") or "").upper()
+            sev = "CRITICAL" if s_val == "CRITICAL" else ("HIGH" if s_val == "HIGH" else ("MEDIUM" if s_val == "MEDIUM" else ("LOW" if s_val == "LOW" else "INFO")))
+            rule_id = re.sub(r"[^a-zA-Z0-9_ -]", "", str(item.get("name") or "Pattern"))[:32]
+            try:
+                line_no = str(int(item.get("line") or 0))
+            except (ValueError, TypeError):
+                line_no = "1"
+            src_raw = os.path.basename(str(item.get("source_url") or "bundle.js"))
+            src_clean = re.sub(r"[^a-zA-Z0-9_\-\.]", "", src_raw)[:25]
+            findings_meta.append({
+                "sev": sev,
+                "rule": rule_id,
+                "line": line_no,
+                "src": src_clean
+            })
 
         if findings_meta:
             print(f"\n\033[91m{'SEVERITY':<10} {'NAME':<32} {'MASKED VALUE':<32} {'LINE':<6} {'SOURCE'}\033[0m")
@@ -469,17 +479,16 @@ def main():
         if args.export_js:
             with open(args.export_js, "w", encoding="utf-8") as f:
                 if args.export_js.endswith(".json"):
-                    export_payload = dict(res)
-                    export_payload["secrets"] = [
+                    export_payload = {k: v for k, v in res.items() if k != "secrets"}
+                    export_payload["findings"] = [
                         {
-                            "name": str(f.get("name") or ""),
-                            "severity": str(f.get("severity") or ""),
-                            "line": f.get("line"),
-                            "source_url": str(f.get("source_url") or ""),
+                            "name": row["rule"],
+                            "severity": row["sev"],
+                            "line": row["line"],
+                            "source_url": row["src"],
                             "status": "REDACTED"
                         }
-                        for f in raw_findings
-                        if isinstance(f, dict)
+                        for row in findings_meta
                     ]
                     json.dump(export_payload, f, indent=2)
                 else:
