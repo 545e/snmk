@@ -13815,11 +13815,33 @@ async function initAllToolsView() {
     await loadAllToolsInventory();
 }
 
+// Cross-port resilient fetch helper
+async function swaFetch(url, options = {}) {
+    try {
+        const res = await fetch(url, options);
+        return res;
+    } catch (err) {
+        if (typeof window !== 'undefined' && window.location) {
+            const loc = window.location;
+            const currentPort = loc.port || (loc.protocol === 'https:' ? '443' : '80');
+            const fallbackPorts = ['8000', '8001'].filter(p => p !== currentPort);
+            for (const port of fallbackPorts) {
+                const fbUrl = `${loc.protocol}//${loc.hostname}:${port}${url.startsWith('/') ? '' : '/'}${url}`;
+                try {
+                    const fbRes = await fetch(fbUrl, options);
+                    return fbRes;
+                } catch (_) {}
+            }
+        }
+        throw err;
+    }
+}
+
 async function loadAllToolsInventory() {
     const grid = document.getElementById('allToolsInventoryGrid');
     if (!grid) return;
     try {
-        const res = await fetch('/api/tools/all-tools/inventory');
+        const res = await swaFetch('/api/tools/all-tools/inventory');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         const tools = data.tools || {};
@@ -13859,7 +13881,7 @@ async function loadAllToolsInventory() {
         const totalToolsCountEl = document.getElementById('allToolsTotalCount');
         if (totalToolsCountEl) totalToolsCountEl.textContent = toolKeys.length;
     } catch (e) {
-        grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 20px;">Could not load tool inventory: ${escapeHtml(e.message)}</div>`;
+        grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 20px;">Could not load tool inventory: ${escapeHtml(e.message)}. Ensure server is running on http://127.0.0.1:8000 or http://127.0.0.1:8001.</div>`;
     }
 }
 
@@ -13922,13 +13944,13 @@ async function executeAllToolsAudit() {
         const isLab = target.includes('127.0.0.1') || target.includes('localhost');
         let res;
         try {
-            res = await fetch('/api/tools/run-all', {
+            res = await swaFetch('/api/tools/run-all', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ target: target, lab_mode: isLab })
             });
         } catch (fetchErr) {
-            throw new Error(`Unable to connect to the SNMK backend (Network Error: ${fetchErr.message}). Ensure the server at ${window.location.origin} is running and reachable.`);
+            throw new Error(`Unable to connect to the SNMK backend (Network Error: ${fetchErr.message}). Ensure the server is running on http://127.0.0.1:8000 or http://127.0.0.1:8001.`);
         }
 
         clearInterval(timer);
@@ -13938,14 +13960,14 @@ async function executeAllToolsAudit() {
             // Seamless auto-authorize retry on scope refusal
             if (res.status === 403 && String(err.detail || '').includes('Scope')) {
                 const cleanDomain = target.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-                await fetch('/api/scope/targets', {
+                await swaFetch('/api/scope/targets', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain: cleanDomain, description: 'Operator authorized assessment target' })
                 }).catch(() => null);
 
                 try {
-                    const retryRes = await fetch('/api/tools/run-all', {
+                    const retryRes = await swaFetch('/api/tools/run-all', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ target: target, lab_mode: isLab })
