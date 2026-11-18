@@ -13928,7 +13928,7 @@ async function executeAllToolsAudit() {
                 body: JSON.stringify({ target: target, lab_mode: isLab })
             });
         } catch (fetchErr) {
-            throw new Error(`Unable to connect to SWA server (Network Error: ${fetchErr.message}). Ensure the backend server is running on http://127.0.0.1:8000.`);
+            throw new Error(`Unable to connect to the SNMK backend (Network Error: ${fetchErr.message}). Ensure the server at ${window.location.origin} is running and reachable.`);
         }
 
         clearInterval(timer);
