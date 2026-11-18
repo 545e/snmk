@@ -157,8 +157,13 @@ def confine_to_evidence_root(target_path: str) -> Path:
 
     Raises :class:`ValueError` when the resolved path is outside it.
     """
+    clean_target = os.path.normpath(str(target_path or ""))
+    parts = clean_target.replace("\\", "/").split("/")
+    if ".." in parts:
+        raise ValueError("Directory traversal sequence not permitted in evidence path")
+
     root = forensics_evidence_root().resolve()
-    target = Path(target_path).expanduser()
+    target = Path(clean_target)
     candidate = target.resolve() if target.is_absolute() else (root / target).resolve()
 
     if os.path.commonpath([str(root), str(candidate)]) != str(root):

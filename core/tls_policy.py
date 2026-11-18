@@ -100,6 +100,13 @@ def inspection_context(verify: Optional[bool] = None) -> ssl.SSLContext:
         verify = verification_enabled()
 
     context = ssl.create_default_context()
+    # Explicitly prohibit legacy protocols to satisfy static security checks
+    context.options |= (
+        getattr(ssl, "OP_NO_SSLv2", 0)
+        | getattr(ssl, "OP_NO_SSLv3", 0)
+        | getattr(ssl, "OP_NO_TLSv1", 0)
+        | getattr(ssl, "OP_NO_TLSv1_1", 0)
+    )
     # Set minimum TLS version to TLSv1.2 to eliminate py/insecure-protocol alerts
     try:
         context.minimum_version = ssl.TLSVersion.TLSv1_2
