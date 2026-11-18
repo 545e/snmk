@@ -430,9 +430,9 @@ def download_kill_chain_report(
         "markdown": "text/markdown",
     }
     return FileResponse(
-        path=file_path,
+        path=str(file_path),
         media_type=media_types.get(ext, "application/octet-stream"),
-        filename=f"{report_id}.{ext}",
+        filename=safe_name,
     )
 
 

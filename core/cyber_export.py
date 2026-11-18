@@ -89,8 +89,14 @@ class CyberExportEngine:
         )
 
         # 3. Write deliverable to disk securely
-        filename = f"{export_id}_{export_type}.{file_ext}"
-        filepath = os.path.join(self.export_dir, filename)
+        safe_export_id = re.sub(r"[^A-Za-z0-9_-]", "", export_id)
+        safe_export_type = re.sub(r"[^A-Za-z0-9_-]", "", export_type)
+        safe_ext = re.sub(r"[^A-Za-z0-9]", "", file_ext)
+        filename = os.path.basename(f"{safe_export_id}_{safe_export_type}.{safe_ext}")
+        resolved_dir = os.path.abspath(self.export_dir)
+        filepath = os.path.abspath(os.path.join(resolved_dir, filename))
+        if os.path.commonpath([resolved_dir, filepath]) != resolved_dir:
+            raise ValueError(f"Path outside export root directory: {filename}")
         with open(filepath, "wb") as f:
             f.write(content_bytes)
 
