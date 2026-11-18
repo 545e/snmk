@@ -10,7 +10,7 @@ import datetime
 import hashlib
 import json
 import sqlite3
-from typing import Any
+from typing import Any, List, Optional
 
 from core.database import db
 from core.kill_chain.models import (

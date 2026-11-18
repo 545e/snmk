@@ -8,8 +8,6 @@ Unified implementation supporting both:
 from __future__ import annotations
 
 import builtins
-import collections
-import datetime
 import enum
 import hashlib
 import json
@@ -21,9 +19,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-from pydantic import BaseModel, Field
+from typing import Any
 
 logger = logging.getLogger("snmk.alert_manager")
 
@@ -242,16 +238,14 @@ class AlertManager:
         title: str,
         description: str,
         source: str = "snmk_core",
-        affected_asset: Optional[str] = None,
-        correlation_id: Optional[str] = None,
-        evidence: Optional[Dict[str, Any] | str] = None,
-        remediation: Optional[str] = None,
+        affected_asset: str | None = None,
+        correlation_id: str | None = None,
+        evidence: dict[str, Any] | str | None = None,
+        remediation: str | None = None,
     ) -> Alert:
         now = datetime.now(UTC).isoformat()
         # Map severity
-        if isinstance(severity, AlertSeverity):
-            sev = severity
-        elif isinstance(severity, Severity):
+        if isinstance(severity, (AlertSeverity, Severity)):
             sev = severity
         elif str(severity).upper() in AlertSeverity.__members__:
             sev = AlertSeverity[str(severity).upper()]
@@ -337,8 +331,8 @@ class AlertManager:
         self,
         alert_id: str,
         new_status: AlertStatus | str,
-        owner: Optional[str] = None,
-        notes: Optional[str] = None,
+        owner: str | None = None,
+        notes: str | None = None,
     ) -> bool:
         with self._lock:
             alert = self._find(alert_id)
@@ -401,7 +395,7 @@ class AlertManager:
                     DeliveryStatus.DELIVERED.value if sender(alert)
                     else DeliveryStatus.FAILED.value
                 )
-            except Exception:
+            except Exception:  # noqa: BLE001
                 results[name] = DeliveryStatus.FAILED.value
             alert.delivery[name] = results[name]
 
@@ -428,11 +422,11 @@ class AlertManager:
 
     def get_alerts(
         self,
-        severity: Optional[str] = None,
-        category: Optional[str] = None,
-        status: Optional[str] = None,
+        severity: str | None = None,
+        category: str | None = None,
+        status: str | None = None,
         limit: int = 100,
-    ) -> List[Dict[str, Any]]:
+    ) -> builtins.list[dict[str, Any]]:
         with self._lock:
             items = list(reversed(self._alerts))
         if severity:
@@ -446,9 +440,8 @@ class AlertManager:
     def summary(self) -> dict[str, Any]:
         return self.get_summary()
 
-    def get_summary(self) -> Dict[str, Any]:
+    def get_summary(self) -> dict[str, Any]:
         """Provides high-level alert posture metrics for the SOC dashboard and Platform Engineering."""
-        from collections import Counter
 
         counts_by_severity = {s.value: 0 for s in AlertSeverity}
         counts_by_category = {c.value: 0 for c in AlertCategory}
