@@ -810,14 +810,13 @@ class ChainOfCustodyLedger:
             md5 = hashlib.md5(file_bytes).hexdigest()
             size = len(file_bytes)
         elif storage_path:
-            p = Path(storage_path)
+            # Never open a path built directly from user input. Only the
+            # confined path (validated against the evidence root) may be read.
             try:
-                confined = confine_to_evidence_root(storage_path)
-                if confined.is_file():
-                    p = confined
+                p = confine_to_evidence_root(storage_path)
             except Exception:
-                pass
-            if p.is_file():
+                p = None
+            if p is not None and p.is_file():
                 size = p.stat().st_size
                 h_sha256 = hashlib.sha256()
                 h_sha512 = hashlib.sha512()
@@ -931,8 +930,13 @@ class ChainOfCustodyLedger:
         ts = datetime.datetime.now(datetime.timezone.utc).isoformat()
 
         # If file exists on disk, rehash it
-        p = Path(record.storage_vault_path)
-        if p.is_file():
+        # Evidence records are persisted user-controlled data: confine the
+        # vault path before any filesystem access.
+        try:
+            p = confine_to_evidence_root(record.storage_vault_path)
+        except Exception:
+            p = None
+        if p is not None and p.is_file():
             h256 = hashlib.sha256()
             with open(p, "rb") as f:
                 while chunk := f.read(1024 * 1024):

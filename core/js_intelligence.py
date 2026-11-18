@@ -25,6 +25,7 @@ import httpx
 from core import tls_policy
 from core.pattern_gating import GateFilter
 from core.scope_policy import scope_policy
+from core.url_utils import host_matches, safe_hostname
 
 # =====================================================================
 # 0. Line index helpers
@@ -216,19 +217,25 @@ class ShannonEntropyFilter:
 # 2. Endpoint & Cloud Storage Extractor
 # =====================================================================
 class EndpointAndStorageExtractor:
-    API_PATH_PATTERN = re.compile(
-        r"""["'`]((?:/(?:api|v\d+|rest|graphql|gql|internal|admin|oauth|auth|user|users|account|payment|webhook))[^"'`\s<>]+)["'`]"""
+    # Linear-time patterns: a single bounded character class per group, with
+    # host/prefix classification done in Python. The previous patterns used
+    # nested quantifiers followed by alternation, which is a polynomial-time
+    # (ReDoS) hazard on attacker-controlled JavaScript bodies.
+    API_PATH_PATTERN = re.compile(r"""["'`](/[^"'`\s<>]{3,200})["'`]""")
+
+    API_PATH_PREFIX = re.compile(
+        r"^/(?:api|v\d+|rest|graphql|gql|internal|admin|oauth|auth|users?|"
+        r"account|payment|webhook)(?:/|$)"
     )
 
-    CLOUD_STORAGE_PATTERN = re.compile(
-        r"https?://[a-zA-Z0-9_\-]+(?:\.[a-zA-Z0-9_\-]+)*(?:"
-        r"\.s3(?:[.-][a-zA-Z0-9_\-]+)?\.amazonaws\.com|"
-        r"storage\.googleapis\.com|"
-        r"\.blob\.core\.windows\.net|"
-        r"\.r2\.cloudflarestorage\.com|"
-        r"\.digitaloceanspaces\.com"
-        r")(?:/[^\s\"'>]*)?",
-        re.IGNORECASE
+    CLOUD_STORAGE_PATTERN = re.compile(r"https?://[^\s\"'<>]{6,500}", re.IGNORECASE)
+
+    CLOUD_HOSTS = (
+        "amazonaws.com",
+        "storage.googleapis.com",
+        "blob.core.windows.net",
+        "cloudflarestorage.com",
+        "digitaloceanspaces.com",
     )
 
     SOURCE_MAP_PATTERN = re.compile(
@@ -248,7 +255,10 @@ class EndpointAndStorageExtractor:
         # Cloud storage URLs
         seen_cloud = set()
         for m in cls.CLOUD_STORAGE_PATTERN.finditer(body):
-            url = m.group(0).strip()
+            url = m.group(0).strip().rstrip(".,;)")
+            host = safe_hostname(url)
+            if not any(host_matches(host, h, allow_subdomains=True) for h in cls.CLOUD_HOSTS):
+                continue
             if url not in seen_cloud:
                 seen_cloud.add(url)
                 results["cloud_storage"].append({
@@ -274,6 +284,8 @@ class EndpointAndStorageExtractor:
         seen_paths = set()
         for m in cls.API_PATH_PATTERN.finditer(body):
             path = m.group(1).strip()
+            if not cls.API_PATH_PREFIX.match(path):
+                continue
             if path not in seen_paths and len(path) > 3:
                 seen_paths.add(path)
                 full_endpoint = urljoin(base_url, path) if base_url else path
@@ -287,16 +299,18 @@ class EndpointAndStorageExtractor:
 
     @staticmethod
     def _classify_provider(url: str) -> str:
-        u = url.lower()
-        if "amazonaws.com" in u:
+        # Compare the parsed hostname, never a substring of the whole URL.
+        # ``https://attacker.tld/?x=amazonaws.com`` must not be labelled AWS.
+        host = safe_hostname(url)
+        if host_matches(host, "amazonaws.com", allow_subdomains=True):
             return "AWS S3"
-        elif "storage.googleapis.com" in u:
+        if host_matches(host, "storage.googleapis.com", allow_subdomains=True):
             return "Google Cloud Storage"
-        elif "blob.core.windows.net" in u:
+        if host_matches(host, "blob.core.windows.net", allow_subdomains=True):
             return "Azure Blob Storage"
-        elif "cloudflarestorage.com" in u:
+        if host_matches(host, "cloudflarestorage.com", allow_subdomains=True):
             return "Cloudflare R2"
-        elif "digitaloceanspaces.com" in u:
+        if host_matches(host, "digitaloceanspaces.com", allow_subdomains=True):
             return "DigitalOcean Spaces"
         return "Cloud Storage"
 

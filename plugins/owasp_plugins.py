@@ -22,6 +22,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from core.models import DiscoveredEndpoint, Severity, VulnerabilityFinding
+from core.url_utils import is_expected_redirect
 from plugins.base_plugin import BaseSecurityPlugin
 
 # --- SQL Errors & Signatures ---
@@ -269,7 +270,9 @@ class PluginA01_BrokenAccessControl(BaseSecurityPlugin):
                     r = await client.get(test_url, timeout=2.5, follow_redirects=False)
                     if r.status_code in [301, 302, 303, 307, 308]:
                         loc = r.headers.get("location", "")
-                        if loc.startswith("https://example.com") or loc.startswith("//example.com"):
+                        # Parse the hostname instead of substring matching:
+                        # https://example.com.attacker.tld must not count.
+                        if is_expected_redirect(loc, "example.com"):
                             return VulnerabilityFinding(
                                 scan_id=scan_id,
                                 title=f"Open URL Redirection via '{param}'",

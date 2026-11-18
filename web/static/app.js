@@ -5824,7 +5824,7 @@ async function ctRunSubdomains() {
             html += `<div style="background: rgba(239,68,68,0.1); border: 1px solid #ef4444; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
                 <div style="font-weight: 800; color: #ef4444; font-size: 13.5px; margin-bottom: 4px;">[!] ${data.takeover_findings.length} Subdomain Takeover Vulnerabilities Discovered!</div>`;
             data.takeover_findings.forEach(tf => {
-                html += `<div style="font-size: 12px; color: var(--text-body); margin-top: 4px;">• <strong>${tf.title}</strong> on <code>${tf.endpoint}</code></div>`;
+                html += `<div style="font-size: 12px; color: var(--text-body); margin-top: 4px;">• <strong>${htmlEscape(tf.title)}</strong> on <code>${htmlEscape(tf.endpoint)}</code></div>`;
             });
             html += `</div>`;
         }
@@ -5846,15 +5846,16 @@ async function ctRunSubdomains() {
 
         ctDiscoveredSubdomains.forEach(s => {
             const statusCol = s.status === 200 ? '#10b981' : (s.status >= 300 && s.status < 400 ? '#f59e0b' : (s.status ? '#ef4444' : 'var(--text-muted)'));
-            const statusText = s.status ? `<span style="color: ${statusCol}; font-weight: 700;">${s.status}</span>` : '<span style="color: var(--text-muted);">--</span>';
-            const titleOrServer = s.title ? htmlEscape(s.title) : (s.server ? `<span style="color: var(--text-muted); font-family: var(--mono);">${s.server}</span>` : '<span style="color: var(--text-muted);">--</span>');
+            const statusText = s.status ? `<span style="color: ${statusCol}; font-weight: 700;">${htmlEscape(String(s.status))}</span>` : '<span style="color: var(--text-muted);">--</span>';
+            const safeHost = String(s.subdomain || '').replace(/[^a-zA-Z0-9.\-]/g, '');
+            const titleOrServer = s.title ? htmlEscape(s.title) : (s.server ? `<span style="color: var(--text-muted); font-family: var(--mono);">${htmlEscape(s.server)}</span>` : '<span style="color: var(--text-muted);">--</span>');
             html += `
                 <tr style="border-bottom: 1px solid rgba(255,255,255,0.04);">
-                    <td style="padding: 8px 12px; font-family: var(--mono); font-weight: 600;"><a href="https://${s.subdomain}" target="_blank" style="color: #60a5fa; text-decoration: none;">${s.subdomain}</a></td>
-                    <td style="padding: 8px 12px; font-family: var(--mono); color: var(--text-muted);">${s.ip || '--'}</td>
+                    <td style="padding: 8px 12px; font-family: var(--mono); font-weight: 600;"><a href="https://${encodeURIComponent(safeHost)}" target="_blank" rel="noopener noreferrer" style="color: #60a5fa; text-decoration: none;">${htmlEscape(s.subdomain)}</a></td>
+                    <td style="padding: 8px 12px; font-family: var(--mono); color: var(--text-muted);">${htmlEscape(String(s.ip || '--'))}</td>
                     <td style="padding: 8px 12px;">${statusText}</td>
                     <td style="padding: 8px 12px; color: var(--text-body); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${titleOrServer}</td>
-                    <td style="padding: 8px 12px; color: var(--text-muted); font-size: 11px;">${(s.sources || []).join(', ')}</td>
+                    <td style="padding: 8px 12px; color: var(--text-muted); font-size: 11px;">${(s.sources || []).map(x => htmlEscape(String(x))).join(', ')}</td>
                 </tr>
             `;
         });
@@ -5862,7 +5863,7 @@ async function ctRunSubdomains() {
         html += `</tbody></table></div>`;
         out.innerHTML = html;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error harvesting subdomains: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error harvesting subdomains: ${htmlEscape(String(e.message || e))}</span>`;
     } finally {
         if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Enumerate All Subdomains'; }
     }

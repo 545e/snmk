@@ -31,9 +31,23 @@ def run_benchmarks():
     }
 
     # 2. Regular Expression AST / Vulnerability Signature Benchmark (PCRE/C-Engine)
+    class _DangerousSchemeSignature:
+        """Linear string check for dangerous URI schemes.
+
+        A regex such as ``(javascript|data):[^\\s]*`` is an *unreliable HTML
+        filter* (the CodeQL py/bad-html-filter-regexp rule): whitespace and
+        entity encoding bypass it. Benchmarks must never present it as a
+        sanitizer, so detection is done with a bounded string scan instead.
+        """
+
+        @staticmethod
+        def search(text: str) -> bool:
+            lowered = text.lower()
+            return "javascript:" in lowered or "data:" in lowered
+
     vuln_patterns = [
         re.compile(r"(?i)(SELECT|UNION|INSERT|DELETE)\s+.*\s+(FROM|INTO)\s+.*"),
-        re.compile(r"(?i)(javascript|data):[^\s]*"),
+        _DangerousSchemeSignature(),
         re.compile(r"github_pat_[A-Za-z0-9_]{82}"),
         re.compile(r"(?i)bearer\s+[A-Za-z0-9\-\._~\+\/]+=*"),
         re.compile(r"(?i)(exec|system|passthru|shell_exec)\s*\(.*?\)")
