@@ -423,14 +423,19 @@ class PhotoRecCarver:
         except OSError:
             logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
+        root_str = os.path.realpath(str(root))
         if not target_path or target_path.strip() in ("", "."):
-            current = root
+            curr_str = root_str
         else:
             try:
-                current = self._confine_to_evidence_root(target_path)
+                confined = self._confine_to_evidence_root(target_path)
+                cand_str = os.path.realpath(str(confined))
+                if not cand_str.startswith(root_str):
+                    raise ValueError(f"Path '{target_path}' is outside the evidence root '{root}'.")
+                curr_str = cand_str
             except ValueError as exc:
                 return {
-                    "current_path": str(root),
+                    "current_path": root_str,
                     "parent_path": None,
                     "has_parent": False,
                     "items": [],
@@ -438,18 +443,11 @@ class PhotoRecCarver:
                     "error": str(exc),
                 }
 
-        curr_str = os.path.realpath(str(current))
-        root_str = os.path.realpath(str(root))
-        if not curr_str.startswith(root_str):
-            curr_str = root_str
-            current = root
-
         if not os.path.exists(curr_str):
             curr_str = root_str
-            current = root
 
-        parent_real = os.path.realpath(str(current.parent))
-        parent = parent_real if (parent_real.startswith(root_str) and parent_real != curr_str) else None
+        parent_dir = os.path.realpath(os.path.dirname(curr_str))
+        parent = parent_dir if (parent_dir.startswith(root_str) and parent_dir != curr_str) else None
 
         items: List[Dict[str, Any]] = []
         try:
