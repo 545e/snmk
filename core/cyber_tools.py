@@ -599,7 +599,7 @@ class CryptoEncoderTool:
             else:
                 error = f"Unknown operation: {operation}"
         except Exception as e:
-            error = str(e)
+            error = f"Operation '{operation}' failed on input."
 
         return {"input": text, "operation": operation, "output": output, "error": error}
 
@@ -645,13 +645,13 @@ class CryptoEncoderTool:
         payload = {}
         try:
             header = _b64url_decode(parts[0])
-        except Exception as e:
-            return {"error": f"Failed to decode JWT Header: {e!s}"}
+        except Exception:
+            return {"error": "Failed to decode JWT Header: invalid structure or base64url encoding."}
 
         try:
             payload = _b64url_decode(parts[1])
-        except Exception as e:
-            return {"error": f"Failed to decode JWT Payload: {e!s}"}
+        except Exception:
+            return {"error": "Failed to decode JWT Payload: invalid structure or JSON encoding."}
 
         # Expiration analysis
         exp_timestamp = payload.get("exp")

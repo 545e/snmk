@@ -4360,7 +4360,7 @@ async function runForensicsAnalysis() {
         const data = await res.json();
         renderForensicsResults(data);
     } catch (e) {
-        container.innerHTML = `<div style="color: var(--crit); text-align: center; padding: 30px;">Error: ${e.message}</div>`;
+        container.innerHTML = `<div style="color: var(--crit); text-align: center; padding: 30px;">Error: ${escapeHtml(e?.message || '')}</div>`;
     } finally {
         if (btn) btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg><span>Analyze Footprints</span>`;
     }
@@ -5741,7 +5741,7 @@ async function ctRunHeaders() {
         html += `</div>`;
         out.innerHTML = html;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -5783,7 +5783,7 @@ async function ctRunSsl() {
         }
         out.innerHTML = html;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -5837,7 +5837,7 @@ async function ctRunHashes() {
             <div style="background: var(--bg-card); padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px;"><strong>NTLM:</strong> ${data.ntlm}</div>
         </div>`;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -5853,7 +5853,7 @@ async function ctRunJwt() {
         });
         const data = await res.json();
         if (data.error) {
-            out.innerHTML = `<span style="color: #ef4444;">${data.error}</span>`;
+            out.innerHTML = `<span style="color: #ef4444;">${escapeHtml(data?.error || '')}</span>`;
             return;
         }
         let html = `<div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; font-size: 12px;">
@@ -5876,7 +5876,7 @@ async function ctRunJwt() {
         </div>`;
         out.innerHTML = html;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -5892,7 +5892,7 @@ async function ctRunEncode(operation) {
         });
         const data = await res.json();
         if (data.error) {
-            out.innerHTML = `<span style="color: #ef4444;">${data.error}</span>`;
+            out.innerHTML = `<span style="color: #ef4444;">${escapeHtml(data?.error || '')}</span>`;
             return;
         }
         out.innerHTML = `<div>
@@ -5900,7 +5900,7 @@ async function ctRunEncode(operation) {
             <pre class="code-terminal" style="font-size: 12px; padding: 10px; word-break: break-all;">${data.output}</pre>
         </div>`;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -5916,7 +5916,7 @@ async function ctRunSubnet() {
         });
         const data = await res.json();
         if (data.error) {
-            out.innerHTML = `<span style="color: #ef4444;">${data.error}</span>`;
+            out.innerHTML = `<span style="color: #ef4444;">${escapeHtml(data?.error || '')}</span>`;
             return;
         }
         out.innerHTML = `<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; font-size: 12.5px;">
@@ -5928,7 +5928,7 @@ async function ctRunSubnet() {
             <div style="background: var(--bg-card); padding: 10px; border: 1px solid var(--border); border-radius: 6px;"><strong>Total Usable Hosts:</strong> <span style="color: #10b981; font-weight: 700;">${data.usable_hosts}</span></div>
         </div>`;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -5953,7 +5953,7 @@ async function ctRunRevshell() {
         html += `</div>`;
         out.innerHTML = html;
     } catch (e) {
-        out.innerHTML = `<span style="color: #ef4444;">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: #ef4444;">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -6114,7 +6114,7 @@ async function ctRunJsUrlScan() {
         const data = await res.json();
         renderJsScanResults(data, out);
     } catch (e) {
-        out.innerHTML = `<span style="color: var(--danger);">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: var(--danger);">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
@@ -6135,13 +6135,13 @@ async function ctRunJsCodeScan() {
         const data = await res.json();
         renderJsScanResults(data, out);
     } catch (e) {
-        out.innerHTML = `<span style="color: var(--danger);">Error: ${e.message}</span>`;
+        out.innerHTML = `<span style="color: var(--danger);">Error: ${escapeHtml(e?.message || '')}</span>`;
     }
 }
 
 function renderJsScanResults(data, container) {
     if (data.error && (!data.secrets || !data.secrets.length)) {
-        container.innerHTML = `<span style="color: var(--danger);">${data.error}</span>`;
+        container.innerHTML = `<span style="color: var(--danger);">${escapeHtml(data?.error || '')}</span>`;
         return;
     }
     const s = data.summary || {};
@@ -6379,7 +6379,7 @@ async function runActiveScanSubdomains(target) {
             scansData[currentScanId].recon_data.subdomains = subs;
         }
     } catch (e) {
-        container.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 30px;">Error running subdomain discovery: ${e.message}</div>`;
+        container.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 30px;">Error running subdomain discovery: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -6546,7 +6546,7 @@ async function loadBugBountyPrograms() {
         allBountyPrograms = data.programs || [];
         renderBugBountyGrid();
     } catch (e) {
-        if (grid) grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--danger); text-align: center; padding: 30px;">Error loading bounty programs: ${e.message}</div>`;
+        if (grid) grid.innerHTML = `<div style="grid-column: 1/-1; color: var(--danger); text-align: center; padding: 30px;">Error loading bounty programs: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -6664,7 +6664,7 @@ async function runWafCheck() {
         const data = await res.json();
         renderWafResults(data);
     } catch (e) {
-        if (resArea) resArea.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 30px;">Error performing WAF audit: ${e.message}</div>`;
+        if (resArea) resArea.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 30px;">Error performing WAF audit: ${escapeHtml(e?.message || '')}</div>`;
     } finally {
         if (btn) { btn.disabled = false; btn.textContent = "Detect WAF & Vectors"; }
     }
@@ -6781,7 +6781,7 @@ async function executeFileScan(filename, content) {
         const data = await res.json();
         renderFileScanResults(data);
     } catch (e) {
-        if (resultsArea) resultsArea.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 20px;">Error scanning file: ${e.message}</div>`;
+        if (resultsArea) resultsArea.innerHTML = `<div style="color: var(--danger); text-align: center; padding: 20px;">Error scanning file: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -6933,7 +6933,7 @@ async function loadToolInventoryStatus() {
         }
         grid.innerHTML = cards;
     } catch (e) {
-        grid.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Failed to load tool status: ${e.message}</div>`;
+        grid.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Failed to load tool status: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 // =====================================================================
@@ -6976,7 +6976,7 @@ async function loadToolsCenter() {
         toolsCenterCachedData = await res.json();
         renderToolsCenter();
     } catch (e) {
-        container.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Failed to load tools inventory: ${e.message}</div>`;
+        container.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Failed to load tools inventory: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -7078,7 +7078,7 @@ async function runToolHealthCheckInUI(toolId, btn) {
         }
     } catch (e) {
         if (resBox) {
-            resBox.innerHTML = `<span style="color: #ef4444;">Health check error: ${e.message}</span>`;
+            resBox.innerHTML = `<span style="color: #ef4444;">Health check error: ${escapeHtml(e?.message || '')}</span>`;
         }
     } finally {
         btn.disabled = false;
@@ -7126,7 +7126,7 @@ async function loadCommandReference() {
         commandRefCachedData = await res.json();
         renderCommandReference();
     } catch (e) {
-        container.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Failed to load command reference: ${e.message}</div>`;
+        container.innerHTML = `<div style="color: #ef4444; font-size: 13px;">Failed to load command reference: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -7506,7 +7506,7 @@ async function loadAssetsTable() {
         if (badge) badge.textContent = cachedAssets.length;
         renderAssetsTable(cachedAssets);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" style="color: #ef4444; text-align: center; padding: 20px;">Failed to load assets: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="color: #ef4444; text-align: center; padding: 20px;">Failed to load assets: ${escapeHtml(e?.message || '')}</td></tr>`;
     }
 }
 
@@ -7699,7 +7699,7 @@ async function loadDatasets() {
             </tr>`;
         }).join('');
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center; padding: 20px;">Failed to load datasets: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center; padding: 20px;">Failed to load datasets: ${escapeHtml(e?.message || '')}</td></tr>`;
     }
 }
 
@@ -7838,7 +7838,7 @@ async function loadAiTrainingJobs() {
             </tr>`;
         }).join('');
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center;">Failed to load training jobs: ${e.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center;">Failed to load training jobs: ${escapeHtml(e?.message || '')}</td></tr>`;
     }
 }
 
@@ -7905,7 +7905,7 @@ async function loadRedteamSuite() {
         cachedRedteamSuite = data.test_cases || [];
         renderRedteamCards(cachedRedteamSuite);
     } catch (e) {
-        container.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">Failed to load red-team suite: ${e.message}</div>`;
+        container.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">Failed to load red-team suite: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -8006,7 +8006,7 @@ async function loadToolRegistry(category = '') {
         cachedTools = data.tools || [];
         renderToolCatalog(cachedTools);
     } catch (e) {
-        container.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">Failed to load tool catalog: ${e.message}</div>`;
+        container.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">Failed to load tool catalog: ${escapeHtml(e?.message || '')}</div>`;
     }
 }
 
@@ -8159,7 +8159,7 @@ async function loadExportHistory() {
             </tr>
         `).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Error loading exports: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Error loading exports: ${escapeHtml(err?.message || '')}</td></tr>`;
     }
 }
 
@@ -8191,7 +8191,7 @@ async function runCyberTestAction() {
         }
     } catch (err) {
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Test execution failed: ${err.message}</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Test execution failed: ${escapeHtml(err?.message || '')}</td></tr>`;
         }
     } finally {
         if (btn) {
@@ -8394,7 +8394,7 @@ async function loadDeployHistory() {
             `;
         }).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${escapeHtml(err?.message || '')}</td></tr>`;
     }
 }
 
@@ -8419,7 +8419,7 @@ async function loadAuditLogsAction() {
             </tr>
         `).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${escapeHtml(err?.message || '')}</td></tr>`;
     }
 }
 
@@ -15239,7 +15239,7 @@ async function executeKcIndicatorLookup() {
         </div>
         `;
     } catch (err) {
-        if (resultBox) resultBox.innerHTML = `<div style="color:#ef4444; font-size:12px;">Lookup failed: ${err.message}</div>`;
+        if (resultBox) resultBox.innerHTML = `<div style="color:#ef4444; font-size:12px;">Lookup failed: ${escapeHtml(err?.message || '')}</div>`;
     }
 }
 
@@ -15567,7 +15567,7 @@ async function executeKcAiAnalysis() {
         </div>
         `;
     } catch (err) {
-        if (resultCard) resultCard.innerHTML = `<div style="color:#ef4444; font-size:12px;">AI analysis failed: ${err.message}</div>`;
+        if (resultCard) resultCard.innerHTML = `<div style="color:#ef4444; font-size:12px;">AI analysis failed: ${escapeHtml(err?.message || '')}</div>`;
     }
 }
 
@@ -16844,7 +16844,7 @@ async function loadToolHealthPopoverData() {
         renderToolHealthPopover();
     } catch (e) {
         if (container) {
-            container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 24px;">Failed to load diagnostics: ${e.message}</div>`;
+            container.innerHTML = `<div style="text-align: center; color: #ef4444; padding: 24px;">Failed to load diagnostics: ${escapeHtml(e?.message || '')}</div>`;
         }
     }
 }

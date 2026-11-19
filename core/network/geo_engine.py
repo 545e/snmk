@@ -189,7 +189,8 @@ class GeolocationEngine:
                         self._cache[ip] = res_info
                         return res_info
         except Exception as e:
-            logger.debug(f"ip-api fallback failed for {ip}: {e}")
+            clean_ip_log = str(ip).replace("\r", "").replace("\n", "")[:64]
+            logger.debug(f"ip-api fallback failed for {clean_ip_log}: {e}")
 
         # If lookups fail or offline, return unestablished result
         return GeolocationInfo(

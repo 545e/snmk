@@ -49,7 +49,8 @@ class NetworkOriginEngine:
             try:
                 resolved_ip = socket.gethostbyname(target)
             except Exception as e:
-                logger.debug(f"Failed to resolve domain {target}: {e}")
+                clean_target = str(target).replace("\r", "").replace("\n", "")[:128]
+                logger.debug(f"Failed to resolve domain {clean_target}: {e}")
 
         # Check if local gateway or local host
         is_local_host = (resolved_ip in [local_info.local_ipv4, "127.0.0.1", "::1"])

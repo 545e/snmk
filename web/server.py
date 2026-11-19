@@ -4151,19 +4151,13 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
             return result
 
     except Exception as e:
-
+        logger.warning(f"WAF probe network exception for {url}: {e}")
         return {
-
             "detected": False,
-
             "waf_name": "Probing Error",
-
             "vendor": "Network / DNS Failure",
-
-            "evidence": str(e),
-
+            "evidence": "Target network probing failed or connection unreachable.",
             "bypasses": []
-
         }
 
 
@@ -5487,8 +5481,8 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
         raise
 
     except Exception as e:
-
-        logger.error(f"Error executing tool {tool_id}: {e}")
+        clean_tool_id = str(tool_id).replace("\r", "").replace("\n", "")[:64]
+        logger.error(f"Error executing tool {clean_tool_id}: {e}")
         _failed_finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
         persistent_store.record_tool_execution(
             scan_id=tool_scan_id,
@@ -7094,8 +7088,8 @@ async def run_cyber_tests(req: CyberTestRequest):
         return run_data
 
     except Exception as e:
-
-        raise HTTPException(status_code=500, detail=f"Cyber test execution failed: {e!s}")
+        logger.error(f"Cyber test execution error: {e}")
+        raise HTTPException(status_code=500, detail="Cyber test execution failed.")
 
 
 
@@ -7152,8 +7146,8 @@ async def initiate_cyber_deploy(req: CyberDeployRequest):
         return dep
 
     except Exception as e:
-
-        raise HTTPException(status_code=500, detail=f"Deployment initiation failed: {e!s}")
+        logger.error(f"Deployment initiation error: {e}")
+        raise HTTPException(status_code=500, detail="Deployment initiation failed.")
 
 
 
@@ -7170,8 +7164,8 @@ async def approve_cyber_deploy(deployment_id: str, req: CyberDeployApprovalReque
         return dep
 
     except Exception as e:
-
-        raise HTTPException(status_code=500, detail=f"Deployment approval failed: {e!s}")
+        logger.error(f"Deployment approval error: {e}")
+        raise HTTPException(status_code=500, detail="Deployment approval failed.")
 
 
 
@@ -7188,8 +7182,8 @@ async def rollback_cyber_deploy(deployment_id: str, req: CyberDeployRollbackRequ
         return dep
 
     except Exception as e:
-
-        raise HTTPException(status_code=500, detail=f"Rollback failed: {e!s}")
+        logger.error(f"Deployment rollback error: {e}")
+        raise HTTPException(status_code=500, detail="Deployment rollback failed.")
 
 
 

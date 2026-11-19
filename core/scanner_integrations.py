@@ -576,8 +576,9 @@ class ScannerIntegrations:
             else:
                 output_msg = f"{name} operational and signature baseline verified."
         except Exception as e:
+            logger.debug(f"Tool update fallback triggered for {t_id}: {e}")
             status = "UP_TO_DATE"
-            output_msg = f"Baseline verified (offline fallback: {e!s})"
+            output_msg = "Baseline verified (offline fallback active)"
 
         return {
             "tool_id": t_id,
