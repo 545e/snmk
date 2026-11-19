@@ -22,7 +22,6 @@ import os
 import re
 import shutil
 import socket
-import ssl
 import sys
 import tempfile
 import time
@@ -38,7 +37,7 @@ from core.tls_policy import inspection_context
 
 # Third-party parsers with safe import fallbacks
 try:
-    from PIL import ExifTags, Image
+    from PIL import Image
     PIL_AVAILABLE = True
 except ImportError:
     PIL_AVAILABLE = False
@@ -62,8 +61,8 @@ except ImportError:
     TESSERACT_AVAILABLE = False
 
 from core.alert_manager import alert_manager
-from core.database import DB_PATH, db
-from core.integrations.endpoint_policy import EndpointPolicyError, resolve_host_addresses
+from core.database import db
+from core.integrations.endpoint_policy import resolve_host_addresses
 from core.mysql_database import mysql_manager
 from core.scope_policy import scope_policy
 
@@ -1314,7 +1313,8 @@ class UniversalScannerEngine:
                 self._jobs[job.id] = job
                 return job
         except Exception as e:
-            logger.warning(f"Error loading job {scan_id} from SQLite: {e}")
+            clean_id = str(scan_id).replace("\r", "").replace("\n", "")[:64]
+            logger.warning(f"Error loading job {clean_id} from SQLite: {e}")
             return None
 
     # =========================================================================

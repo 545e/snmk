@@ -167,6 +167,9 @@ function openAiCopilotDrawer() {
 // =========================================================================
 
 let currentScanId = null;
+// Set when a scan is deleted so background loadScans() refreshes cannot
+// immediately reopen the details pane with a different scan.
+let suppressScanAutoSelect = false;
 let scansData = {};
 let activeFindings = [];
 let selectedProfile = "standard";
@@ -340,6 +343,7 @@ async function launchScan() {
         if (!scan) throw new Error('Failed to retrieve initialized assessment.');
 
         currentScanId = scan.id;
+        suppressScanAutoSelect = false;
         scansData[scan.id] = scan;
 
         // Show active telemetry pane on dashboard
@@ -531,7 +535,7 @@ function pollScanStatus(scanId) {
     }, 2000);
 }
 
-async function loadScans(triggerBtn) {
+async function loadScans(triggerBtn, options = {}) {
     // Only lock the button when the *user* clicked it. Background refreshes
     // (dashboard init, view switches) previously grabbed #refreshScansBtn by
     // fallback and disabled it; when that background promise did not settle
@@ -673,11 +677,15 @@ async function loadScans(triggerBtn) {
             `).join('');
         }
 
-        // Auto-select latest active scan or maintain current selection
-        if (!currentScanId && scans.length > 0) {
-            selectScan(scans[0].id);
-        } else if (currentScanId && scansData[currentScanId]) {
-            selectScan(currentScanId);
+        // Auto-select latest active scan or maintain current selection.
+        // Callers that just deleted a scan pass keepDetailsHidden so the
+        // details pane does not immediately reopen with a different scan.
+        if (!options.keepDetailsHidden && !suppressScanAutoSelect) {
+            if (!currentScanId && scans.length > 0) {
+                selectScan(scans[0].id);
+            } else if (currentScanId && scansData[currentScanId]) {
+                selectScan(currentScanId);
+            }
         }
 
         if (triggerBtn) {
@@ -696,6 +704,7 @@ async function loadScans(triggerBtn) {
 
 async function selectScan(scanId) {
     if (!scanId) return;
+    suppressScanAutoSelect = false;
     currentScanId = scanId;
     let scan = scansData[scanId];
 
@@ -3582,7 +3591,7 @@ function switchWorkspaceTab(tabId, btn) {
  * Activates the Verified Findings tab right on the assessment card,
  * scrolls it smoothly into view, and loads the active scan's verified detections.
  */
-function viewActiveScanFindings() {
+async function viewActiveScanFindings() {
     const scanId = currentScanId || document.getElementById('activeScanId')?.textContent?.trim();
     const findingsBtn = document.querySelector("#activeScanTabRow .tab-item[onclick*='tabFindings']") ||
                            document.querySelector(".tab-item[onclick*='tabFindings']");
@@ -3595,9 +3604,14 @@ function viewActiveScanFindings() {
         findingsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
     if (scanId && scanId !== '--') {
-        loadFindings(scanId);
+        await loadFindings(scanId);
     } else if (Array.isArray(activeFindings) && activeFindings.length > 0) {
         renderFindings(activeFindings);
+    }
+    // Give visible feedback: the tab is already active on most clicks, so
+    // without this the button looks like it did nothing.
+    if (typeof showToast === 'function') {
+        showToast(`${activeFindings.length} verified findings loaded${scanId && scanId !== '--' ? ` for ${scanId}` : ''}.`, 'info');
     }
 }
 
@@ -3744,22 +3758,33 @@ async function deleteActiveScan() {
     if (!confirm(`Delete scan record ${scanId} and its findings?`)) return;
 
     try {
-        await apiFetch(`/api/scans/${scanId}`, { method: "DELETE" });
-        currentScanId = null;
-        const pane = document.getElementById("activeDetailsContent");
-        if (pane) pane.style.display = "none";
-        const formula = document.getElementById("postureFormulaBox");
-        if (formula) formula.style.display = "none";
-        const tabRow = document.getElementById("activeScanTabRow");
-        if (tabRow) tabRow.style.display = "none";
-        const tabPanels = document.getElementById("activeScanTabPanels");
-        if (tabPanels) tabPanels.style.display = "none";
-        const emptyNotice = document.getElementById("emptyDetailsNotice");
-        if (emptyNotice) emptyNotice.style.display = "block";
-        loadScans();
+        const res = await apiFetch(`/api/scans/${scanId}`, { method: "DELETE" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
     } catch (e) {
-        console.error(e);
+        // A 404 means the record is already gone — still clear the stale UI.
+        if (e.status !== 404) {
+            console.error('Delete assessment failed:', e);
+            if (typeof showToast === 'function') {
+                showToast(`Could not delete assessment: ${e.message}`, 'error');
+            }
+            return;
+        }
     }
+
+    currentScanId = null;
+    suppressScanAutoSelect = true;
+    const pane = document.getElementById("activeDetailsContent");
+    if (pane) pane.style.display = "none";
+    const formula = document.getElementById("postureFormulaBox");
+    if (formula) formula.style.display = "none";
+    const tabRow = document.getElementById("activeScanTabRow");
+    if (tabRow) tabRow.style.display = "none";
+    const tabPanels = document.getElementById("activeScanTabPanels");
+    if (tabPanels) tabPanels.style.display = "none";
+    const emptyNotice = document.getElementById("emptyDetailsNotice");
+    if (emptyNotice) emptyNotice.style.display = "block";
+    loadScans(null, { keepDetailsHidden: true });
+    if (typeof showToast === 'function') showToast(`Assessment ${scanId} deleted.`, 'success');
 }
 
 // AI Settings
@@ -10953,7 +10978,7 @@ async function loadAgentsGrid(forceRefresh = false) {
         // Update KPI Counters using values derived from the live registry.
         if (summary.tiers) {
             const kpiTotal = document.getElementById('agentKpiTotal');
-            if (kpiTotal) kpiTotal.textContent = totalAgents;
+            if (kpiTotal) kpiTotal.textContent = summary.total_discovered;
             const tierKpis = {
                 'agentKpiWorkforce': 'specialist_workforce',
                 'agentKpiOffensive': 'offensive_recon',

@@ -13,14 +13,12 @@ import secrets
 import sys
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException, Query, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from pydantic import BaseModel, Field
 
 # Ensure project root in python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from core.database import db
-from core.mysql_database import mysql_manager
 from services.crypto_service.engine import crypto_engine
 
 app = FastAPI(

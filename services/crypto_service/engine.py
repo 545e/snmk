@@ -11,14 +11,12 @@ Implements:
 from __future__ import annotations
 
 import base64
-import binascii
 import hashlib
 import hmac
 import html
-import os
 import secrets
 import urllib.parse
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from cryptography.exceptions import InvalidSignature, InvalidTag
 from cryptography.hazmat.primitives import hashes
@@ -317,7 +315,6 @@ class CryptoWorkbenchEngine:
 
         for idx, op in enumerate(operations, 1):
             op_name = op.get("op", "").lower()
-            params = op.get("params", {})
             step_output = ""
 
             try:

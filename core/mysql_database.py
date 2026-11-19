@@ -11,7 +11,7 @@ import json
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 logger = logging.getLogger("snmk.mysql")
 
@@ -111,7 +111,8 @@ class MySQLDatabaseManager:
             return True, f"Connected to MySQL {version}", round(latency, 2)
         except Exception as e:
             latency = (time.perf_counter() - t0) * 1000.0
-            return False, f"Connection failed: {str(e)}", round(latency, 2)
+            logger.warning(f"MySQL connection diagnostic failed: {e}")
+            return False, "MySQL server connection failed or unreachable", round(latency, 2)
 
     def get_health_status(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Provides real-time health and diagnostics telemetry for the MySQL subsystem."""

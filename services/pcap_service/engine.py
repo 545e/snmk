@@ -9,7 +9,6 @@ Offline packet capture analyzer supporting .pcap and .pcapng:
 
 from __future__ import annotations
 
-import base64
 import datetime
 import math
 import os
@@ -23,7 +22,6 @@ try:
     from scapy.all import (
         ARP,
         DNS,
-        DNSQR,
         DNSRR,
         ICMP,
         IP,

@@ -29,8 +29,9 @@ class RouteAnalysisEngine:
         max_hops = min(max(max_hops, 3), 30)
 
         # Validate that target does not contain command switches or invalid characters
+        safe_target = str(target).replace("\r", "").replace("\n", "")[:128]
         if not target or target.startswith("-") or not re.match(r"^[a-zA-Z0-9.:-]+$", target):
-            logger.warning(f"Invalid target for traceroute: {target}")
+            logger.warning(f"Invalid target for traceroute: {safe_target}")
             return {"target": target, "hops": [], "explanations": ["Target address contains invalid characters."]}
 
         # Resolve domain to a validated IP address and reconstruct from integer octets
@@ -50,7 +51,7 @@ class RouteAnalysisEngine:
             else:
                 return {"target": target, "hops": [], "explanations": ["Unsupported IP version."]}
         except Exception:
-            logger.warning(f"Could not resolve target to IP: {target}")
+            logger.warning(f"Could not resolve target to IP: {safe_target}")
             return {"target": target, "hops": [], "explanations": ["Could not resolve target to a valid IP address."]}
 
         hops: list[RouteHop] = []

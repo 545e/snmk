@@ -32,7 +32,7 @@ import logging
 import time
 import uuid
 from enum import Enum
-from typing import Any, Callable, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
 
 from core.database import db
 

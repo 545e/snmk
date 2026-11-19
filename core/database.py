@@ -3842,6 +3842,7 @@ class Database:
 
 
             cursor.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+            deleted = cursor.rowcount > 0
 
 
 
@@ -3857,7 +3858,9 @@ class Database:
 
 
 
-            return cursor.rowcount > 0
+            # rowcount belongs to the last DELETE statement, which may have
+            # removed zero findings/logs even though the scan row was deleted.
+            return deleted
 
 
 
@@ -8479,9 +8482,10 @@ class Database:
         with self.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("DELETE FROM vulnerability_assessment_reports WHERE id = ?", (report_id,))
+            deleted = cursor.rowcount > 0
             cursor.execute("DELETE FROM report_records WHERE id = ?", (report_id,))
             conn.commit()
-            return cursor.rowcount > 0
+            return deleted
 
 
 

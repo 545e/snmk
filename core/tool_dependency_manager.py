@@ -752,7 +752,7 @@ class SecureToolInstaller:
                             stdout=asyncio.subprocess.PIPE,
                             stderr=asyncio.subprocess.PIPE
                         )
-                        stdout, _ = await proc.communicate()
+                        _, _ = await proc.communicate()
                         if proc.returncode == 0:
                             log(f"Successfully installed '{item.name}' via winget.")
                             job_record["status"] = InstallStatus.HEALTHY

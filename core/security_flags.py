@@ -13,7 +13,7 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from core.alert_manager import alert_manager
 from core.database import db
@@ -292,7 +292,8 @@ class SecurityFlagEngine:
                     self._flags[flag.id] = flag
                     return flag
         except Exception as e:
-            logger.warning(f"Error fetching flag {flag_id}: {e}")
+            clean_id = str(flag_id).replace("\r", "").replace("\n", "")[:64]
+            logger.warning(f"Error fetching flag {clean_id}: {e}")
         return None
 
     def list_flags(
@@ -323,11 +324,11 @@ class SecurityFlagEngine:
         low = sum(1 for f in self._flags.values() if f.severity == "LOW")
 
         by_cat = {}
-        for c in FlagCategory:
+        for c in FlagCategory.__members__.values():
             by_cat[c.value] = sum(1 for f in self._flags.values() if f.category == c.value)
 
         by_status = {}
-        for s in VerificationStatus:
+        for s in VerificationStatus.__members__.values():
             by_status[s.value] = sum(1 for f in self._flags.values() if f.verification_status == s.value)
 
         return {

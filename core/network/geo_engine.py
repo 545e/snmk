@@ -82,7 +82,27 @@ class GeolocationEngine:
 
         try:
             ip_obj = ipaddress.ip_address(ip.strip())
-            clean_ip = str(ip_obj)
+            if not ip_obj.is_global:
+                return GeolocationInfo(
+                    ip=ip,
+                    latitude=None,
+                    longitude=None,
+                    lat_dms="N/A (Private/Local Range)",
+                    lon_dms="N/A (Private/Local Range)",
+                    city="Non-Public Address",
+                    region="Private/Reserved Subnet",
+                    country="Internal",
+                    country_code="LOCAL",
+                    source_provider="Internal RFC Classifier",
+                    confidence="Non-Routable IP"
+                )
+            if ip_obj.version == 4:
+                b = ip_obj.packed
+                safe_ip = f"{int(b[0])}.{int(b[1])}.{int(b[2])}.{int(b[3])}"
+            elif ip_obj.version == 6:
+                safe_ip = str(ip_obj.exploded)
+            else:
+                raise ValueError("Unsupported IP version")
         except ValueError:
             return GeolocationInfo(
                 ip=ip,
@@ -96,8 +116,6 @@ class GeolocationEngine:
                 source_provider="Local Validator",
                 confidence="Invalid IP Syntax"
             )
-
-        safe_ip = urllib.parse.quote(clean_ip, safe="")
 
         # 1. Try ipinfo.io
         try:

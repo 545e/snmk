@@ -375,7 +375,6 @@ class ScannerIntegrations:
         defender_ver = None
         if os.name == "nt":
             try:
-                import json
                 import subprocess
                 proc = subprocess.run(
                     ["powershell", "-NoProfile", "-Command", "Get-MpComputerStatus -ErrorAction SilentlyContinue | Select-Object AntivirusEnabled, RealTimeProtectionEnabled, AntivirusSignatureVersion | ConvertTo-Json"],

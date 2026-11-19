@@ -60,8 +60,19 @@ class AITrainingEngine:
     def __init__(self, checkpoint_dir: str = CHECKPOINT_DIR, database: Any | None = None):
         self.checkpoint_dir = checkpoint_dir
         self.active_jobs: dict[str, asyncio.Task] = {}
-        self.db = database
+        self._db = database
         self.hardware_info = self._detect_hardware()
+
+    @property
+    def db(self) -> Any:
+        if self._db is None:
+            from core.database import db
+            self._db = db
+        return self._db
+
+    @db.setter
+    def db(self, val: Any) -> None:
+        self._db = val
 
     def _detect_hardware(self) -> dict[str, Any]:
         """Inspects local system compute hardware (CUDA/MPS/CPU/RAM)."""
@@ -190,7 +201,7 @@ class AITrainingEngine:
 
                 job.checkpoint_path = ckpt_path
                 job.logs.append(f"Epoch [{epoch}/{job.config.epochs}] - Loss: {epoch_loss:.4f} | Acc: {epoch_acc*100:.2f}% | Val Loss: {val_loss:.4f} | Val Acc: {val_acc*100:.2f}%")
-                db.save_training_job(job)
+                self.db.save_training_job(job)
 
             if job.status != "CANCELLED":
                 # Finalize model artifact
@@ -203,21 +214,21 @@ class AITrainingEngine:
                 job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
                 job.duration_seconds = round(time.time() - start_time, 2)
                 job.logs.append(f"Training completed successfully in {job.duration_seconds}s. Model artifact saved to: {final_model_path}")
-                db.save_training_job(job)
+                self.db.save_training_job(job)
 
         except asyncio.CancelledError:
             job.status = "CANCELLED"
             job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
             job.duration_seconds = round(time.time() - start_time, 2)
             job.logs.append("Training job task cancelled.")
-            db.save_training_job(job)
+            self.db.save_training_job(job)
         except Exception as e:
             job.status = "FAILED"
             job.error_message = str(e)
             job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
             job.duration_seconds = round(time.time() - start_time, 2)
             job.logs.append(f"Fatal error during training: {e!s}")
-            db.save_training_job(job)
+            self.db.save_training_job(job)
         finally:
             self.active_jobs.pop(job_id, None)
 
@@ -226,14 +237,12 @@ class AITrainingEngine:
         if task and not task.done():
             task.cancel()
             return True
-        from core.database import db
-        job = db.get_training_job(job_id)
+        job = self.db.get_training_job(job_id)
         if job and job.status in ["QUEUED", "RUNNING"]:
             job.status = "CANCELLED"
-            db.save_training_job(job)
+            self.db.save_training_job(job)
             return True
         return False
 
 
-from core.database import db
-ai_trainer = AITrainingEngine(database=db)
+ai_trainer = AITrainingEngine()

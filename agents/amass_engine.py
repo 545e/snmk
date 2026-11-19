@@ -245,11 +245,6 @@ DEFAULT_HEADERS = {
 
 PUBLIC_RESOLVERS = ["1.1.1.1", "8.8.8.8", "9.9.9.9", "208.67.222.222"]
 
-# In-memory TTL cache for DNS and live resolution
-_SUBDOMAIN_DNS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
-DNS_CACHE_TTL_SECONDS = 300
-
-
 
 class AmassSubdomainEngine:
     """
