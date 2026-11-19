@@ -42,7 +42,7 @@ async function loadStorageDevices() {
     listEl.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--text-muted);"><span class="spin-anim">⚡</span> Enumerating storage devices & forensic disk images...</td></tr>`;
 
     try {
-        const res = await fetch('/api/forensics/storage/devices');
+        const res = await apiFetch('/api/forensics/storage/devices');
         const data = await res.json();
         const devices = data.devices || [];
 
@@ -89,7 +89,7 @@ async function loadStorageDevices() {
 async function hashForensicTarget(path) {
     showToast(`Initiating cryptographic SHA-256/SHA-512 stream on ${path}...`, "info");
     try {
-        const res = await fetch(`/api/forensics/storage/hash?file_path=${encodeURIComponent(path)}`, { method: 'POST' });
+        const res = await apiFetch(`/api/forensics/storage/hash?file_path=${encodeURIComponent(path)}`, { method: 'POST' });
         const data = await res.json();
         if (data.hashes) {
             alert(`Forensic Integrity Certificate:\n\nTarget: ${path}\nSHA-256: ${data.hashes.sha256}\nSHA-512: ${data.hashes.sha512}\nMD5: ${data.hashes.md5}\nSize: ${data.hashes.size_bytes} bytes\n\nStatus: Bitstream Verified Immutable.`);
@@ -121,7 +121,7 @@ async function loadPhotorecSignatures() {
     const box = document.getElementById('dfirSignatureCheckboxes');
     if (!box) return;
     try {
-        const res = await fetch('/api/forensics/photorec/signatures');
+        const res = await apiFetch('/api/forensics/photorec/signatures');
         const data = await res.json();
         const fams = data.families || {};
         box.innerHTML = Object.entries(fams).map(([famName, exts]) => `
@@ -149,7 +149,7 @@ async function browseCarvingDirectory(targetPath) {
 
     try {
         const url = targetPath ? `/api/forensics/photorec/browse?path=${encodeURIComponent(targetPath)}` : '/api/forensics/photorec/browse';
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         const data = await res.json();
         const b = data.browse || {};
 
@@ -209,7 +209,7 @@ async function startPhotorecCarving() {
     const sigs = Array.from(document.querySelectorAll('input[name="dfirSigFilter"]:checked')).map(el => el.value);
 
     try {
-        const res = await fetch('/api/forensics/photorec/start', {
+        const res = await apiFetch('/api/forensics/photorec/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -239,7 +239,7 @@ async function startPhotorecCarving() {
 async function pollCarvingTelemetry() {
     if (!activeCarveJobId) return;
     try {
-        const res = await fetch(`/api/forensics/photorec/status/${activeCarveJobId}`);
+        const res = await apiFetch(`/api/forensics/photorec/status/${activeCarveJobId}`);
         const data = await res.json();
         const job = data.job;
 
@@ -277,7 +277,7 @@ async function pollCarvingTelemetry() {
 async function cancelPhotorecCarving() {
     if (!activeCarveJobId) return;
     try {
-        await fetch(`/api/forensics/photorec/cancel/${activeCarveJobId}`, { method: 'POST' });
+        await apiFetch(`/api/forensics/photorec/cancel/${activeCarveJobId}`, { method: 'POST' });
         showToast(`Carving job ${activeCarveJobId} cancelled.`, "info");
     } catch (e) {
         showToast(e.message, "error");
@@ -292,7 +292,7 @@ async function loadAutopsyCases() {
     const listEl = document.getElementById('dfirAutopsyCasesList');
     if (!listEl) return;
     try {
-        const res = await fetch('/api/forensics/autopsy/cases');
+        const res = await apiFetch('/api/forensics/autopsy/cases');
         const data = await res.json();
         const cases = data.cases || [];
 
@@ -336,7 +336,7 @@ async function loadAutopsyCases() {
 async function triggerCaseIngest(caseId) {
     showToast(`Triggering NSRL hash lookup, keyword indexing, and artifact extraction for case ${caseId}...`, "info");
     try {
-        const res = await fetch(`/api/forensics/autopsy/cases/${caseId}/ingest`, {
+        const res = await apiFetch(`/api/forensics/autopsy/cases/${caseId}/ingest`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ modules: ["mod_hash_lookup", "mod_file_id", "mod_keyword", "mod_exif"] })
@@ -379,7 +379,7 @@ async function executeExifApi(payload) {
     reportArea.innerHTML = `<div style="padding: 20px; text-align:center; color: var(--text-muted);"><span class="spin-anim">⚡</span> Dissecting binary EXIF tags & GPS metadata...</div>`;
 
     try {
-        const res = await fetch('/api/forensics/exif/extract', {
+        const res = await apiFetch('/api/forensics/exif/extract', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -448,7 +448,7 @@ async function loadCustodyRecords() {
     const listEl = document.getElementById('dfirCustodyTableBody');
     if (!listEl) return;
     try {
-        const res = await fetch('/api/forensics/custody/records');
+        const res = await apiFetch('/api/forensics/custody/records');
         const data = await res.json();
         const records = data.records || [];
 
@@ -482,7 +482,7 @@ async function loadCustodyRecords() {
 async function verifyCustodyItem(recordId) {
     showToast(`Auditing cryptographic hash for record ${recordId}...`, "info");
     try {
-        const res = await fetch(`/api/forensics/custody/verify/${recordId}`, {
+        const res = await apiFetch(`/api/forensics/custody/verify/${recordId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ examiner_name: "Audit Specialist" })

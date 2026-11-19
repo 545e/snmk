@@ -25,7 +25,11 @@
     <meta name="theme-color" content="#0b0f17">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-        <script>
+    <!-- Centralized API base URL override. Empty = same origin (default).
+         Operators running a split frontend may set it here, in
+         localStorage['snmk_api_base_url'], or via SWA_PUBLIC_API_BASE_URL. -->
+    <meta name="snmk-api-base" content="">
+    <script>
         (function() {
             try {
                 var t = localStorage.getItem('swa_theme') || 'dark';
@@ -38,6 +42,10 @@
     <link rel="stylesheet" href="snmk-enhance.css?v=3.1.0">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
     <link rel="stylesheet" href="map.css?v=2.2.0">
+    <!-- Bootstrap the configurable API base URL, then the centralized client.
+         api-client.js must load before any script that issues API calls. -->
+    <script src="/api/client-config.js"></script>
+    <script src="api-client.js?v=4.0.0"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="map.js?v=2.2.0"></script>
 
@@ -517,7 +525,7 @@
             </button>
 
             <!-- Card 2: 85 Autonomous AI Agents Workforce -->
-            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="navToView('agents')" style="cursor: pointer;" title="Click to inspect all 85 Specialist Agents">
+            <button type="button" class="soc-kpi-card swa-plain swa-plain-block" onclick="navToView('agents')" style="cursor: pointer;" title="Click to inspect registered specialist agents">
                 <div class="soc-kpi-header">
                     <span class="soc-kpi-title">Autonomous AI Fleet</span>
                     <div class="soc-kpi-icon-disc disc-agents">

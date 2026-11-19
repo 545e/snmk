@@ -33,8 +33,15 @@ from core import tls_policy
 from core.scope_policy import scope_policy
 
 
-def _validate_safe_target_url(target_url: str) -> str | None:
-    """SSRF guard: validates URL scheme and ensures target is not in restricted IP space."""
+def _validate_safe_target_url(target_url: str, allow_lab: bool = False) -> str | None:
+    """SSRF guard: validates URL scheme and ensures target is not in restricted IP space.
+
+    ``allow_lab`` is an explicit, per-request opt-in that may ONLY be set by a
+    caller which has already validated the target through
+    ``scope_policy.validate_target(..., explicit_lab_authorization=True)``.
+    It relaxes the loopback restriction and nothing else: cloud metadata,
+    link-local, RFC1918 and other reserved ranges remain blocked.
+    """
     if not target_url or not isinstance(target_url, str):
         return None
     url = target_url.strip()
@@ -46,7 +53,8 @@ def _validate_safe_target_url(target_url: str) -> str | None:
             return None
         is_restr, _ = scope_policy.is_private_or_restricted(parsed.hostname)
         if is_restr:
-            return None
+            if not (allow_lab and scope_policy.is_lab_target(url)):
+                return None
         return urlunparse(parsed)
     except Exception:
         return None
@@ -212,9 +220,9 @@ class SecurityHeadersTool:
     LEAK_HEADERS = ["server", "x-powered-by", "x-aspnet-version", "x-runtime"]
 
     @classmethod
-    async def evaluate(cls, target_url: str) -> dict[str, Any]:
+    async def evaluate(cls, target_url: str, allow_lab: bool = False) -> dict[str, Any]:
         """Audits HTTP response headers, grades security posture from A+ to F."""
-        safe_url = _validate_safe_target_url(target_url)
+        safe_url = _validate_safe_target_url(target_url, allow_lab=allow_lab)
         if not safe_url:
             return {
                 "target_url": target_url,

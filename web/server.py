@@ -1873,7 +1873,8 @@ class VulnAssessmentPreviewReq(BaseModel):
 
 class VulnAssessmentGenerateReq(BaseModel):
     scan_id: str | None = None
-    target: str | None = "127.0.0.1:8000"
+    # No hardcoded target: the report engine derives it from scan_id.
+    target: str | None = None
     report_type: str = "detailed_technical"
     template_type: str = "template_b"
     grouping_mode: str = "host"
@@ -5190,6 +5191,11 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
     result_data = {}
 
     options = req.options or {}
+    # Only an explicit per-request opt-in (or the global lab setting) grants
+    # lab access. Merely detecting a loopback host is NOT authorization. This
+    # value is propagated to tool-level SSRF guards after the scope checks
+    # above have validated the target.
+    lab_authorized = bool(options.get("lab_mode", False)) or bool(scope_policy.allow_lab_mode)
 
 
 
@@ -5221,7 +5227,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
             target_url = effective_target if effective_target.startswith("http") else f"http://{effective_target}"
 
-            result_data = await SecurityHeadersTool.evaluate(target_url)
+            result_data = await SecurityHeadersTool.evaluate(target_url, allow_lab=lab_authorized)
 
 
 
@@ -9401,6 +9407,24 @@ try:
     app.include_router(pcap_service_router)
 except Exception as e:
     logger.warning(f"Failed to mount PCAP Service router: {e}")
+
+
+# Client bootstrap configuration -----------------------------------------
+# Served as JavaScript so it can be loaded by a <script> tag before the UI
+# and its API client. This keeps the API base URL configurable per
+# environment instead of scattering hardcoded addresses across the UI.
+@app.get("/api/client-config.js", include_in_schema=False)
+async def client_config_js():
+    configured = (os.getenv("SWA_PUBLIC_API_BASE_URL", "") or "").strip()
+    # Reject non-http(s) values so this endpoint can never inject script code.
+    if configured and not re.match(r"^https?://[^\s\"'<>]+$", configured):
+        configured = ""
+    payload = (
+        "/* SNMK client bootstrap */\n"
+        "window.SNMK_API_BASE_URL = " + json.dumps(configured) + ";\n"
+    )
+    return PlainTextResponse(payload, media_type="application/javascript; charset=utf-8",
+                             headers={"Cache-Control": "no-store"})
 
 
 # Mount static web UI files

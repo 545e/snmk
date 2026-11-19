@@ -48,9 +48,9 @@ async function initMapView() {
 async function loadMapHeaderAndCards() {
     try {
         const [localRes, publicRes, captureRes] = await Promise.all([
-            fetch('/api/network/local-info').then(r => r.json()).catch(() => ({})),
-            fetch('/api/network/public-ip').then(r => r.json()).catch(() => ({})),
-            fetch('/api/network/capture/status').then(r => r.json()).catch(() => ({}))
+            apiFetch('/api/network/local-info').then(r => r.json()).catch(() => ({})),
+            apiFetch('/api/network/public-ip').then(r => r.json()).catch(() => ({})),
+            apiFetch('/api/network/capture/status').then(r => r.json()).catch(() => ({}))
         ]);
 
         const posture = localRes.posture || {};
@@ -81,7 +81,7 @@ async function loadMapHeaderAndCards() {
 
         // Fetch IP Intelligence for Public IP to populate ISP, ASN, Location
         if (publicIp && publicIp !== "Unreachable") {
-            const intelRes = await fetch(`/api/network/ip-intelligence?ip=${encodeURIComponent(publicIp)}`).then(r => r.json()).catch(() => ({}));
+            const intelRes = await apiFetch(`/api/network/ip-intelligence?ip=${encodeURIComponent(publicIp)}`).then(r => r.json()).catch(() => ({}));
             if (intelRes.success) {
                 const isp = intelRes.isp || {};
                 const geo = intelRes.geolocation || {};
@@ -112,7 +112,7 @@ async function loadMapHeaderAndCards() {
 // 2. Load Network Interfaces dropdown
 async function loadMapInterfaces() {
     try {
-        const res = await fetch('/api/network/interfaces').then(r => r.json());
+        const res = await apiFetch('/api/network/interfaces').then(r => r.json());
         const sel = document.getElementById("mapInterfaceSelect");
         if (!sel || !res.interfaces) return;
 
@@ -197,7 +197,7 @@ async function startMapAnalysis() {
 
     // Start Packet Capture
     try {
-        await fetch('/api/network/capture/start', {
+        await apiFetch('/api/network/capture/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -210,7 +210,7 @@ async function startMapAnalysis() {
 
     // Start Device Discovery
     try {
-        fetch('/api/network/discovery/start', {
+        apiFetch('/api/network/discovery/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ authorized_confirmation: true })
@@ -234,7 +234,7 @@ async function startMapAnalysis() {
 async function stopMapAnalysis() {
     mapCaptureActive = false;
     try {
-        await fetch('/api/network/capture/stop', { method: 'POST' });
+        await apiFetch('/api/network/capture/stop', { method: 'POST' });
     } catch (e) {}
 
     const statusPill = document.getElementById("mapSessionStatusPill");
@@ -297,7 +297,7 @@ async function loadCapturedPackets(offset = 0, limit = 100) {
 
     try {
         const url = `/api/network/capture/packets?offset=${offset}&limit=${limit}&filter=${encodeURIComponent(filterQuery)}`;
-        const res = await fetch(url).then(r => r.json());
+        const res = await apiFetch(url).then(r => r.json());
         const tbody = document.getElementById("packetTableBody");
         if (!tbody) return;
 
@@ -341,7 +341,7 @@ async function selectPacket(pktNo, rowEl) {
     if (rowEl) rowEl.classList.add("selected");
 
     try {
-        const res = await fetch(`/api/network/capture/packet/${pktNo}`).then(r => r.json());
+        const res = await apiFetch(`/api/network/capture/packet/${pktNo}`).then(r => r.json());
         if (!res.success || !res.packet) return;
 
         const pkt = res.packet;
@@ -395,7 +395,7 @@ async function uploadPcapFile(inputEl) {
     if (btn) btn.textContent = "Analyzing PCAP...";
 
     try {
-        const res = await fetch('/api/network/pcap/upload', {
+        const res = await apiFetch('/api/network/pcap/upload', {
             method: 'POST',
             body: formData
         }).then(r => r.json());
@@ -419,7 +419,7 @@ async function uploadPcapFile(inputEl) {
 // 8. Traffic Flows (Conversations)
 async function loadTrafficFlows() {
     try {
-        const res = await fetch('/api/network/flows').then(r => r.json());
+        const res = await apiFetch('/api/network/flows').then(r => r.json());
         const tbody = document.getElementById("flowsTableBody");
         if (!tbody) return;
 
@@ -451,7 +451,7 @@ async function loadTrafficFlows() {
 // 9. Device Discovery Table
 async function loadDiscoveredDevices() {
     try {
-        const res = await fetch('/api/network/devices').then(r => r.json());
+        const res = await apiFetch('/api/network/devices').then(r => r.json());
         if (res.devices) {
             renderDeviceTable(res.devices, null);
             const cardDevs = document.getElementById("cardConnectedDevices");
@@ -501,7 +501,7 @@ function renderDeviceTable(devices, comparison) {
 // 10. Origin Investigation
 async function investigateOriginTarget(target) {
     try {
-        const res = await fetch('/api/network/origin/investigate', {
+        const res = await apiFetch('/api/network/origin/investigate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ target: target, authorized_confirmation: true })
@@ -537,7 +537,7 @@ async function runDnsLookup() {
     const domain = input ? input.value.trim() : "google.com";
 
     try {
-        const res = await fetch(`/api/network/dns?target=${encodeURIComponent(domain)}`).then(r => r.json());
+        const res = await apiFetch(`/api/network/dns?target=${encodeURIComponent(domain)}`).then(r => r.json());
         const tbody = document.getElementById("dnsRecordsTableBody");
         if (!tbody) return;
 
@@ -581,7 +581,7 @@ async function runRouteTrace() {
     if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#38bdf8;">Executing traceroute diagnostics to ${escapeHtml(target)}...</td></tr>`;
 
     try {
-        const res = await fetch('/api/network/route/analyze', {
+        const res = await apiFetch('/api/network/route/analyze', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ target: target, max_hops: 15, timeout: 2.0 })
@@ -621,7 +621,7 @@ async function runSpeedBenchmark() {
     if (btn) { btn.disabled = true; btn.textContent = "Benchmarking..."; }
 
     try {
-        const res = await fetch('/api/network/speed-test', {
+        const res = await apiFetch('/api/network/speed-test', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ include_upload: true, duration_seconds: 5 })
@@ -659,7 +659,7 @@ async function runSpeedBenchmark() {
 // 14. Wi-Fi Intelligence
 async function loadWifiIntelligence() {
     try {
-        const res = await fetch('/api/network/wifi').then(r => r.json());
+        const res = await apiFetch('/api/network/wifi').then(r => r.json());
         if (res.success && res.wifi) {
             const w = res.wifi;
             const ssidEl = document.getElementById("wifiSsidDisplay");
@@ -734,7 +734,7 @@ async function askMapAi(queryText) {
     if (respArea) respArea.innerHTML = `<div style="color:#38bdf8;">Querying MAP AI Network Intelligence Agent for: <em>"${escapeHtml(q)}"</em>...</div>`;
 
     try {
-        const res = await fetch('/api/network/ai/query', {
+        const res = await apiFetch('/api/network/ai/query', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ query: q })
@@ -770,7 +770,7 @@ async function generateCurrentMapReport() {
     if (btn) btn.textContent = "Compiling Report...";
 
     try {
-        const res = await fetch('/api/network/report/generate', {
+        const res = await apiFetch('/api/network/report/generate', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({

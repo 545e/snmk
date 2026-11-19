@@ -47,7 +47,7 @@
 
 **SNMK** (Autonomous Cybersecurity Platform) is an autonomous, cross-platform cybersecurity operations platform designed to conduct authorized security assessments, external attack surface management (EASM), vulnerability identification, and remediation verification.
 
-Operating across Windows, Linux, and macOS, SNMK coordinates an autonomous workforce of **85 specialist agents** to deliver verifiable, reproducible security insights without destructive payload side effects.
+Operating across Windows, Linux, and macOS, SNMK coordinates an autonomous workforce of specialist agents to deliver verifiable, reproducible security insights without destructive payload side effects. The authoritative count is the runtime registry (`core.agent_registry`, exposed at `GET /api/agents/summary`); at the time of this release it reports 94 registered agents across 6 tiers. The legacy `config/85_agents_matrix.json` contains 85 matrix definitions and is not the source of truth for the UI.
 
 - **Unified Single-Page Application (SPA)**: Zero heavy framework dependencies, built with responsive vanilla JavaScript, HTML5, and CSS3.
 - **Asynchronous FastAPI Engine**: High-concurrency backend powered by Python 3.10–3.12 with SQLite in WAL mode.

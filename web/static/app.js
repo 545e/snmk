@@ -287,7 +287,7 @@ async function launchScan() {
             lab_mode: isLabTarget
         };
 
-        let res = await fetch('/api/scans', {
+        let res = await apiFetch('/api/scans', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -299,14 +299,14 @@ async function launchScan() {
             // If scope refusal, auto-authorize target domain in allowlist and retry seamlessly
             if (res.status === 403 && String(err.detail || '').includes('Scope')) {
                 const cleanDomain = target.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
-                const authRes = await fetch('/api/scope/targets', {
+                const authRes = await apiFetch('/api/scope/targets', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ domain: cleanDomain, description: 'Operator authorized assessment target' })
                 }).catch(() => null);
 
                 if (authRes && authRes.ok) {
-                    const retryRes = await fetch('/api/scans', {
+                    const retryRes = await apiFetch('/api/scans', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
@@ -382,7 +382,7 @@ async function launchScan() {
             const doAuth = confirm(`Target Scope Authorization Required:\n\nTarget '${cleanDomain}' is not yet in the authorized scope allowlist.\n\nAuthorize '${cleanDomain}' and start assessment now?`);
             if (doAuth) {
                 try {
-                    const authRes = await fetch('/api/scope/targets', {
+                    const authRes = await apiFetch('/api/scope/targets', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ domain: cleanDomain, description: 'Authorized from dashboard' })
@@ -416,11 +416,15 @@ let __swaPollInFlight = false;
 
 function pollScanStatus(scanId) {
     if (scanPollInterval) clearInterval(scanPollInterval);
+    // Watchdog: a job that never leaves PENDING/RUNNING with an unchanged
+    // progress value must not leave an infinite "Starting" spinner behind.
+    let lastProgress = -1;
+    let lastProgressChangeAt = Date.now();
     scanPollInterval = setInterval(async () => {
         if (__swaPollInFlight) return;
         __swaPollInFlight = true;
         try {
-            const res = await fetch(`/api/scans/${scanId}`);
+            const res = await apiFetch(`/api/scans/${scanId}`);
             if (!res.ok) return;
             const scan = await res.json();
             scansData[scanId] = scan;
@@ -436,14 +440,18 @@ function pollScanStatus(scanId) {
                 statusPill.className = `badge-status status-${scan.status}`;
             }
 
-            let pct = 15;
-            if (scan.status === 'RUNNING') {
-                pct = Math.min(85, Math.max(25, (scan.findings_count || 0) * 10 + 30));
-            } else if (scan.status === 'COMPLETED') {
-                pct = 100;
+            // Prefer the server-computed progress; never invent progress.
+            let pct = (typeof scan.progress_percent === 'number') ? scan.progress_percent : 15;
+            if (typeof scan.progress_percent !== 'number') {
+                if (scan.status === 'RUNNING') {
+                    pct = Math.min(85, Math.max(25, (scan.findings_count || 0) * 10 + 30));
+                } else if (scan.status === 'COMPLETED') {
+                    pct = 100;
+                }
             }
             if (bar) bar.style.width = pct + '%';
             if (pctText) pctText.textContent = pct + '%';
+            if (pct !== lastProgress) { lastProgress = pct; lastProgressChangeAt = Date.now(); }
 
             if (phaseText && scan.current_phase) {
                 phaseText.textContent = scan.current_phase;
@@ -464,6 +472,23 @@ function pollScanStatus(scanId) {
                 }
             }
 
+            const stalled = ['PENDING', 'RUNNING', 'INITIALIZED'].includes(scan.status)
+                && (Date.now() - lastProgressChangeAt) > 180000;
+            if (stalled) {
+                clearInterval(scanPollInterval);
+                scanPollInterval = null;
+                stopScanTimer();
+                if (statusPill) {
+                    statusPill.textContent = 'STALLED';
+                    statusPill.className = 'badge-status status-FAILED';
+                }
+                if (phaseText) phaseText.textContent = 'Assessment stalled — check worker status';
+                if (typeof showToast === 'function') {
+                    showToast(`Assessment ${scanId} made no progress for 3 minutes. Inspect logs or retry.`, 'error');
+                }
+                return;
+            }
+
             if (scan.status === 'COMPLETED' || scan.status === 'FAILED' || scan.status === 'CANCELLED') {
                 clearInterval(scanPollInterval);
                 scanPollInterval = null;
@@ -471,6 +496,9 @@ function pollScanStatus(scanId) {
                 const cancelBtn = document.getElementById('btnCancelScan');
                 if (cancelBtn) cancelBtn.style.display = 'none';
 
+                if (scan.status === 'FAILED' && scan.error_message && phaseText) {
+                    phaseText.textContent = scan.error_message;
+                }
                 loadFindings(scanId);
                 loadScans();
                 if (typeof recalculateActiveScanScore === 'function') {
@@ -505,7 +533,7 @@ async function loadScans(triggerBtn) {
     }
 
     try {
-        const res = await fetch('/api/scans');
+        const res = await apiFetch('/api/scans');
         if (!res.ok) return;
         const data = await res.json();
         const scans = Array.isArray(data) ? data : (data.scans || []);
@@ -655,7 +683,7 @@ async function selectScan(scanId) {
 
     if (!scan || !scan.recon_data) {
         try {
-            const res = await fetch(`/api/scans/${scanId}`);
+            const res = await apiFetch(`/api/scans/${scanId}`);
             if (res.ok) {
                 scan = await res.json();
                 scansData[scanId] = scan;
@@ -730,7 +758,7 @@ let modelsCatalogCache = null;
 // Initialize on load
 async function loadAiAgents() {
     try {
-        const res = await fetch("/api/ai-agents");
+        const res = await apiFetch("/api/ai-agents");
         if (!res.ok) return;
         configuredAiAgents = await res.json();
         renderCopilotAgentSelect();
@@ -810,7 +838,7 @@ async function openAddAgentModal(editAgentId = null) {
     // Ensure catalog loaded
     if (!modelsCatalogCache) {
         try {
-            const res = await fetch("/api/ai-agents/models-catalog");
+            const res = await apiFetch("/api/ai-agents/models-catalog");
             if (res.ok) modelsCatalogCache = await res.json();
         } catch (e) {
             console.warn("Catalog fetch failed:", e);
@@ -954,7 +982,7 @@ async function testCurrentAgentConnection() {
     if (icon) icon.className = "spin-anim";
 
     try {
-        const res = await fetch("/api/ai-agents/test-connection", {
+        const res = await apiFetch("/api/ai-agents/test-connection", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ provider, api_key: key, base_url: baseUrl, model })
@@ -1020,14 +1048,14 @@ async function saveAgent() {
     try {
         let res;
         if (editId) {
-            res = await fetch(`/api/ai-agents/${encodeURIComponent(editId)}`, {
+            res = await apiFetch(`/api/ai-agents/${encodeURIComponent(editId)}`, {
                 method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
             });
         } else {
             payload.test_connection_now = true;
-            res = await fetch("/api/ai-agents", {
+            res = await apiFetch("/api/ai-agents", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(payload)
@@ -1076,8 +1104,8 @@ async function renderManageAgentsDashboard() {
 
     try {
         const [agentsRes, usageRes] = await Promise.all([
-            fetch("/api/ai-agents"),
-            fetch("/api/ai-agents/usage")
+            apiFetch("/api/ai-agents"),
+            apiFetch("/api/ai-agents/usage")
         ]);
 
         if (agentsRes.ok) configuredAiAgents = await agentsRes.json();
@@ -1178,7 +1206,7 @@ async function renderManageAgentsDashboard() {
                 defBtn.title = "Make Default";
                 defBtn.textContent = "★ Default";
                 defBtn.onclick = async () => {
-                    await fetch(`/api/ai-agents/${encodeURIComponent(agent.id)}/set-default`, { method: "POST" });
+                    await apiFetch(`/api/ai-agents/${encodeURIComponent(agent.id)}/set-default`, { method: "POST" });
                     await renderManageAgentsDashboard();
                     await loadAiAgents();
                 };
@@ -1191,7 +1219,7 @@ async function renderManageAgentsDashboard() {
                     delBtn.textContent = "✕";
                     delBtn.onclick = async () => {
                         if (confirm(`Are you sure you want to delete AI Agent "${agent.name}"?`)) {
-                            await fetch(`/api/ai-agents/${encodeURIComponent(agent.id)}`, { method: "DELETE" });
+                            await apiFetch(`/api/ai-agents/${encodeURIComponent(agent.id)}`, { method: "DELETE" });
                             await renderManageAgentsDashboard();
                             await loadAiAgents();
                         }
@@ -1217,7 +1245,7 @@ async function testSavedAgentInDashboard(agentId, btnEl, badgeEl) {
     }
 
     try {
-        const res = await fetch(`/api/ai-agents/${encodeURIComponent(agentId)}/test`, { method: "POST" });
+        const res = await apiFetch(`/api/ai-agents/${encodeURIComponent(agentId)}/test`, { method: "POST" });
         const data = await res.json();
         if (data.success) {
             badgeEl.textContent = "CONNECTED";
@@ -1360,7 +1388,7 @@ async function sendAiCopilotMessage() {
 
         copilotChatHistory.push({ role: "user", content: msg });
 
-        const res = await fetch("/api/copilot/chat", {
+        const res = await apiFetch("/api/copilot/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -1422,7 +1450,7 @@ async function triggerCopilotCurlPoc(findingId) {
 
     try {
         const target = document.getElementById("ctxTargetText")?.textContent?.trim() || "127.0.0.1:8000";
-        const res = await fetch("/api/copilot/curl-poc", {
+        const res = await apiFetch("/api/copilot/curl-poc", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target: target })
@@ -1470,7 +1498,7 @@ async function triggerCopilotDefensivePatch(findingId) {
 
     try {
         const target = document.getElementById("ctxTargetText")?.textContent?.trim() || "127.0.0.1:8000";
-        const res = await fetch("/api/copilot/defensive-patch", {
+        const res = await apiFetch("/api/copilot/defensive-patch", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target: target })
@@ -1529,7 +1557,7 @@ async function triggerCopilotScopeVerification() {
 
     try {
         const target = document.getElementById("ctxTargetText")?.textContent?.trim() || "127.0.0.1:8000";
-        const res = await fetch("/api/copilot/scope-verification", {
+        const res = await apiFetch("/api/copilot/scope-verification", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target: target })
@@ -1589,7 +1617,7 @@ async function triggerMultiAgentWorkflow() {
         const target = inputTarget || document.getElementById("ctxTargetText")?.textContent?.trim() || "127.0.0.1:8000";
         const ctxTargetEl = document.getElementById("ctxTargetText");
         if (ctxTargetEl) ctxTargetEl.textContent = target;
-        const res = await fetch("/api/agents/collaborate", {
+        const res = await apiFetch("/api/agents/collaborate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target: target })
@@ -1970,7 +1998,7 @@ async function loadFindings(scanId) {
 
     // 1. Fetch Metrics & Update 10 Summary Cards + Distribution Bars
     try {
-        const mRes = await fetch('/api/findings/metrics');
+        const mRes = await apiFetch('/api/findings/metrics');
         if (mRes.ok) {
             const metrics = await mRes.json();
             updateVulnMetricsUI(metrics);
@@ -1996,7 +2024,7 @@ async function loadFindings(scanId) {
         if (pocState !== 'ALL') url += `&poc_state=${encodeURIComponent(pocState)}`;
         if (scanId) url += `&scan_id=${encodeURIComponent(scanId)}`;
 
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         if (res.ok) {
             const pagedData = await res.json();
             const items = Array.isArray(pagedData.items) ? pagedData.items : (Array.isArray(pagedData) ? pagedData : []);
@@ -2530,7 +2558,7 @@ function getFindingPlainEnglishSummary(f) {
 
 async function openFindingDrawer(findingId) {
     try {
-        const res = await fetch(`/api/findings/${findingId}`);
+        const res = await apiFetch(`/api/findings/${findingId}`);
         if (!res.ok) {
             alert('Finding details could not be retrieved.');
             return;
@@ -2732,7 +2760,7 @@ async function submitRemediationTransition() {
     const reason = document.getElementById('drawerRemReason')?.value?.trim() || `Remediation status updated to ${targetStatus}`;
 
     try {
-        const res = await fetch(`/api/findings/${vfCurrentDrawerFinding.id}/transition`, {
+        const res = await apiFetch(`/api/findings/${vfCurrentDrawerFinding.id}/transition`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2792,7 +2820,7 @@ async function submitFpReview() {
     const reviewer = document.getElementById('fpModalReviewer')?.value || 'Lead Security Analyst';
 
     try {
-        const res = await fetch(`/api/findings/${vfTargetFpFindingId}/false-positive`, {
+        const res = await apiFetch(`/api/findings/${vfTargetFpFindingId}/false-positive`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -2868,7 +2896,7 @@ async function loadReportsCenter() {
 
     // 1. Assessments (newest first) drive the download links.
     try {
-        const res = await fetch('/api/scans');
+        const res = await apiFetch('/api/scans');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         reportScanCache = (await res.json()) || [];
     } catch (e) {
@@ -2947,14 +2975,14 @@ async function loadReportArchive() {
     try {
         let items = [];
         try {
-            const resNew = await fetch('/api/reports/vulnerability-assessment/history?limit=50');
+            const resNew = await apiFetch('/api/reports/vulnerability-assessment/history?limit=50');
             if (resNew.ok) {
                 items = (await resNew.json()) || [];
             }
         } catch (_) {}
 
         if (items.length === 0) {
-            const resOld = await fetch('/api/reports/archive?limit=50');
+            const resOld = await apiFetch('/api/reports/archive?limit=50');
             if (resOld.ok) {
                 items = (await resOld.json()) || [];
             }
@@ -3138,7 +3166,7 @@ async function previewVulnAssessmentReport() {
     }
 
     try {
-        const res = await fetch('/api/reports/vulnerability-assessment/preview', {
+        const res = await apiFetch('/api/reports/vulnerability-assessment/preview', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -3255,7 +3283,7 @@ async function generateVulnAssessmentReport() {
     if (statusEl) statusEl.textContent = `Compiling ${activeReportFormat.toUpperCase()} deliverable via SWA Nessus-Style Engine...`;
 
     try {
-        const res = await fetch('/api/reports/vulnerability-assessment/generate', {
+        const res = await apiFetch('/api/reports/vulnerability-assessment/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -3315,7 +3343,7 @@ async function submitNessusImport() {
     if (statusEl) statusEl.textContent = 'Uploading and importing Nessus findings...';
 
     try {
-        const res = await fetch('/api/reports/vulnerability-assessment/import/nessus', {
+        const res = await apiFetch('/api/reports/vulnerability-assessment/import/nessus', {
             method: 'POST',
             body: formData
         });
@@ -3337,7 +3365,7 @@ async function submitNessusImport() {
 async function deleteReportDeliverable(reportId) {
     if (!confirm(`Are you sure you want to delete report ${reportId}?`)) return;
     try {
-        const res = await fetch(`/api/reports/vulnerability-assessment/${encodeURIComponent(reportId)}`, {
+        const res = await apiFetch(`/api/reports/vulnerability-assessment/${encodeURIComponent(reportId)}`, {
             method: 'DELETE'
         });
         if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -3350,7 +3378,7 @@ async function deleteReportDeliverable(reportId) {
 
 async function openReportRecord(reportId) {
     try {
-        const res = await fetch(`/api/reports/archive/${encodeURIComponent(reportId)}`);
+        const res = await apiFetch(`/api/reports/archive/${encodeURIComponent(reportId)}`);
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const rec = await res.json();
         const content = rec.content || '';
@@ -3492,7 +3520,7 @@ async function loadTerminalLogs() {
     if (!el) return;
     el.innerHTML = '<div style="color: #94a3b8;">Loading security event stream...</div>';
     try {
-        const res = await fetch('/api/cyber/audit-logs?limit=50');
+        const res = await apiFetch('/api/cyber/audit-logs?limit=50');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const logs = await res.json();
         if (!Array.isArray(logs) || logs.length === 0) {
@@ -3593,7 +3621,7 @@ function copyModalCurl() {
 async function cancelActiveScan() {
     if (!currentScanId) return;
     try {
-        await fetch(`/api/scans/${currentScanId}/cancel`, { method: "POST" });
+        await apiFetch(`/api/scans/${currentScanId}/cancel`, { method: "POST" });
     } catch (e) {
         console.error(e);
     }
@@ -3604,7 +3632,7 @@ async function deleteActiveScan() {
     if (!confirm("Delete this scan record and its findings?")) return;
 
     try {
-        await fetch(`/api/scans/${currentScanId}`, { method: "DELETE" });
+        await apiFetch(`/api/scans/${currentScanId}`, { method: "DELETE" });
         currentScanId = null;
         document.getElementById("activeDetailsContent").style.display = "none";
         document.getElementById("emptyDetailsNotice").style.display = "block";
@@ -3617,7 +3645,7 @@ async function deleteActiveScan() {
 // AI Settings
 async function loadSettings() {
     try {
-        const res = await fetch("/api/settings");
+        const res = await apiFetch("/api/settings");
         const cfg = await res.json();
         document.getElementById("setProvider").value = cfg.ai_provider || "auto";
         document.getElementById("setModel").value = cfg.ai_model || "";
@@ -3644,7 +3672,7 @@ async function saveSettings() {
     };
 
     try {
-        await fetch("/api/settings", {
+        await apiFetch("/api/settings", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -3662,7 +3690,7 @@ let currentPluginsSearchFilter = "";
 
 async function loadPlugins() {
     try {
-        const res = await fetch("/api/plugins");
+        const res = await apiFetch("/api/plugins");
         pluginsData = await res.json();
         
         const badge = document.getElementById("pluginsCountBadge");
@@ -3737,7 +3765,7 @@ function renderPluginsList() {
 
 async function togglePlugin(pluginId, isChecked) {
     try {
-        await fetch(`/api/plugins/${pluginId}/toggle?enabled=${isChecked}`, {
+        await apiFetch(`/api/plugins/${pluginId}/toggle?enabled=${isChecked}`, {
             method: "POST"
         });
         const p = pluginsData.find(item => item.id === pluginId);
@@ -3773,7 +3801,7 @@ async function runSinglePlugin(pluginId, btnEl) {
 
     try {
         const isLab = target.includes("127.0.0.1") || target.includes("localhost");
-        const res = await fetch(`/api/plugins/${pluginId}/run`, {
+        const res = await apiFetch(`/api/plugins/${pluginId}/run`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target: target, lab_mode: isLab })
@@ -3847,7 +3875,7 @@ async function runAllOwaspPlugins() {
 
     try {
         const isLab = target.includes("127.0.0.1") || target.includes("localhost");
-        const res = await fetch("/api/plugins/run", {
+        const res = await apiFetch("/api/plugins/run", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target: target, lab_mode: isLab })
@@ -3962,7 +3990,7 @@ async function loadDefenses() {
     if (!container) return;
 
     try {
-        const res = await fetch(`/api/scans/${currentScanId}/defenses`);
+        const res = await apiFetch(`/api/scans/${currentScanId}/defenses`);
         if (!res.ok) {
             container.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 40px;">Defensive rules unavailable for this scan.</div>`;
             return;
@@ -4093,7 +4121,7 @@ let forensicsSamplesCache = null;
 async function loadForensicsPreset(key) {
     try {
         if (!forensicsSamplesCache) {
-            const res = await fetch("/api/forensics/samples");
+            const res = await apiFetch("/api/forensics/samples");
             if (res.ok) {
                 forensicsSamplesCache = await res.json();
             }
@@ -4169,7 +4197,7 @@ async function runForensicsAnalysis() {
     container.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--brand); font-weight: 600;">Parsing logs and correlating MITRE ATT&CK footprints...</div>`;
 
     try {
-        const res = await fetch("/api/forensics/analyze", {
+        const res = await apiFetch("/api/forensics/analyze", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ raw_logs: rawLogs })
@@ -4421,7 +4449,7 @@ async function loadScanForensicsCorrelation() {
     if (!container) return;
 
     try {
-        const res = await fetch(`/api/scans/${currentScanId}/forensics`);
+        const res = await apiFetch(`/api/scans/${currentScanId}/forensics`);
         if (!res.ok) return;
         const data = await res.json();
 
@@ -4527,7 +4555,7 @@ document.addEventListener("DOMContentLoaded", () => {
 /* Auto-fill the admin/operator name from the OS user running SNMK (system default). */
 async function loadOperatorIdentity() {
     try {
-        const r = await fetch('/api/system/operator');
+        const r = await apiFetch('/api/system/operator');
         if (!r.ok) return;
         const d = await r.json();
         const nameEl = document.getElementById('operatorName');
@@ -4703,7 +4731,7 @@ async function runAllTools() {
     try {
         // 1. Start scan
         atSetProgress(8, 'Creating scan…', 'POST /api/scans');
-        const scanRes = await fetch('/api/scans', {
+        const scanRes = await apiFetch('/api/scans', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -4734,7 +4762,7 @@ async function runAllTools() {
             atPollTimer = setInterval(async () => {
                 elapsed++;
                 try {
-                    const pollRes = await fetch('/api/scans/' + atScanId);
+                    const pollRes = await apiFetch('/api/scans/' + atScanId);
                     if (!pollRes.ok) { clearInterval(atPollTimer); reject(new Error('Poll failed')); return; }
                     const poll = await pollRes.json();
                     const scan = poll.scan || poll;
@@ -4777,9 +4805,9 @@ async function runAllTools() {
         // 3. Fetch all data in parallel
         const scan = atAllToolsData.scan;
         const [findingsRes, defensesRes, forensicsRes] = await Promise.allSettled([
-            fetch('/api/scans/' + atScanId + '/findings').then(r => r.json()),
-            fetch('/api/scans/' + atScanId + '/defenses').then(r => r.json()),
-            fetch('/api/scans/' + atScanId + '/forensics').then(r => r.json())
+            apiFetch('/api/scans/' + atScanId + '/findings').then(r => r.json()),
+            apiFetch('/api/scans/' + atScanId + '/defenses').then(r => r.json()),
+            apiFetch('/api/scans/' + atScanId + '/forensics').then(r => r.json())
         ]);
 
         const findings = findingsRes.status === 'fulfilled' ? (findingsRes.value.findings || findingsRes.value || []) : [];
@@ -5305,7 +5333,7 @@ async function generateDefenseCenterFromModal() {
             payload.scan_id = currentScanId;
         }
 
-        const res = await fetch("/api/defense/generate", {
+        const res = await apiFetch("/api/defense/generate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -5491,7 +5519,7 @@ async function ctRunDns() {
     if (!domain) return;
     out.innerHTML = '<span style="color: var(--brand);">Querying DNS and inspecting SPF/DMARC spoofing posture...</span>';
     try {
-        const res = await fetch('/api/tools/dns', {
+        const res = await apiFetch('/api/tools/dns', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({domain})
@@ -5528,7 +5556,7 @@ async function ctRunHeaders() {
     if (!target_url) return;
     out.innerHTML = '<span style="color: var(--brand);">Auditing HTTP security headers...</span>';
     try {
-        const res = await fetch('/api/tools/headers', {
+        const res = await apiFetch('/api/tools/headers', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({target_url})
@@ -5574,7 +5602,7 @@ async function ctRunSsl() {
     if (!target) return;
     out.innerHTML = '<span style="color: var(--brand);">Establishing TLS connection & inspecting certificate...</span>';
     try {
-        const res = await fetch('/api/tools/ssl', {
+        const res = await apiFetch('/api/tools/ssl', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({target})
@@ -5618,7 +5646,7 @@ async function ctRunProbe() {
     if (!target_url) return;
     out.innerHTML = `<span style="color: var(--brand);">Dispatching ${htmlEscape(vuln_type.toUpperCase())} probes against target...</span>`;
     try {
-        const res = await fetch('/api/tools/probe', {
+        const res = await apiFetch('/api/tools/probe', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({target_url, vuln_type, parameter})
@@ -5646,7 +5674,7 @@ async function ctRunHashes() {
     const out = document.getElementById('ctCryptoOutput');
     if (!text) return;
     try {
-        const res = await fetch('/api/tools/hashes', {
+        const res = await apiFetch('/api/tools/hashes', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({text})
@@ -5669,7 +5697,7 @@ async function ctRunJwt() {
     const out = document.getElementById('ctCryptoOutput');
     if (!token) return;
     try {
-        const res = await fetch('/api/tools/jwt', {
+        const res = await apiFetch('/api/tools/jwt', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({token})
@@ -5708,7 +5736,7 @@ async function ctRunEncode(operation) {
     const out = document.getElementById('ctCryptoOutput');
     if (!text) return;
     try {
-        const res = await fetch('/api/tools/crypto', {
+        const res = await apiFetch('/api/tools/crypto', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({text, operation})
@@ -5732,7 +5760,7 @@ async function ctRunSubnet() {
     const out = document.getElementById('ctSubnetOutput');
     if (!cidr) return;
     try {
-        const res = await fetch('/api/tools/subnet', {
+        const res = await apiFetch('/api/tools/subnet', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({cidr})
@@ -5760,7 +5788,7 @@ async function ctRunRevshell() {
     const port = parseInt(document.getElementById('ctShellPort').value) || 4444;
     const out = document.getElementById('ctRevshellOutput');
     try {
-        const res = await fetch('/api/tools/revshell', {
+        const res = await apiFetch('/api/tools/revshell', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ip, port, shell_type: 'all'})
@@ -5814,7 +5842,7 @@ async function ctRunSubdomains() {
     `;
 
     try {
-        const res = await fetch('/api/tools/subdomains', {
+        const res = await apiFetch('/api/tools/subdomains', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({domain, recursive, concurrency: 30})
@@ -5929,7 +5957,7 @@ async function ctRunJsUrlScan() {
     }
     out.innerHTML = '<span style="color: var(--brand);">Fetching target and downloading JavaScript bundles for deep reconnaissance...</span>';
     try {
-        const res = await fetch('/api/tools/js-scan', {
+        const res = await apiFetch('/api/tools/js-scan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_url: url, active_fetch: activeFetch })
@@ -5950,7 +5978,7 @@ async function ctRunJsCodeScan() {
     }
     out.innerHTML = '<span style="color: var(--brand);">Analyzing code against 150+ secret signatures and Shannon entropy heuristics...</span>';
     try {
-        const res = await fetch('/api/tools/js-scan', {
+        const res = await apiFetch('/api/tools/js-scan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content: code })
@@ -6187,7 +6215,7 @@ async function runActiveScanSubdomains(target) {
         </div>
     `;
     try {
-        const res = await fetch('/api/tools/subdomains', {
+        const res = await apiFetch('/api/tools/subdomains', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domain: target, recursive: true })
@@ -6364,7 +6392,7 @@ async function loadBugBountyPrograms() {
         grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--brand);">Loading Bug Bounty Programs...</div>`;
     }
     try {
-        const res = await fetch("/api/bounty/programs");
+        const res = await apiFetch("/api/bounty/programs");
         const data = await res.json();
         allBountyPrograms = data.programs || [];
         renderBugBountyGrid();
@@ -6479,7 +6507,7 @@ async function runWafCheck() {
         resArea.innerHTML = `<div style="text-align: center; padding: 40px; color: var(--brand);">Analyzing headers, cookies, and TCP behavior against 15+ WAF signatures...</div>`;
     }
     try {
-        const res = await fetch("/api/tools/waf-check", {
+        const res = await apiFetch("/api/tools/waf-check", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ target_url: target })
@@ -6596,7 +6624,7 @@ async function executeFileScan(filename, content) {
         resultsArea.innerHTML = `<div style="text-align: center; padding: 30px; color: var(--brand);">Scanning ${escapeHtml(filename)} with 150+ GhostJS signatures & Shannon Entropy...</div>`;
     }
     try {
-        const res = await fetch("/api/tools/scan-file", {
+        const res = await apiFetch("/api/tools/scan-file", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ filename: filename, content: content })
@@ -6670,7 +6698,7 @@ function setModalTriage(status) {
 
 async function triageFinding(findingId, status) {
     try {
-        const res = await fetch(`/api/findings/${findingId}/triage`, {
+        const res = await apiFetch(`/api/findings/${findingId}/triage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: status })
@@ -6727,7 +6755,7 @@ async function loadToolInventoryStatus() {
     if (!grid) return;
     grid.innerHTML = '<div style="color: var(--brand); font-size: 13px;">Checking system binaries and active tool paths...</div>';
     try {
-        const res = await fetch('/api/tools/status');
+        const res = await apiFetch('/api/tools/status');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const inv = await res.json();
         let cards = '';
@@ -6794,7 +6822,7 @@ async function loadToolsCenter() {
     if (!container) return;
     container.innerHTML = '<div style="color: var(--brand); font-size: 13px;">Checking system binaries and active tool paths...</div>';
     try {
-        const res = await fetch("/api/tools/status");
+        const res = await apiFetch("/api/tools/status");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         toolsCenterCachedData = await res.json();
         renderToolsCenter();
@@ -6884,7 +6912,7 @@ async function runToolHealthCheckInUI(toolId, btn) {
     }
 
     try {
-        const res = await fetch(`/api/tools/${toolId}/health-check`, {
+        const res = await apiFetch(`/api/tools/${toolId}/health-check`, {
             method: "POST",
             headers: { "Content-Type": "application/json" }
         });
@@ -6944,7 +6972,7 @@ async function loadCommandReference() {
     }
     container.innerHTML = '<div style="color: var(--brand); font-size: 13px;">Loading command reference catalog...</div>';
     try {
-        const res = await fetch("/api/tools/reference");
+        const res = await apiFetch("/api/tools/reference");
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         commandRefCachedData = await res.json();
         renderCommandReference();
@@ -7088,7 +7116,7 @@ async function checkReaStatus() {
     const actionEl = document.getElementById("reaInstallAction");
 
     try {
-        const res = await fetch("/api/rea/status");
+        const res = await apiFetch("/api/rea/status");
         if (!res.ok) throw new Error("Status endpoint HTTP " + res.status);
         const data = await res.json();
 
@@ -7202,12 +7230,12 @@ async function runReaAnalysis() {
             if (targetType !== "auto") formData.append("target_type", targetType);
             formData.append("authorized", "true");
 
-            res = await fetch("/api/rea/upload-analyze", {
+            res = await apiFetch("/api/rea/upload-analyze", {
                 method: "POST",
                 body: formData
             });
         } else {
-            res = await fetch("/api/rea/analyze", {
+            res = await apiFetch("/api/rea/analyze", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -7322,7 +7350,7 @@ async function loadAssetsTable() {
     tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 25px;">Loading asset inventory from database...</td></tr>';
 
     try {
-        const res = await fetch('/api/assets?limit=500');
+        const res = await apiFetch('/api/assets?limit=500');
         const data = await res.json();
         cachedAssets = data.assets || [];
         const badge = document.getElementById('assetsCountBadge');
@@ -7386,7 +7414,7 @@ async function loadScanCompare() {
     if (!baseSel || !compSel) return;
 
     try {
-        const res = await fetch('/api/scans');
+        const res = await apiFetch('/api/scans');
         const data = await res.json();
         const scans = Array.isArray(data) ? data : (data.scans || []);
         if (scans.length === 0) {
@@ -7416,7 +7444,7 @@ async function executeScanComparison() {
     }
 
     try {
-        const res = await fetch('/api/scans/compare', {
+        const res = await apiFetch('/api/scans/compare', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({base_scan_id: baseId, compare_scan_id: compId})
@@ -7479,7 +7507,7 @@ async function loadDatasets() {
     if (!tbody) return;
 
     try {
-        const res = await fetch('/api/datasets');
+        const res = await apiFetch('/api/datasets');
         const data = await res.json();
         cachedDatasets = data.datasets || [];
         const badge = document.getElementById('datasetsCountBadge');
@@ -7542,7 +7570,7 @@ async function uploadDatasetSubmit() {
     if (targetLabel) formData.append('target_label', targetLabel);
 
     try {
-        const res = await fetch('/api/datasets/upload', {
+        const res = await apiFetch('/api/datasets/upload', {
             method: 'POST',
             body: formData
         });
@@ -7574,7 +7602,7 @@ async function uploadDatasetSubmit() {
 async function deleteDataset(id) {
     if (!confirm('Are you sure you want to delete this dataset?')) return;
     try {
-        await fetch(`/api/datasets/${id}`, {method: 'DELETE'});
+        await apiFetch(`/api/datasets/${id}`, {method: 'DELETE'});
         loadDatasets();
     } catch (e) {
         alert('Delete failed: ' + e.message);
@@ -7584,7 +7612,7 @@ async function deleteDataset(id) {
 // --- 4. AI Training & Fine-Tuning (Phase 5) ---
 async function loadAiHardware() {
     try {
-        const res = await fetch('/api/ai/hardware');
+        const res = await apiFetch('/api/ai/hardware');
         const hw = await res.json();
         document.getElementById('aiHwDevice').textContent = `${hw.device} (${hw.device_name || 'Standard'})`;
         document.getElementById('aiHwCores').textContent = hw.cpu_cores;
@@ -7608,7 +7636,7 @@ async function launchAiTrainingJob() {
     }
 
     try {
-        const res = await fetch('/api/ai/training/start', {
+        const res = await apiFetch('/api/ai/training/start', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -7635,7 +7663,7 @@ async function loadAiTrainingJobs() {
     if (!tbody) return;
 
     try {
-        const res = await fetch('/api/ai/training/jobs');
+        const res = await apiFetch('/api/ai/training/jobs');
         const data = await res.json();
         const jobs = data.jobs || [];
 
@@ -7679,7 +7707,7 @@ async function runModelEvaluation() {
     const samples = parseInt(document.getElementById('evalSampleSize').value) || 150;
 
     try {
-        const res = await fetch('/api/ai/evaluation/run', {
+        const res = await apiFetch('/api/ai/evaluation/run', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
@@ -7723,7 +7751,7 @@ async function loadRedteamSuite() {
     if (!container) return;
 
     try {
-        const res = await fetch('/api/ai/redteam/test-cases');
+        const res = await apiFetch('/api/ai/redteam/test-cases');
         const data = await res.json();
         cachedRedteamSuite = data.test_cases || [];
         renderRedteamCards(cachedRedteamSuite);
@@ -7769,7 +7797,7 @@ function filterRedteamCards() {
 async function executeRedteamSuite() {
     const banner = document.getElementById('redteamSummaryBanner');
     try {
-        const res = await fetch('/api/ai/redteam/run', {
+        const res = await apiFetch('/api/ai/redteam/run', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({target_provider: 'auto'})
@@ -7824,7 +7852,7 @@ async function loadToolRegistry(category = '') {
 
     try {
         const url = category ? `/api/tools/registry?category=${category}` : '/api/tools/registry';
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         const data = await res.json();
         cachedTools = data.tools || [];
         renderToolCatalog(cachedTools);
@@ -7888,7 +7916,7 @@ function filterToolCatalog() {
 
 window.authorizeAndRerunTarget = async function(domain) {
     try {
-        const res = await fetch('/api/scope/targets', {
+        const res = await apiFetch('/api/scope/targets', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ domain: domain, description: 'Authorized via Web UI' })
@@ -7926,7 +7954,7 @@ async function generateCyberExportAction() {
     }
 
     try {
-        const resp = await fetch('/api/cyber/export/generate', {
+        const resp = await apiFetch('/api/cyber/export/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -7962,7 +7990,7 @@ async function loadExportHistory() {
     const tbody = document.getElementById('exportHistoryTableBody');
     if (!tbody) return;
     try {
-        const resp = await fetch('/api/cyber/export/history?limit=30');
+        const resp = await apiFetch('/api/cyber/export/history?limit=30');
         const items = await resp.json();
         if (!items || items.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-muted);">No exports generated yet. Click Generate Deliverable above.</td></tr>';
@@ -8001,7 +8029,7 @@ async function runCyberTestAction() {
     }
 
     try {
-        const resp = await fetch('/api/cyber/test/run', {
+        const resp = await apiFetch('/api/cyber/test/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ profile: profile })
@@ -8070,10 +8098,10 @@ function renderCyberTestRun(data) {
 
 async function loadTestHistory() {
     try {
-        const resp = await fetch('/api/cyber/test/runs?limit=1');
+        const resp = await apiFetch('/api/cyber/test/runs?limit=1');
         const runs = await resp.json();
         if (runs && runs.length > 0) {
-            const detResp = await fetch(`/api/cyber/test/runs/${runs[0].id}`);
+            const detResp = await apiFetch(`/api/cyber/test/runs/${runs[0].id}`);
             const data = await detResp.json();
             renderCyberTestRun(data);
         }
@@ -8101,7 +8129,7 @@ async function initiateDeployAction() {
     if (bar) bar.style.width = '20%';
 
     try {
-        const resp = await fetch('/api/cyber/deploy/initiate', {
+        const resp = await apiFetch('/api/cyber/deploy/initiate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ environment: env })
@@ -8122,7 +8150,7 @@ async function approveDeployAction() {
     if (!currentActiveDeploymentId) return;
     const approver = document.getElementById('deployApproverName')?.value || 'Chief_Security_Officer';
     try {
-        const resp = await fetch(`/api/cyber/deploy/${currentActiveDeploymentId}/approve`, {
+        const resp = await apiFetch(`/api/cyber/deploy/${currentActiveDeploymentId}/approve`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ approver: approver })
@@ -8138,7 +8166,7 @@ async function approveDeployAction() {
 async function rollbackDeployAction() {
     if (!currentActiveDeploymentId) return;
     try {
-        const resp = await fetch(`/api/cyber/deploy/${currentActiveDeploymentId}/rollback`, {
+        const resp = await apiFetch(`/api/cyber/deploy/${currentActiveDeploymentId}/rollback`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ operator: 'SecOps_Admin' })
@@ -8194,7 +8222,7 @@ async function loadDeployHistory() {
     const tbody = document.getElementById('deployHistoryTableBody');
     if (!tbody) return;
     try {
-        const resp = await fetch('/api/cyber/deploy/history?limit=20');
+        const resp = await apiFetch('/api/cyber/deploy/history?limit=20');
         const items = await resp.json();
         if (!items || items.length === 0) {
             tbody.innerHTML = '<tr><td colspan="7" style="padding: 20px; text-align: center; color: var(--text-muted);">No deployments executed yet.</td></tr>';
@@ -8226,7 +8254,7 @@ async function loadAuditLogsAction() {
     const tbody = document.getElementById('auditLogsTableBody');
     if (!tbody) return;
     try {
-        const resp = await fetch('/api/cyber/audit-logs?limit=50');
+        const resp = await apiFetch('/api/cyber/audit-logs?limit=50');
         const items = await resp.json();
         if (!items || items.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" style="padding: 20px; text-align: center; color: var(--text-muted);">No audit trails recorded.</td></tr>';
@@ -8253,7 +8281,7 @@ async function loadAuditLogsAction() {
 
 async function loadGlobalContext() {
     try {
-        const res = await fetch('/api/context');
+        const res = await apiFetch('/api/context');
         if (!res.ok) return;
         const ctx = await res.json();
         
@@ -8304,7 +8332,7 @@ async function loadGlobalContext() {
 let _agentCountCache = null;
 async function refreshAgentCounts() {
     try {
-        const res = await fetch('/api/agents');
+        const res = await apiFetch('/api/agents');
         if (!res.ok) return;
         const agents = await res.json();
         const total = Array.isArray(agents) && agents.length > 0 ? agents.length : 85;
@@ -10654,18 +10682,18 @@ async function loadAgentsGrid(forceRefresh = false) {
     if (!container.hasChildNodes() || forceRefresh) {
         const loadingDiv = document.createElement('div');
         loadingDiv.style.cssText = 'grid-column: 1/-1; color: var(--text-muted); text-align: center; padding: 25px;';
-        loadingDiv.textContent = 'Synchronizing all 85 cybersecurity specialist agents...';
+        loadingDiv.textContent = 'Synchronizing registered cybersecurity specialist agents...';
         container.replaceChildren(loadingDiv);
     }
 
     try {
         const cacheBuster = `_t=${Date.now()}`;
         const [agentsRes, summaryRes] = await Promise.all([
-            fetch(`/api/agents?${cacheBuster}`).catch(err => {
+            apiFetch(`/api/agents?${cacheBuster}`).catch(err => {
                 console.warn('API agents fetch network error:', err);
                 return null;
             }),
-            fetch(`/api/agents/summary?${cacheBuster}`).catch(() => null)
+            apiFetch(`/api/agents/summary?${cacheBuster}`).catch(() => null)
         ]);
 
         let loadedAgents = null;
@@ -10692,39 +10720,64 @@ async function loadAgentsGrid(forceRefresh = false) {
         if (summaryRes && summaryRes.ok) {
             summary = await summaryRes.json().catch(() => null);
         }
-        if (!summary || !summary.tiers) {
+        // Derive the summary from the runtime registry payload when the
+        // summary endpoint is unavailable. Never hardcode an agent count.
+        if (!summary || typeof summary.total_discovered !== 'number') {
+            const roster = Array.isArray(loadedAgents) ? loadedAgents : [];
+            const derivedTiers = {};
+            roster.forEach(a => {
+                const t = (a && (a.tier || a.category)) || 'unspecified';
+                derivedTiers[t] = (derivedTiers[t] || 0) + 1;
+            });
             summary = {
-                total_discovered: allDiscoveredAgents.length,
-                tiers: {
-                    specialist_workforce: 17,
-                    offensive_recon: 9,
-                    owasp_plugins: 10,
-                    core_engines: 32,
-                    tool_adapters: 17
-                }
+                total_discovered: roster.length,
+                total_registered: roster.length,
+                available: roster.filter(a => a && (a.available === true || a.status === 'READY' || a.status === 'AVAILABLE')).length,
+                tiers: derivedTiers
             };
         }
 
-        const totalAgents = allDiscoveredAgents.length || 85;
+        const totalAgents = typeof summary.total_discovered === 'number'
+            ? summary.total_discovered
+            : (Array.isArray(allDiscoveredAgents) ? allDiscoveredAgents.length : 0);
+        const readyAgents = typeof summary.available === 'number' ? summary.available : totalAgents;
+        const registryLive = !!(agentsRes && agentsRes.ok) && !!(summaryRes && summaryRes.ok);
+
         const ctxEl = document.getElementById('ctxActiveAgents');
-        if (ctxEl) {
-            ctxEl.textContent = `${totalAgents} Ready`;
+        if (ctxEl) ctxEl.textContent = `${readyAgents}/${totalAgents} Ready`;
+
+        // SOC KPI card: genuine runtime agent health (never a permanent spinner).
+        const socAgentsEl = document.getElementById('socKpiAgents');
+        if (socAgentsEl) socAgentsEl.innerHTML = `${readyAgents} <span class="soc-kpi-unit">Agents Ready</span>`;
+        const socTiersEl = document.getElementById('socKpiAgentTiers');
+        if (socTiersEl) {
+            const tierEntries = Object.entries(summary.tiers || {});
+            socTiersEl.innerHTML = tierEntries.length
+                ? tierEntries.map(e => `<span class="agent-tier-tag">${escapeHtml(String(e[0]).replace(/_/g, ' '))} ${e[1]}</span>`).join('')
+                : '<span class="agent-tier-tag">No tier data</span>';
+        }
+        const socStatusEl = document.getElementById('socKpiAgentStatus');
+        if (socStatusEl) {
+            socStatusEl.textContent = registryLive
+                ? `Runtime registry online · ${totalAgents} registered`
+                : 'Registry unreachable — showing cached manifest';
         }
 
-        // Update KPI Counters
+        // Update KPI Counters using values derived from the live registry.
         if (summary.tiers) {
             const kpiTotal = document.getElementById('agentKpiTotal');
-            if (kpiTotal) kpiTotal.textContent = summary.total_discovered || totalAgents;
-            const kpiWorkforce = document.getElementById('agentKpiWorkforce');
-            if (kpiWorkforce) kpiWorkforce.textContent = summary.tiers.specialist_workforce || 17;
-            const kpiOffensive = document.getElementById('agentKpiOffensive');
-            if (kpiOffensive) kpiOffensive.textContent = summary.tiers.offensive_recon || 9;
-            const kpiOwasp = document.getElementById('agentKpiOwasp');
-            if (kpiOwasp) kpiOwasp.textContent = summary.tiers.owasp_plugins || 10;
-            const kpiEngines = document.getElementById('agentKpiEngines');
-            if (kpiEngines) kpiEngines.textContent = summary.tiers.core_engines || 32;
-            const kpiAdapters = document.getElementById('agentKpiAdapters');
-            if (kpiAdapters) kpiAdapters.textContent = summary.tiers.tool_adapters || 17;
+            if (kpiTotal) kpiTotal.textContent = totalAgents;
+            const tierKpis = {
+                'agentKpiWorkforce': 'specialist_workforce',
+                'agentKpiOffensive': 'offensive_recon',
+                'agentKpiOwasp': 'owasp_plugins',
+                'agentKpiEngines': 'core_engines',
+                'agentKpiAdapters': 'tool_adapters'
+            };
+            Object.keys(tierKpis).forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.textContent = summary.tiers[tierKpis[id]] || 0;
+            });
         }
 
         renderFilteredAgents();
@@ -10939,7 +10992,7 @@ async function dispatchAdhocAgentTask(role) {
 
     let llmStatus = { provider: 'heuristic', model: 'heuristic', mode: 'heuristic_fallback', has_api_key: false };
     try {
-        const sRes = await fetch('/api/ai/llm-status');
+        const sRes = await apiFetch('/api/ai/llm-status');
         if (sRes.ok) llmStatus = await sRes.json();
     } catch(e){}
 
@@ -11020,7 +11073,7 @@ async function submitAgentTaskExecution(role) {
     }
 
     try {
-        const res = await fetch(`/api/agents/${encodeURIComponent(role)}/task`, {
+        const res = await apiFetch(`/api/agents/${encodeURIComponent(role)}/task`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ title: title, inputs: { target: target } })
@@ -11101,9 +11154,9 @@ async function loadKnowledgeGraph() {
     
     try {
         const [graphRes, exposedRes, sharedRes] = await Promise.all([
-            fetch('/api/graph'),
-            fetch('/api/graph/exposed-assets'),
-            fetch('/api/graph/shared-vulnerabilities')
+            apiFetch('/api/graph'),
+            apiFetch('/api/graph/exposed-assets'),
+            apiFetch('/api/graph/shared-vulnerabilities')
         ]);
         
         const graph = await graphRes.json();
@@ -11205,7 +11258,7 @@ async function loadRemediationBoard() {
     container.replaceChildren(loadingDiv);
     
     try {
-        const res = await fetch('/api/remediation/tickets');
+        const res = await apiFetch('/api/remediation/tickets');
         const tickets = await res.json();
         
         const columns = ['DISCOVERED', 'IN_PROGRESS', 'RETEST', 'VERIFIED', 'CLOSED'];
@@ -11307,7 +11360,7 @@ async function loadRemediationBoard() {
 
 async function triggerTicketRetest(ticketId) {
     try {
-        const res = await fetch(`/api/remediation/tickets/${encodeURIComponent(ticketId)}/retest`, { method: 'POST' });
+        const res = await apiFetch(`/api/remediation/tickets/${encodeURIComponent(ticketId)}/retest`, { method: 'POST' });
         const result = await res.json();
         alert(`Automated Retest Result: ${result.status}\nLifecycle Status: ${result.lifecycle_status}\nEvidence: ${result.evidence}`);
         loadRemediationBoard();
@@ -11320,7 +11373,7 @@ async function promptTransition(ticketId) {
     const nextStatus = prompt(`Move ticket [${ticketId}] to status (IN_PROGRESS, RETEST, VERIFIED, CLOSED):`, 'IN_PROGRESS');
     if (!nextStatus) return;
     try {
-        const res = await fetch(`/api/remediation/tickets/${encodeURIComponent(ticketId)}/transition`, {
+        const res = await apiFetch(`/api/remediation/tickets/${encodeURIComponent(ticketId)}/transition`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: nextStatus.toUpperCase(), note: 'Status updated via Remediation Operations Board' })
@@ -11343,7 +11396,7 @@ async function loadApprovalsList() {
     container.replaceChildren(loadingDiv);
     
     try {
-        const res = await fetch('/api/approvals');
+        const res = await apiFetch('/api/approvals');
         const requests = await res.json();
         
         if (requests.length === 0) {
@@ -11437,7 +11490,7 @@ async function decideApprovalGate(requestId, approved) {
     const reason = prompt(`Enter ${approved ? 'approval rationale' : 'rejection reason'}:`, approved ? 'Authorized assessment parameters confirmed' : 'Out of scope');
     if (reason === null) return;
     try {
-        const res = await fetch(`/api/approvals/${encodeURIComponent(requestId)}/decide`, {
+        const res = await apiFetch(`/api/approvals/${encodeURIComponent(requestId)}/decide`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ approved: approved, decided_by: 'CISO / Lead Auditor', reason: reason })
@@ -11462,7 +11515,7 @@ async function loadDriftHistory() {
     container.replaceChildren(loadingDiv);
     
     try {
-        const res = await fetch('/api/easm/drift');
+        const res = await apiFetch('/api/easm/drift');
         const events = await res.json();
         
         if (events.length === 0) {
@@ -11529,7 +11582,7 @@ async function loadRecentActivity() {
     const listEl = document.getElementById("recentActivityList");
     if (!listEl) return;
     try {
-        const res = await fetch("/api/cyber/audit/logs?limit=8");
+        const res = await apiFetch("/api/cyber/audit/logs?limit=8");
         if (res.ok) {
             const logs = await res.json();
             if (Array.isArray(logs) && logs.length > 0) {
@@ -11577,7 +11630,7 @@ async function loadToolsHealth() {
     const grid = document.getElementById("toolHealthGrid");
     if (!grid) return;
     try {
-        const res = await fetch("/api/health/diagnostics");
+        const res = await apiFetch("/api/health/diagnostics");
         if (res.ok) {
             const tools = [
                 { name: "Amass Engine", status: "HEALTHY" },
@@ -11618,7 +11671,7 @@ async function loadAcceptanceChecklist(deploymentId = null) {
         const url = deploymentId
             ? `/api/cyber/deploy/${deploymentId}/acceptance-checklist`
             : `/api/cyber/deploy/latest/acceptance-checklist`;
-        const resp = await fetch(url);
+        const resp = await apiFetch(url);
         if (!resp.ok) throw new Error("Checklist evaluation pending");
         const data = await resp.json();
         currentChecklistData = data;
@@ -11847,8 +11900,8 @@ async function loadIntegrationsUI() {
     if (!grid) return;
     try {
         const [integRes, provRes] = await Promise.all([
-            fetch('/api/integrations'),
-            fetch('/api/integrations/providers')
+            apiFetch('/api/integrations'),
+            apiFetch('/api/integrations/providers')
         ]);
         const integData = await integRes.json();
         const provData = await provRes.json();
@@ -11944,7 +11997,7 @@ async function testIntegrationAction(id) {
         btn.textContent = 'Testing...';
     }
     try {
-        const res = await fetch(`/api/integrations/${id}/test`, { method: 'POST' });
+        const res = await apiFetch(`/api/integrations/${id}/test`, { method: 'POST' });
         const result = await res.json();
         alert(`Test Result: ${result.status}\n${result.message || ''}`);
         await loadIntegrationsUI();
@@ -11960,7 +12013,7 @@ async function testIntegrationAction(id) {
 
 async function toggleIntegrationAction(id, currentEnabled) {
     try {
-        await fetch(`/api/integrations/${id}/toggle?enabled=${!currentEnabled}`, { method: 'POST' });
+        await apiFetch(`/api/integrations/${id}/toggle?enabled=${!currentEnabled}`, { method: 'POST' });
         await loadIntegrationsUI();
     } catch (e) {
         alert('Failed to toggle: ' + e.message);
@@ -11970,7 +12023,7 @@ async function toggleIntegrationAction(id, currentEnabled) {
 async function deleteIntegrationAction(id) {
     if (!confirm('Are you sure you want to delete this integration and purge its credentials?')) return;
     try {
-        await fetch(`/api/integrations/${id}`, { method: 'DELETE' });
+        await apiFetch(`/api/integrations/${id}`, { method: 'DELETE' });
         await loadIntegrationsUI();
     } catch (e) {
         alert('Delete failed: ' + e.message);
@@ -12068,7 +12121,7 @@ async function submitSaveIntegrationForm() {
     }
 
     try {
-        const res = await fetch('/api/integrations', {
+        const res = await apiFetch('/api/integrations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -12095,7 +12148,7 @@ async function loadAIModelsUI() {
     const grid = document.getElementById('aiModelsGrid');
     if (!grid) return;
     try {
-        const res = await fetch('/api/ai/models');
+        const res = await apiFetch('/api/ai/models');
         const data = await res.json();
         configuredAIModelsCache = data.models || [];
         renderAIModelsGrid(configuredAIModelsCache);
@@ -12141,7 +12194,7 @@ function renderAIModelsGrid(models) {
 
 async function testAIModelAction(id) {
     try {
-        const res = await fetch(`/api/ai/models/${id}/test`, { method: 'POST' });
+        const res = await apiFetch(`/api/ai/models/${id}/test`, { method: 'POST' });
         const data = await res.json();
         alert(`Model Test Result: ${data.status}\n${data.message || ''}`);
         await loadAIModelsUI();
@@ -12152,7 +12205,7 @@ async function testAIModelAction(id) {
 
 async function setDefaultAIModelAction(id) {
     try {
-        await fetch(`/api/ai/models/${id}/default`, { method: 'POST' });
+        await apiFetch(`/api/ai/models/${id}/default`, { method: 'POST' });
         await loadAIModelsUI();
     } catch (e) {
         alert('Failed to set default: ' + e.message);
@@ -12162,7 +12215,7 @@ async function setDefaultAIModelAction(id) {
 async function deleteAIModelAction(id) {
     if (!confirm('Are you sure you want to remove this model?')) return;
     try {
-        await fetch(`/api/ai/models/${id}`, { method: 'DELETE' });
+        await apiFetch(`/api/ai/models/${id}`, { method: 'DELETE' });
         await loadAIModelsUI();
     } catch (e) {
         alert('Delete failed: ' + e.message);
@@ -12175,7 +12228,7 @@ function openAddAIModelModal() {
 
 async function loadScopePolicyUI() {
     try {
-        const res = await fetch('/api/scope');
+        const res = await apiFetch('/api/scope');
         const data = await res.json();
         const list = document.getElementById('scopeAuthorizedDomainsList');
         if (list) {
@@ -12192,7 +12245,7 @@ async function loadSystemDiagnosticsUI() {
     if (!container) return;
     container.innerHTML = '<div style="color:var(--text-muted); font-size:13px;">Executing live component probes...</div>';
     try {
-        const res = await fetch('/api/system/status');
+        const res = await apiFetch('/api/system/status');
         const data = await res.json();
         const comps = data.components || [];
         container.innerHTML = `
@@ -12232,7 +12285,7 @@ async function executeAILabEvaluation() {
     }
     
     try {
-        const res = await fetch('/api/ai/redteam/run', {
+        const res = await apiFetch('/api/ai/redteam/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_model: model, category: null })
@@ -12267,7 +12320,7 @@ async function executeSingleAILabProbe() {
     }
     
     try {
-        const res = await fetch('/api/ai/redteam/run', {
+        const res = await apiFetch('/api/ai/redteam/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_model: model, category: category })
@@ -12348,7 +12401,7 @@ async function loadAILabRecentRuns() {
     const container = document.getElementById('aiLabResultsContainer');
     if (!container) return;
     try {
-        const res = await fetch('/api/ai/redteam/runs');
+        const res = await apiFetch('/api/ai/redteam/runs');
         if (!res.ok) return;
         const data = await res.json();
         if (data.results && data.results.length > 0) {
@@ -12381,7 +12434,7 @@ let activeExecutionsList = [];
 
 async function loadAutomationWorkflows() {
     try {
-        const res = await fetch('/api/automation/workflows');
+        const res = await apiFetch('/api/automation/workflows');
         if (!res.ok) return;
         const workflows = await res.json();
         activeWorkflowsList = workflows;
@@ -12471,7 +12524,7 @@ async function promptRunWorkflow(wfId, wfName) {
     if (!target) return;
     
     try {
-        const res = await fetch(`/api/automation/workflows/${encodeURIComponent(wfId)}/run`, {
+        const res = await apiFetch(`/api/automation/workflows/${encodeURIComponent(wfId)}/run`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target: target.trim(), initiated_by: 'Security_Operator' })
@@ -12529,7 +12582,7 @@ function resetBuilderPipeline() {
 
 async function duplicateWorkflow(wfId) {
     try {
-        const res = await fetch(`/api/automation/workflows/${encodeURIComponent(wfId)}/duplicate`, { method: 'POST' });
+        const res = await apiFetch(`/api/automation/workflows/${encodeURIComponent(wfId)}/duplicate`, { method: 'POST' });
         if (res.ok) {
             loadAutomationWorkflows();
         }
@@ -12540,7 +12593,7 @@ async function duplicateWorkflow(wfId) {
 
 async function toggleWorkflowEnabled(wfId) {
     try {
-        await fetch(`/api/automation/workflows/${encodeURIComponent(wfId)}/toggle`, { method: 'POST' });
+        await apiFetch(`/api/automation/workflows/${encodeURIComponent(wfId)}/toggle`, { method: 'POST' });
         loadAutomationWorkflows();
     } catch(e) {}
 }
@@ -12548,7 +12601,7 @@ async function toggleWorkflowEnabled(wfId) {
 async function deleteWorkflow(wfId) {
     if (!confirm('Are you sure you want to delete this automation workflow?')) return;
     try {
-        await fetch(`/api/automation/workflows/${encodeURIComponent(wfId)}`, { method: 'DELETE' });
+        await apiFetch(`/api/automation/workflows/${encodeURIComponent(wfId)}`, { method: 'DELETE' });
         loadAutomationWorkflows();
     } catch(e) {}
 }
@@ -12557,7 +12610,7 @@ async function loadAutomationExecutions() {
     const tbody = document.getElementById('workflowExecutionsTableBody');
     if (!tbody) return;
     try {
-        const res = await fetch('/api/automation/executions');
+        const res = await apiFetch('/api/automation/executions');
         if (!res.ok) return;
         const execs = await res.json();
         activeExecutionsList = execs;
@@ -12591,7 +12644,7 @@ async function loadAutomationExecutions() {
 
 async function viewExecutionDetails(execId) {
     try {
-        const res = await fetch(`/api/automation/executions/${encodeURIComponent(execId)}`);
+        const res = await apiFetch(`/api/automation/executions/${encodeURIComponent(execId)}`);
         if (!res.ok) return;
         const d = await res.json();
         const logsText = d.step_logs ? d.step_logs.map(s => `[Step ${s.step_index}] ${s.name}: ${s.status} (${s.duration_sec}s)\nOutput: ${s.output || 'None'}`).join('\n\n') : 'No step logs';
@@ -12609,7 +12662,7 @@ function openNewWorkflowModal() {
     const name = prompt('Enter name for new custom automation workflow:', 'Custom Web Audit Pipeline');
     if (!name) return;
     const desc = prompt('Enter workflow description:', 'Autonomous scanning and risk assessment pipeline');
-    fetch('/api/automation/workflows', {
+    apiFetch('/api/automation/workflows', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -12648,7 +12701,7 @@ async function launchAssessmentFromView() {
     const profile = profileSelect ? profileSelect.value : 'standard';
 
     try {
-        const res = await fetch('/api/scans', {
+        const res = await apiFetch('/api/scans', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target_url: target, profile: profile })
@@ -12673,7 +12726,7 @@ async function loadAcceptanceCategoriesChecklist() {
     const container = document.getElementById('checklistCategoriesContainer');
     if (!container) return;
     try {
-        const res = await fetch('/api/cyber/deploy/latest/acceptance-checklist');
+        const res = await apiFetch('/api/cyber/deploy/latest/acceptance-checklist');
         if (!res.ok) return;
         const data = await res.json();
 
@@ -12709,7 +12762,7 @@ function exportAcceptanceChecklist(format) {
 async function initiateCyberDeploy(env) {
     if (!confirm(`Confirm deployment initiation for [${env}] environment?`)) return;
     try {
-        const res = await fetch('/api/cyber/deploy/initiate', {
+        const res = await apiFetch('/api/cyber/deploy/initiate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ environment: env, method: 'local_process', release_id: 'v2.3.0-Sentinel', approved_by: 'Lead_Security_Architect' })
@@ -12726,7 +12779,7 @@ async function loadCyberTestsHistory() {
     const tbody = document.getElementById('cyberTestHistoryTableBody');
     if (!tbody) return;
     try {
-        const res = await fetch('/api/cyber/test/runs');
+        const res = await apiFetch('/api/cyber/test/runs');
         if (!res.ok) return;
         const runs = await res.json();
         if (runs.length === 0) {
@@ -12753,7 +12806,7 @@ async function runSyntheticCyberTests(profile) {
         const container = document.getElementById('cyberTestResultsContainer');
         if (container) container.innerHTML = '<div style="color: var(--brand); padding: 20px; text-align: center; font-weight: 700;">⚡ Executing Cyber Test Engine across authorized test vectors...</div>';
 
-        const res = await fetch('/api/cyber/test/run', {
+        const res = await apiFetch('/api/cyber/test/run', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ profile: profile || 'comprehensive', target_url: target })
@@ -12975,7 +13028,7 @@ async function loadDashboardFindings(triggerBtn) {
         // Bounded page instead of the complete findings table: the full
         // collection is megabytes of JSON and the dashboard renders at
         // most 25 rows.
-        const res = await fetch('/api/findings?paged=true&limit=200&offset=0');
+        const res = await apiFetch('/api/findings?paged=true&limit=200&offset=0');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const payload = await res.json();
         const findings = Array.isArray(payload) ? payload : (payload.items || []);
@@ -13048,8 +13101,8 @@ async function renderDetailedReportView(scanId) {
 
     try {
         const [scanRes, findingsRes] = await Promise.all([
-            fetch('/api/scans/' + encodeURIComponent(scanId)),
-            fetch('/api/scans/' + encodeURIComponent(scanId) + '/findings')
+            apiFetch('/api/scans/' + encodeURIComponent(scanId)),
+            apiFetch('/api/scans/' + encodeURIComponent(scanId) + '/findings')
         ]);
 
         const scanData = scanRes.ok ? await scanRes.json() : null;
@@ -13184,7 +13237,7 @@ async function updateAllTools() {
     showToast('Starting comprehensive update across all 34 tools, templates & engines...');
 
     try {
-        const res = await fetch('/api/tools/update-all', {
+        const res = await apiFetch('/api/tools/update-all', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
         });
@@ -13309,7 +13362,7 @@ function openAssessmentDetailsModal(scanId) {
 
     // 4. Asynchronously fetch full scan details if missing
     if (!scansData[scanId]) {
-        fetch(`/api/scans/${encId}`)
+        apiFetch(`/api/scans/${encId}`)
             .then(r => r.ok ? r.json() : null)
             .then(fullScan => {
                 if (fullScan) {
@@ -13329,7 +13382,7 @@ function openAssessmentDetailsModal(scanId) {
     }
 
     // 5. Asynchronously fetch and render findings
-    fetch(`/api/scans/${encId}/findings`)
+    apiFetch(`/api/scans/${encId}/findings`)
         .then(r => r.ok ? r.json() : [])
         .then(rawFindings => {
             const findings = Array.isArray(rawFindings) ? rawFindings : (rawFindings.findings || rawFindings.items || []);
@@ -13391,7 +13444,7 @@ function openAssessmentDetailsModal(scanId) {
     // 6. Asynchronously fetch logs with a 5s timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
-    fetch(`/api/scans/${encId}/logs?limit=40`, { signal: controller.signal })
+    apiFetch(`/api/scans/${encId}/logs?limit=40`, { signal: controller.signal })
         .then(r => {
             clearTimeout(timeoutId);
             return r.ok ? r.json() : [];
@@ -13567,10 +13620,13 @@ function zoomMap(factor) {
 // Automatically sync Real SNMK SOC metrics & live findings
 function syncSocMetrics() {
     // Bounded page - the SOC counters only need the current window.
-    fetch('/api/findings?paged=true&limit=200&offset=0')
-        .then(r => r.json())
-        .then(payload => {
-            const findings = Array.isArray(payload) ? payload : (payload.items || []);
+    Promise.all([
+        apiFetch('/api/findings?paged=true&limit=200&offset=0').then(r => r.json()).catch(() => null),
+        // Canonical posture score lives in the backend (core/scoring.py).
+        apiFetch('/api/posture').then(r => r.json()).catch(() => null)
+    ])
+        .then(([payload, postureData]) => {
+            const findings = Array.isArray(payload) ? payload : ((payload && payload.items) || []);
             if (!Array.isArray(findings)) return;
             allFindingsCache = findings;
             const total = findings.length;
@@ -13594,36 +13650,36 @@ function syncSocMetrics() {
             const totalEl = document.getElementById('socKpiVulnsTotal');
             if (totalEl) totalEl.innerHTML = `${uniqueFindings.length} <span class="soc-kpi-unit">Findings</span>`;
 
-            // Canonical Posture Grade matching core/scoring.py
-            let posturePenalty = 0;
-            uniqueFindings.forEach(f => {
-                const s = (f.severity || '').toUpperCase();
-                if (s === 'CRITICAL') posturePenalty += 30;
-                else if (s === 'HIGH') posturePenalty += 18;
-                else if (s === 'MEDIUM') posturePenalty += 8;
-                else if (s === 'LOW') posturePenalty += 3;
-                else posturePenalty += 1;
-            });
-            const score = Math.max(0, Math.min(100, 100 - posturePenalty));
-            let grade = 'Grade F';
-            let gradeColor = '#ef4444';
-            if (score >= 90) { grade = 'Grade A'; gradeColor = '#10b981'; }
-            else if (score >= 75) { grade = 'Grade B'; gradeColor = '#3b82f6'; }
-            else if (score >= 60) { grade = 'Grade C'; gradeColor = '#eab308'; }
-            else if (score >= 40) { grade = 'Grade D'; gradeColor = '#f97316'; }
-
-            const gradeEl = document.getElementById('socKpiGrade');
-            if (gradeEl) {
-                gradeEl.innerHTML = `${grade} <span class="soc-kpi-unit">(${score}/100)</span>`;
-                gradeEl.style.color = gradeColor;
-            }
-
-            // Keep top navbar badge in 100% lockstep parity
-            const postureEl = document.getElementById('ctxPostureGrade');
-            if (postureEl) {
-                postureEl.textContent = `${grade} (${score}/100)`;
-                postureEl.style.borderColor = gradeColor;
-                postureEl.style.color = gradeColor;
+            // Use the canonical backend posture (core/scoring.py). Do NOT
+            // compute a second, conflicting score in the browser. When no
+            // persisted findings exist, show an honest waiting state.
+            let gradeText = 'Awaiting assessment';
+            let gradeColor = 'var(--text-muted)';
+            if (postureData && typeof postureData.score === 'number') {
+                const score = postureData.score;
+                gradeText = `Grade ${postureData.grade || '—'}`;
+                gradeColor = postureData.grade_color || '#10b981';
+                const detail = `(${score}/100)`;
+                const gradeEl = document.getElementById('socKpiGrade');
+                if (gradeEl) {
+                    gradeEl.innerHTML = `${gradeText} <span class="soc-kpi-unit">${detail}</span>`;
+                    gradeEl.style.color = gradeColor;
+                }
+                const postureEl = document.getElementById('ctxPostureGrade');
+                if (postureEl) {
+                    postureEl.textContent = `${gradeText} ${detail}`;
+                    postureEl.style.borderColor = gradeColor;
+                    postureEl.style.color = gradeColor;
+                }
+            } else {
+                const gradeEl = document.getElementById('socKpiGrade');
+                if (gradeEl) { gradeEl.innerHTML = gradeText; gradeEl.style.color = gradeColor; }
+                const postureEl = document.getElementById('ctxPostureGrade');
+                if (postureEl) {
+                    postureEl.textContent = 'Awaiting completed assessment';
+                    postureEl.style.borderColor = '';
+                    postureEl.style.color = '';
+                }
             }
 
             // Populate live deduplicated findings feed (never show duplicate items)
@@ -13672,11 +13728,47 @@ function copyFindingCurl(curlCmd) {
     });
 }
 
+/**
+ * Make the "Audit Target Scope" KPI factual: show the configured target,
+ * the frontend origin and the backend origin separately, and report the
+ * actual scope authorization state. This prevents the backend API URL from
+ * ever being mistaken for the target being scanned.
+ */
+function syncSocTargetScope() {
+    const input = document.getElementById('targetInput');
+    const ctx = document.getElementById('ctxTargetText');
+    const target = String((input && input.value) || (ctx && ctx.textContent) || '').trim() || 'No target selected';
+    const kpi = document.getElementById('socKpiTarget');
+    if (kpi) kpi.textContent = target;
+    const telemetry = document.getElementById('socKpiTargetTelemetry');
+    if (!telemetry) return;
+
+    const frontendOrigin = (typeof location !== 'undefined') ? location.origin : 'unknown';
+    const configuredBase = (typeof SNMK !== 'undefined' && SNMK.api) ? SNMK.api.getBaseUrl() : '';
+    const backendOrigin = configuredBase || frontendOrigin;
+    telemetry.title = `Frontend: ${frontendOrigin}\nBackend API: ${backendOrigin}\nAuthorized target: ${target}`;
+
+    apiFetch('/api/scope').then(r => r.ok ? r.json() : null).then(scope => {
+        if (!scope) {
+            telemetry.textContent = `API ${backendOrigin} · scope unavailable`;
+            return;
+        }
+        const host = String(target).replace(/^https?:\/\//i, '').split('/')[0].split(':')[0].toLowerCase();
+        const inScope = (scope.allowed_domains || []).some(d => String(d).toLowerCase() === host);
+        const state = inScope ? 'Authorized scope'
+            : (scope.lab_mode_globally_enabled ? 'Lab mode enabled' : 'Scope not authorized');
+        telemetry.textContent = `${state} · UI ${frontendOrigin} · API ${backendOrigin}`;
+    }).catch(() => {
+        telemetry.textContent = `API ${backendOrigin} unreachable`;
+    });
+}
+
 // Hook into initial page lifecycle
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', syncSocMetrics);
+    document.addEventListener('DOMContentLoaded', () => { syncSocMetrics(); syncSocTargetScope(); });
 } else {
     syncSocMetrics();
+    syncSocTargetScope();
 }
 
 
@@ -13752,10 +13844,11 @@ async function recalculatePostureGrade() {
     if (gradeEl) gradeEl.innerHTML = `<span class="spin-anim" style="display:inline-block;">⚡</span> Calculating...`;
 
     try {
-        const res = await fetch('/api/posture');
+        const res = await apiFetch('/api/posture');
         const posture = await res.json();
-        const score = posture.score !== undefined ? posture.score : 100;
-        const grade = `Grade ${posture.grade || 'A'}`;
+        if (typeof posture.score !== 'number') throw new Error('Posture service returned no score');
+        const score = posture.score;
+        const grade = `Grade ${posture.grade || '—'}`;
         const color = posture.grade_color || '#10b981';
 
         if (gradeEl) {
@@ -13772,7 +13865,8 @@ async function recalculatePostureGrade() {
 
         showToast(`Security Posture Recalculated: ${grade} (${score}/100) — ${posture.risk || 'Live Posture'}`, "success");
     } catch (e) {
-        if (gradeEl) gradeEl.innerHTML = `Grade A <span class="soc-kpi-unit">(100/100)</span>`;
+        if (gradeEl) gradeEl.innerHTML = 'Posture unavailable';
+        if (typeof showToast === 'function') showToast(`Could not recalculate posture: ${e.message}`, 'error');
     }
 }
 
@@ -13799,7 +13893,7 @@ async function initAllToolsView() {
             targetInput.value = mainTargetInput.value;
         } else {
             try {
-                const scRes = await fetch('/api/scope/targets');
+                const scRes = await apiFetch('/api/scope/targets');
                 if (scRes.ok) {
                     const scData = await scRes.json();
                     const allowed = scData.targets || scData.allowed_domains || [];
@@ -13828,7 +13922,7 @@ async function initAllToolsView() {
 // Cross-port resilient fetch helper
 async function swaFetch(url, options = {}) {
     try {
-        const res = await fetch(url, options);
+        const res = await apiFetch(url, options);
         return res;
     } catch (err) {
         if (typeof window !== 'undefined' && window.location) {
@@ -13838,7 +13932,7 @@ async function swaFetch(url, options = {}) {
             for (const port of fallbackPorts) {
                 const fbUrl = `${loc.protocol}//${loc.hostname}:${port}${url.startsWith('/') ? '' : '/'}${url}`;
                 try {
-                    const fbRes = await fetch(fbUrl, options);
+                    const fbRes = await apiFetch(fbUrl, options);
                     return fbRes;
                 } catch (_) {}
             }
@@ -14294,7 +14388,7 @@ function downloadAllToolsReport(format) {
 function runSingleToolFromAllTools(toolKey) {
     const target = document.getElementById('allToolsTargetInput')?.value?.trim() || '127.0.0.1:8000';
     alert(`Testing tool adapter: ${toolKey} against ${target}. Dispatching to background engine.`);
-    fetch(`/api/tools/run/${toolKey}`, {
+    apiFetch(`/api/tools/run/${toolKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ target: target, options: { lab_mode: true } })
@@ -14381,7 +14475,7 @@ async function loadKillChainData() {
 
 async function loadKillChainOverview() {
     try {
-        const res = await fetch('/api/kill-chain/overview');
+        const res = await apiFetch('/api/kill-chain/overview');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         currentKcOverview = data;
@@ -14572,7 +14666,7 @@ async function openStageDeepDive(stageId) {
 
         bodyEl.innerHTML = '<div style="text-align:center; padding: 30px; color: var(--text-muted);">Loading stage investigation telemetry...</div>';
 
-        const res = await fetch(`/api/kill-chain/stages/${stageId}`);
+        const res = await apiFetch(`/api/kill-chain/stages/${stageId}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const stage = await res.json();
 
@@ -14654,7 +14748,7 @@ function closeKcStageModal() {
 // Findings List & Filtering
 async function loadKillChainFindings() {
     try {
-        const res = await fetch('/api/kill-chain/findings?limit=250');
+        const res = await apiFetch('/api/kill-chain/findings?limit=250');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         currentKcFindings = await res.json();
         renderKcFindingsList();
@@ -14751,7 +14845,7 @@ function renderKcFindingsList() {
 // Threat Intelligence
 async function loadKillChainIntelligence() {
     try {
-        const res = await fetch('/api/kill-chain/intelligence');
+        const res = await apiFetch('/api/kill-chain/intelligence');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         renderThreatIntelligence(data);
@@ -14818,7 +14912,7 @@ async function executeKcIndicatorLookup() {
     }
 
     try {
-        const res = await fetch('/api/kill-chain/intelligence/lookup', {
+        const res = await apiFetch('/api/kill-chain/intelligence/lookup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ indicator_type: type, value: val })
@@ -14854,7 +14948,7 @@ async function executeKcIndicatorLookup() {
 // Security Controls Matrix
 async function loadKillChainControls() {
     try {
-        const res = await fetch('/api/kill-chain/controls');
+        const res = await apiFetch('/api/kill-chain/controls');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         currentKcControls = data;
@@ -14946,7 +15040,7 @@ function renderKillChainControls(data) {
 // Incident Timeline
 async function loadKillChainTimeline() {
     try {
-        const res = await fetch('/api/kill-chain/timeline');
+        const res = await apiFetch('/api/kill-chain/timeline');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         currentKcTimeline = data;
@@ -14991,7 +15085,7 @@ function renderKillChainTimeline(events) {
 // Evidence Repository
 async function loadKillChainEvidence() {
     try {
-        const res = await fetch('/api/kill-chain/evidence?limit=150');
+        const res = await apiFetch('/api/kill-chain/evidence?limit=150');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         currentKcEvidence = data;
@@ -15048,7 +15142,7 @@ async function submitIngestEvidence() {
     }
 
     try {
-        const res = await fetch('/api/kill-chain/evidence', {
+        const res = await apiFetch('/api/kill-chain/evidence', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -15109,7 +15203,7 @@ async function executeKcAiAnalysis() {
     }
 
     try {
-        const res = await fetch(`/api/kill-chain/ai/analyze?finding_id=${encodeURIComponent(findingId)}`, {
+        const res = await apiFetch(`/api/kill-chain/ai/analyze?finding_id=${encodeURIComponent(findingId)}`, {
             method: 'POST'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -15183,7 +15277,7 @@ async function executeKcAiAnalysis() {
 async function loadKillChainIncidents() {
     try {
         const filter = document.getElementById('kcFilterIncStatus')?.value || 'ALL';
-        const res = await fetch(`/api/kill-chain/incidents?status=${filter}`);
+        const res = await apiFetch(`/api/kill-chain/incidents?status=${filter}`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         currentKcIncidents = data;
@@ -15276,7 +15370,7 @@ async function submitCreateIncident() {
     const assets = assetsRaw.split(',').map(a => a.trim()).filter(Boolean);
 
     try {
-        const res = await fetch('/api/kill-chain/incidents', {
+        const res = await apiFetch('/api/kill-chain/incidents', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -15301,7 +15395,7 @@ async function submitCreateIncident() {
 
 async function updateKcIncidentStatus(incId, newStatus) {
     try {
-        const res = await fetch(`/api/kill-chain/incidents/${incId}`, {
+        const res = await apiFetch(`/api/kill-chain/incidents/${incId}`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus, notes: `Status transitioned to ${newStatus} by SOC analyst.` })
@@ -15317,7 +15411,7 @@ async function updateKcIncidentStatus(incId, newStatus) {
 // Reports & Deliverables
 async function loadKillChainReports() {
     try {
-        const res = await fetch('/api/kill-chain/reports');
+        const res = await apiFetch('/api/kill-chain/reports');
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();
         currentKcReports = data;
@@ -15381,7 +15475,7 @@ async function submitGenerateReport() {
     }
 
     try {
-        const res = await fetch('/api/kill-chain/reports/generate', {
+        const res = await apiFetch('/api/kill-chain/reports/generate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -15420,7 +15514,7 @@ async function runKillChainAnalysis() {
     }
 
     try {
-        const res = await fetch('/api/kill-chain/analyze', {
+        const res = await apiFetch('/api/kill-chain/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ target: target })
@@ -15449,7 +15543,7 @@ async function seedKillChainDemo() {
     }
 
     try {
-        const res = await fetch(`/api/kill-chain/seed-demo?target=${encodeURIComponent(target)}`, {
+        const res = await apiFetch(`/api/kill-chain/seed-demo?target=${encodeURIComponent(target)}`, {
             method: 'POST'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -15536,10 +15630,10 @@ async function loadApiKeysUI(forceRefresh = false) {
     try {
         // Parallel fetch of summary, providers, integrations, and active LLM status
         const [sumRes, provRes, integRes, llmRes] = await Promise.allSettled([
-            fetch('/api/integrations/summary'),
-            fetch('/api/integrations/providers'),
-            fetch('/api/integrations'),
-            fetch('/api/ai/llm-status')
+            apiFetch('/api/integrations/summary'),
+            apiFetch('/api/integrations/providers'),
+            apiFetch('/api/integrations'),
+            apiFetch('/api/ai/llm-status')
         ]);
 
         if (sumRes.status === 'fulfilled' && sumRes.value.ok) {
@@ -15807,7 +15901,7 @@ async function openAddApiKeyModal(defaultProvider = null) {
     // If providers list is empty, fetch first
     if (!_apiKeysState.providers.length) {
         try {
-            const resp = await fetch('/api/integrations/providers');
+            const resp = await apiFetch('/api/integrations/providers');
             if (resp.ok) {
                 const data = await resp.json();
                 _apiKeysState.providers = data.providers || [];
@@ -16002,7 +16096,7 @@ async function testModalApiKey() {
             payload.credentials = { access_key: secret, secret_key: secret };
         }
 
-        const res = await fetch('/api/integrations/test', {
+        const res = await apiFetch('/api/integrations/test', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -16103,7 +16197,7 @@ async function saveModalApiKey() {
             payload.credentials = { access_key: secret, secret_key: secret };
         }
 
-        const res = await fetch('/api/integrations', {
+        const res = await apiFetch('/api/integrations', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -16188,7 +16282,7 @@ async function submitRotateKey() {
     }
 
     try {
-        const res = await fetch(`/api/integrations/${encodeURIComponent(integId)}/rotate`, {
+        const res = await apiFetch(`/api/integrations/${encodeURIComponent(integId)}/rotate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -16234,7 +16328,7 @@ async function testIntegrationKey(integrationId, btnEl) {
     }
 
     try {
-        const res = await fetch(`/api/integrations/${encodeURIComponent(integrationId)}/test`, {
+        const res = await apiFetch(`/api/integrations/${encodeURIComponent(integrationId)}/test`, {
             method: 'POST'
         });
         const data = await res.json();
@@ -16260,7 +16354,7 @@ async function testIntegrationKey(integrationId, btnEl) {
 
 async function toggleIntegrationKey(integrationId, shouldEnable) {
     try {
-        const res = await fetch(`/api/integrations/${encodeURIComponent(integrationId)}/toggle?enabled=${shouldEnable}`, {
+        const res = await apiFetch(`/api/integrations/${encodeURIComponent(integrationId)}/toggle?enabled=${shouldEnable}`, {
             method: 'POST'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -16280,7 +16374,7 @@ This will remove the secret from the vault and cannot be undone.`;
     if (!confirm(confirmMsg)) return;
 
     try {
-        const res = await fetch(`/api/integrations/${encodeURIComponent(integrationId)}`, {
+        const res = await apiFetch(`/api/integrations/${encodeURIComponent(integrationId)}`, {
             method: 'DELETE'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -16301,7 +16395,7 @@ async function testAllIntegrationsUI() {
     }
 
     try {
-        const res = await fetch('/api/integrations/test-all', {
+        const res = await apiFetch('/api/integrations/test-all', {
             method: 'POST'
         });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -16359,7 +16453,7 @@ async function initToolHealthMonitoring() {
 
 async function fetchToolHealthSummary() {
     try {
-        const res = await fetch('/api/tools/health/summary');
+        const res = await apiFetch('/api/tools/health/summary');
         if (!res.ok) return;
         const data = await res.json();
         window.toolHealthState.summary = data;
@@ -16436,7 +16530,7 @@ async function loadToolHealthPopoverData() {
         container.innerHTML = '<div style="text-align: center; color: var(--text-muted); padding: 30px;">Loading tool diagnostics...</div>';
     }
     try {
-        const res = await fetch('/api/tools/health');
+        const res = await apiFetch('/api/tools/health');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const data = await res.json();
         window.toolHealthState.tools = data.tools || [];
@@ -16634,7 +16728,7 @@ async function checkAllToolsHealth() {
     if (spin2) spin2.textContent = '⏳';
 
     try {
-        const res = await fetch('/api/tools/health/check-all', { method: 'POST' });
+        const res = await apiFetch('/api/tools/health/check-all', { method: 'POST' });
         if (res.ok) {
             const data = await res.json();
             window.toolHealthState.tools = data.tools || [];
@@ -16662,7 +16756,7 @@ async function recheckSingleTool(toolId, event) {
         }
     }
     try {
-        const res = await fetch('/api/tools/health/check', {
+        const res = await apiFetch('/api/tools/health/check', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ tool_id: toolId, level: 5 })
@@ -16688,7 +16782,7 @@ async function recheckSingleTool(toolId, event) {
 
 async function repairTool(toolId) {
     try {
-        const res = await fetch(`/api/tools/repair/${toolId}`, { method: 'POST' });
+        const res = await apiFetch(`/api/tools/repair/${toolId}`, { method: 'POST' });
         if (res.ok) {
             await checkAllToolsHealth();
         }
@@ -16759,7 +16853,7 @@ async function executeConfirmedInstallation() {
     try {
         if (toolsToInstall.length === 1) {
             const toolId = toolsToInstall[0];
-            const res = await fetch('/api/tools/install', {
+            const res = await apiFetch('/api/tools/install', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tool_id: toolId, isolated: true })
@@ -16769,7 +16863,7 @@ async function executeConfirmedInstallation() {
                 await pollInstallJob(data.job_id, statusEl, detailEl);
             }
         } else {
-            const res = await fetch('/api/tools/install-all', {
+            const res = await apiFetch('/api/tools/install-all', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tool_ids: toolsToInstall, skip_healthy: true })
@@ -16796,7 +16890,7 @@ async function pollInstallJob(jobId, statusEl, detailEl) {
     for (let i = 0; i < 30; i++) {
         await new Promise(r => setTimeout(r, 1200));
         try {
-            const res = await fetch(`/api/tools/install/status?job_id=${jobId}`);
+            const res = await apiFetch(`/api/tools/install/status?job_id=${jobId}`);
             if (res.ok) {
                 const job = await res.json();
                 if (statusEl) statusEl.textContent = `Status: ${job.status || 'PROCESSING'}...`;
@@ -16816,7 +16910,7 @@ async function loadToolDependencyCenter() {
     if (!tbody) return;
 
     try {
-        const res = await fetch('/api/tools/health');
+        const res = await apiFetch('/api/tools/health');
         if (!res.ok) return;
         const data = await res.json();
         const tools = data.tools || [];
@@ -17021,7 +17115,7 @@ async function startUniversalScan() {
         showUniversalScanProgress(`Dispatching red team reconnaissance on ${url}...`);
 
         try {
-            const res = await fetch('/api/universal-scanner/scan/url', {
+            const res = await apiFetch('/api/universal-scanner/scan/url', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ url: url, scan_mode: mode })
@@ -17053,7 +17147,7 @@ async function startUniversalScan() {
         showUniversalScanProgress(`Uploading and analyzing ${stagedUniversalFiles.length} file(s)...`);
 
         try {
-            const res = await fetch('/api/universal-scanner/scan/upload', {
+            const res = await apiFetch('/api/universal-scanner/scan/upload', {
                 method: 'POST',
                 body: formData
             });
@@ -17105,7 +17199,7 @@ function pollUniversalScanProgress(scanId) {
 
     universalScanPollTimer = setInterval(async () => {
         try {
-            const res = await fetch(`/api/universal-scanner/scans/${scanId}`);
+            const res = await apiFetch(`/api/universal-scanner/scans/${scanId}`);
             if (!res.ok) return;
             const job = await res.json();
 
@@ -17151,7 +17245,7 @@ function pollUniversalScanProgress(scanId) {
 async function cancelUniversalScan() {
     if (!currentUniversalScanId) return;
     try {
-        await fetch(`/api/universal-scanner/scans/${currentUniversalScanId}/cancel`, { method: 'POST' });
+        await apiFetch(`/api/universal-scanner/scans/${currentUniversalScanId}/cancel`, { method: 'POST' });
         const stage = document.getElementById('univCurrentStage');
         if (stage) stage.innerText = 'Scan cancelled by user.';
         hideUniversalScanProgress();
@@ -17263,7 +17357,7 @@ function downloadUniversalReport(format) {
 
 async function loadUniversalMetrics() {
     try {
-        const res = await fetch('/api/universal-scanner/scans?limit=1');
+        const res = await apiFetch('/api/universal-scanner/scans?limit=1');
         if (!res.ok) return;
         const data = await res.json();
         const m = data.metrics || {};
@@ -17292,7 +17386,7 @@ async function loadUniversalHistory() {
     if (!tbody) return;
 
     try {
-        const res = await fetch('/api/universal-scanner/scans?limit=25');
+        const res = await apiFetch('/api/universal-scanner/scans?limit=25');
         if (!res.ok) return;
         const data = await res.json();
         const scans = data.scans || [];
@@ -17327,7 +17421,7 @@ async function loadUniversalHistory() {
 async function viewHistoricalScan(scanId) {
     currentUniversalScanId = scanId;
     try {
-        const res = await fetch(`/api/universal-scanner/scans/${scanId}`);
+        const res = await apiFetch(`/api/universal-scanner/scans/${scanId}`);
         if (!res.ok) return;
         const job = await res.json();
         currentUniversalFindings = job.findings || [];
@@ -17360,11 +17454,11 @@ async function loadPlatformEngineering() {
 
     try {
         const [crew, mysql, otel, alerts, tools] = await Promise.all([
-            fetch('/api/crew/status').then(r => r.json()),
-            fetch('/api/mysql/status').then(r => r.json()),
-            fetch('/api/observability').then(r => r.json()),
-            fetch('/api/alerts/summary').then(r => r.json()),
-            fetch('/api/dev-tools').then(r => r.json()),
+            apiFetch('/api/crew/status').then(r => r.json()),
+            apiFetch('/api/mysql/status').then(r => r.json()),
+            apiFetch('/api/observability').then(r => r.json()),
+            apiFetch('/api/alerts/summary').then(r => r.json()),
+            apiFetch('/api/dev-tools').then(r => r.json()),
         ]);
 
         platformRows('platformCrew', {
@@ -17437,7 +17531,7 @@ async function loadSecurityFlags() {
     try {
         const cat = document.getElementById('flagCategoryFilter')?.value || '';
         const url = cat ? `/api/v1/flags?category=${encodeURIComponent(cat)}` : '/api/v1/flags';
-        const res = await fetch(url);
+        const res = await apiFetch(url);
         if (!res.ok) return;
         const data = await res.json();
         const flags = data.flags || [];
@@ -17484,7 +17578,7 @@ async function loadSecurityFlags() {
 
 async function updateFlagStatusUI(flagId, newStatus) {
     try {
-        const res = await fetch(`/api/v1/flags/${flagId}/review`, {
+        const res = await apiFetch(`/api/v1/flags/${flagId}/review`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ status: newStatus, reviewer: 'soc_analyst' })
@@ -17531,7 +17625,7 @@ async function executeCryptoOperation() {
             payload = { text: input, scheme: 'rot13' };
         }
 
-        const res = await fetch(endpoint, {
+        const res = await apiFetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
@@ -17576,7 +17670,7 @@ async function uploadAndAnalyzePcap() {
     formData.append('file', selectedPcapFile);
 
     try {
-        const res = await fetch('/api/v1/pcap/upload', {
+        const res = await apiFetch('/api/v1/pcap/upload', {
             method: 'POST',
             body: formData
         });
@@ -17599,7 +17693,7 @@ async function pollPcapAnalysis(analysisId) {
     const btn = document.getElementById('pcapAnalyzeBtn');
 
     try {
-        const res = await fetch(`/api/v1/pcap/analysis/${analysisId}`);
+        const res = await apiFetch(`/api/v1/pcap/analysis/${analysisId}`);
         if (!res.ok) return;
         const result = await res.json();
 
@@ -17633,7 +17727,7 @@ async function triggerCorrelationAnalysis() {
     if (container) container.innerHTML = '<div style="padding: 24px; text-align: center; color: var(--text-muted);">Synthesizing multi-stage attack chains across all modules...</div>';
 
     try {
-        const res = await fetch('/api/v1/correlation/analyze', { method: 'POST' });
+        const res = await apiFetch('/api/v1/correlation/analyze', { method: 'POST' });
         if (!res.ok) return;
         const data = await res.json();
         const incidents = data.incidents || [];

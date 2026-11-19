@@ -39,6 +39,18 @@ PUBLIC_PATHS = {
     "/healthz",
     "/api/healthz",
     "/status",
+    # Health/readiness probes must stay reachable by orchestrators even when
+    # API authentication is enabled (they expose no data).
+    "/ready",
+    "/api/ready",
+    "/health/live",
+    "/api/health/live",
+    "/health/ready",
+    "/api/health/ready",
+    "/health/dependencies",
+    "/api/health/dependencies",
+    # Static client bootstrap: contains only a public base-URL setting.
+    "/api/client-config.js",
     "/.well-known/security.txt",
     "/security.txt",
     "/swagger.json",

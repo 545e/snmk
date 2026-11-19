@@ -142,8 +142,24 @@ def test_v1_integrations_hub():
     assert "success" in res_test.json()["data"]
 
 
-def test_v1_threat_intelligence():
-    """Verify threat intelligence CISA KEV and FIRST EPSS endpoints."""
+def test_v1_threat_intelligence(monkeypatch):
+    """Verify the CISA KEV / FIRST EPSS API contract without live upstream calls.
+
+    The endpoints correctly return 503 when an upstream feed is down, so this
+    contract test supplies deterministic feed responses instead of depending
+    on external network availability.
+    """
+    import core.threat_intel_live as til
+
+    async def fake_kev(cve=None):
+        return {"cve": cve, "known_exploited": True, "vendor": "Apache"}
+
+    async def fake_epss(cve=None):
+        return {"cve": cve, "epss_score": 0.94, "percentile": 0.99}
+
+    monkeypatch.setattr(til, "get_cisa_kev", fake_kev)
+    monkeypatch.setattr(til, "get_first_epss", fake_epss)
+
     res_kev = client.get("/api/v1/threat-intelligence/cisa-kev?cve=CVE-2021-44228")
     assert res_kev.status_code == 200
     assert res_kev.json()["data"]["cve"] == "CVE-2021-44228"

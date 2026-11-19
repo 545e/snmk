@@ -421,11 +421,16 @@ class TestScopePolicyHardening(unittest.TestCase):
         from core import scope_policy as sp
 
         calls = []
-        real = sp.socket.getaddrinfo
 
         def counting_getaddrinfo(*args, **kwargs):
-            calls.append(args[0] if args else kwargs.get("host"))
-            return real(*args, **kwargs)
+            # The patch target is the global socket module. Count only the
+            # hostname under test and return a deterministic public answer so
+            # concurrent background DNS in the full suite cannot inflate the
+            # count or make this test depend on live DNS availability.
+            host = args[0] if args else kwargs.get("host")
+            if host == "example.com":
+                calls.append(host)
+            return [(2, 1, 6, "", ("93.184.216.34", 0))]
 
         with patch.object(sp.socket, "getaddrinfo", counting_getaddrinfo):
             sp.validate_tool_target(
