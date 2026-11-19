@@ -1,24 +1,28 @@
 function renderSubdomains(subs) {
-    const container = document.getElementById("subdomainsContainer");
+    const containers = [
+        document.getElementById("subdomainsContainer"),
+        document.getElementById("netSecSubdomainsContainer")
+    ].filter(Boolean);
     const badge = document.getElementById("subdomainsCountBadge");
     const count = (Array.isArray(subs) ? subs.length : 0);
     if (badge) badge.textContent = count;
-    if (!container) return;
+    if (!containers.length) return;
 
     if (!subs || subs.length === 0) {
-        container.innerHTML = `
+        const emptyHtml = `
             <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.6;"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                 <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">No Subdomains Discovered</div>
                 <div style="font-size: 12px;">Run the Autonomous Subdomain Engine to map assets across this target scope.</div>
             </div>`;
+        containers.forEach(c => { c.innerHTML = emptyHtml; });
         return;
     }
 
     const liveCount = subs.filter(s => typeof s === 'object' && (s.status === 200 || s.http_responsive || s.status_code === 200)).length;
     const confirmedDns = subs.filter(s => typeof s === 'object' && s.dns_confirmed !== false && (s.ip || (s.ips && s.ips.length))).length;
 
-    container.innerHTML = `
+    const html = `
         <div style="margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
             <div style="display: flex; gap: 12px; align-items: center;">
                 <span style="font-size: 13px; font-weight: 700; color: var(--text-title);">Discovered Assets (${subs.length})</span>
@@ -70,6 +74,7 @@ function renderSubdomains(subs) {
             }).join('')}
         </div>
     `;
+    containers.forEach(c => { c.innerHTML = html; });
 }
 
 function filterSubdomainsUI(query) {
@@ -88,23 +93,27 @@ function filterSubdomainsUI(query) {
 }
 
 function renderFuzzingResults(fuzzResults) {
-    const container = document.getElementById("fuzzingContainer");
+    const containers = [
+        document.getElementById("fuzzingContainer"),
+        document.getElementById("webSecFuzzingContainer")
+    ].filter(Boolean);
     const badge = document.getElementById("fuzzingCountBadge");
     const count = (Array.isArray(fuzzResults) ? fuzzResults.length : 0);
     if (badge) badge.textContent = count;
-    if (!container) return;
+    if (!containers.length) return;
 
     if (!fuzzResults || fuzzResults.length === 0) {
-        container.innerHTML = `
+        const emptyHtml = `
             <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 10px; opacity: 0.6;"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
                 <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">Zero Exposed Sensitive Assets Discovered</div>
                 <div style="font-size: 12px;">Target endpoint boundaries and hidden paths verified clean.</div>
             </div>`;
+        containers.forEach(c => { c.innerHTML = emptyHtml; });
         return;
     }
 
-    container.innerHTML = `
+    const html = `
         <div style="margin-bottom: 12px; font-size: 13px; font-weight: 700; color: var(--text-title);">Discovered Fuzzed Assets (${fuzzResults.length})</div>
         <div style="display: flex; flex-direction: column; gap: 8px;">
             ${fuzzResults.map(f => {
@@ -128,6 +137,7 @@ function renderFuzzingResults(fuzzResults) {
             }).join('')}
         </div>
     `;
+    containers.forEach(c => { c.innerHTML = html; });
 }
 
 function formatDate(dateStr) {
@@ -335,6 +345,14 @@ async function launchScan() {
         // Show active telemetry pane on dashboard
         const pane = document.getElementById('activeDetailsContent');
         if (pane) pane.style.display = 'block';
+        const formula = document.getElementById('postureFormulaBox');
+        if (formula) formula.style.display = 'block';
+        const tabRow = document.getElementById('activeScanTabRow');
+        if (tabRow) tabRow.style.display = 'flex';
+        const tabPanels = document.getElementById('activeScanTabPanels');
+        if (tabPanels) tabPanels.style.display = 'block';
+        const emptyNotice = document.getElementById('emptyDetailsNotice');
+        if (emptyNotice) emptyNotice.style.display = 'none';
 
         const tEl = document.getElementById('activeScanTarget');
         if (tEl) tEl.textContent = scan.target_url || target;
@@ -696,6 +714,14 @@ async function selectScan(scanId) {
     if (pane) {
         pane.style.display = 'block';
     }
+    const formula = document.getElementById('postureFormulaBox');
+    if (formula) formula.style.display = 'block';
+    const tabRow = document.getElementById('activeScanTabRow');
+    if (tabRow) tabRow.style.display = 'flex';
+    const tabPanels = document.getElementById('activeScanTabPanels');
+    if (tabPanels) tabPanels.style.display = 'block';
+    const emptyNotice = document.getElementById('emptyDetailsNotice');
+    if (emptyNotice) emptyNotice.style.display = 'none';
 
     const tEl = document.getElementById('activeScanTarget');
     if (tEl) tEl.textContent = scan.target_url;
@@ -736,7 +762,9 @@ async function selectScan(scanId) {
     renderFuzzingResults(fuzzed);
 
     // Update Blue Team Defenses badge
-    if (typeof loadDefensiveRules === 'function') {
+    if (typeof loadDefenses === 'function') {
+        loadDefenses();
+    } else if (typeof loadDefensiveRules === 'function') {
         loadDefensiveRules();
     }
 
@@ -2142,26 +2170,60 @@ function updateVulnMetricsUI(m) {
  * @param {Array<Object>} items findings to render
  */
 function renderFindings(items) {
-    const container = document.getElementById('findingsContainer');
-    if (!container) return;
+    const containers = [
+        document.getElementById('dashFindingsContainer'),
+        document.getElementById('findingsContainer')
+    ].filter(Boolean);
+    if (!containers.length) return;
 
     const list = Array.isArray(items) ? items : [];
     if (!list.length) {
-        container.innerHTML = '<div style="padding: 16px; color: var(--text-muted); font-size: 12px;">No findings match the current filters.</div>';
+        const emptyHtml = `
+            <div style="text-align: center; padding: 40px 20px; color: var(--text-muted); background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom: 8px; opacity: 0.6;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <div style="font-size: 14px; font-weight: 600; color: var(--text-title); margin-bottom: 4px;">Zero Security Flaws Detected</div>
+                <div style="font-size: 12px;">This target assessment verified no active vulnerabilities.</div>
+            </div>`;
+        containers.forEach(c => { c.innerHTML = emptyHtml; });
         return;
     }
 
-    container.innerHTML = list.map(f => {
-        const sev = (typeof f.severity === 'object' && f.severity ? f.severity.value : f.severity) || 'UNCLASSIFIED';
-        const sevLower = String(sev).toLowerCase();
-        const score = typeof f.cvss_score === 'number' ? f.cvss_score.toFixed(1) : '';
-        return `
-            <div class="finding-item" data-finding-id="${escapeHtml(f.id || '')}">
-                <span class="sev-badge sev-${escapeHtml(sevLower)}">${escapeHtml(sev)}${score ? ' ' + escapeHtml(score) : ''}</span>
-                <span class="finding-title">${escapeHtml(f.title || 'Untitled')}</span>
-                <span class="finding-endpoint">${escapeHtml(f.endpoint || '')}</span>
-            </div>`;
-    }).join('');
+    const html = `
+        <div style="margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 13.5px; font-weight: 700; color: var(--text-title);">
+                Assessment Findings (${list.length})
+            </div>
+            <button class="btn btn-secondary" onclick="navToView('vulnerabilities')" style="padding: 4px 12px; font-size: 11.5px;">
+                Open Full Vulnerability Hub &rarr;
+            </button>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+            ${list.map(f => {
+                const sev = (typeof f.severity === 'object' && f.severity ? f.severity.value : f.severity) || 'UNCLASSIFIED';
+                const sevLower = String(sev).toLowerCase();
+                const score = typeof f.cvss_score === 'number' ? f.cvss_score.toFixed(1) : (f.cvss_score || '');
+                const cwe = f.cwe_id || '';
+                return `
+                    <div class="finding-item" onclick="openFindingDrawer('${escapeHtml(f.id || '')}')" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; transition: border-color 0.2s, background 0.2s; gap: 12px;">
+                        <div style="display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1;">
+                            <span class="sev-badge sev-${escapeHtml(sevLower)}" style="font-size: 11px; padding: 3px 8px; border-radius: 4px; font-weight: 700; flex-shrink: 0;">${escapeHtml(sev)}${score ? ' ' + escapeHtml(score) : ''}</span>
+                            <div style="min-width: 0;">
+                                <div style="font-weight: 700; color: var(--text-title); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(f.title || 'Untitled')}</div>
+                                <div style="font-size: 11.5px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 2px;">
+                                    <code style="color: var(--brand); font-family: var(--mono);">${escapeHtml(f.endpoint || '')}</code>
+                                    ${cwe ? `<span style="opacity: 0.7;">${escapeHtml(cwe)}</span>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px; flex-shrink: 0;">
+                            <button class="btn btn-secondary" style="padding: 4px 10px; font-size: 11px;" onclick="event.stopPropagation(); openFindingDrawer('${escapeHtml(f.id || '')}')">
+                                Inspect &rarr;
+                            </button>
+                        </div>
+                    </div>`;
+            }).join('')}
+        </div>`;
+    containers.forEach(c => { c.innerHTML = html; });
 }
 
 function renderVulnTable(items) {
@@ -3474,8 +3536,12 @@ function switchTab(tabId, btn) {
         const scan = currentScanId ? scansData[currentScanId] : null;
         const fuzzed = (scan && scan.recon_data && scan.recon_data.fuzzing_results) || [];
         renderFuzzingResults(fuzzed);
+    } else if (tabId === 'tabDefenses') {
+        if (typeof loadDefenses === 'function') loadDefenses();
+    } else if (tabId === 'tabLogs') {
+        if (typeof loadTerminalLogs === 'function') loadTerminalLogs();
     } else if (tabId === 'tabReports') {
-        loadReportsCenter();
+        if (typeof loadReportsCenter === 'function') loadReportsCenter();
     } else if (tabId === 'tabAssets') {
         loadAssetsTable();
     } else if (tabId === 'tabToolRegistry') {
@@ -3511,23 +3577,67 @@ function switchWorkspaceTab(tabId, btn) {
     return true;
 }
 
+/**
+ * Handle "View Findings" button click on the active assessment card.
+ * Activates the Verified Findings tab right on the assessment card,
+ * scrolls it smoothly into view, and loads the active scan's verified detections.
+ */
+function viewActiveScanFindings() {
+    const scanId = currentScanId || document.getElementById('activeScanId')?.textContent?.trim();
+    const findingsBtn = document.querySelector("#activeScanTabRow .tab-item[onclick*='tabFindings']") ||
+                           document.querySelector(".tab-item[onclick*='tabFindings']");
+    if (findingsBtn) {
+        switchWorkspaceTab('tabFindings', findingsBtn);
+    }
+    const findingsEl = document.getElementById('tabFindings');
+    if (findingsEl) {
+        findingsEl.style.display = 'block';
+        findingsEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+    if (scanId && scanId !== '--') {
+        loadFindings(scanId);
+    } else if (Array.isArray(activeFindings) && activeFindings.length > 0) {
+        renderFindings(activeFindings);
+    }
+}
+
+/**
+ * Instant report downloader for active assessment deliverables.
+ */
+function downloadActiveScanReport(format) {
+    const scanId = currentScanId || document.getElementById('activeScanId')?.textContent?.trim();
+    if (!scanId || scanId === '--') {
+        if (typeof showToast === 'function') {
+            showToast('Please select or run an assessment to export deliverables.', 'warning');
+        } else {
+            alert('Please select or run an assessment to export deliverables.');
+        }
+        return;
+    }
+    const fmt = encodeURIComponent(format || 'html');
+    window.open(`/api/scans/${encodeURIComponent(scanId)}/report?format=${fmt}`, '_blank');
+}
+
 // The "Terminal Logs" strip button used to reveal a permanently empty
 // terminal: nothing ever wrote to #terminalLogs in any revision. Render the
 // platform's real security event stream there so the panel shows verifiable
 // content each time it is opened.
 async function loadTerminalLogs() {
-    const el = document.getElementById('terminalLogs');
-    if (!el) return;
-    el.innerHTML = '<div style="color: #94a3b8;">Loading security event stream...</div>';
+    const containers = [
+        document.getElementById('terminalLogs'),
+        document.getElementById('codeSecTerminalLogs')
+    ].filter(Boolean);
+    if (!containers.length) return;
+    containers.forEach(el => { el.innerHTML = '<div style="color: #94a3b8;">Loading security event stream...</div>'; });
     try {
         const res = await apiFetch('/api/cyber/audit-logs?limit=50');
         if (!res.ok) throw new Error('HTTP ' + res.status);
         const logs = await res.json();
         if (!Array.isArray(logs) || logs.length === 0) {
-            el.innerHTML = '<div style="color: #94a3b8;">No security events recorded yet.</div>';
+            containers.forEach(el => { el.innerHTML = '<div style="color: #94a3b8;">No security events recorded yet.</div>'; });
             return;
         }
-        el.innerHTML = logs.map(l => {
+        const html = logs.map(l => {
             const ts = (l.timestamp || '').substring(0, 19).replace('T', ' ');
             const details = l.details
                 ? `<div style="color: #cbd5e1; margin-left: 16px;">${escapeHtml(l.details)}</div>`
@@ -3539,8 +3649,9 @@ async function loadTerminalLogs() {
                 details +
                 `</div>`;
         }).join('');
+        containers.forEach(el => { el.innerHTML = html; });
     } catch (e) {
-        el.innerHTML = `<div style="color: #ef4444;">Failed to load event stream: ${escapeHtml(e.message)}</div>`;
+        containers.forEach(el => { el.innerHTML = `<div style="color: #ef4444;">Failed to load event stream: ${escapeHtml(e.message)}</div>`; });
     }
 }
 
@@ -3628,14 +3739,23 @@ async function cancelActiveScan() {
 }
 
 async function deleteActiveScan() {
-    if (!currentScanId) return;
-    if (!confirm("Delete this scan record and its findings?")) return;
+    const scanId = currentScanId || document.getElementById('activeScanId')?.textContent?.trim();
+    if (!scanId || scanId === '--') return;
+    if (!confirm(`Delete scan record ${scanId} and its findings?`)) return;
 
     try {
-        await apiFetch(`/api/scans/${currentScanId}`, { method: "DELETE" });
+        await apiFetch(`/api/scans/${scanId}`, { method: "DELETE" });
         currentScanId = null;
-        document.getElementById("activeDetailsContent").style.display = "none";
-        document.getElementById("emptyDetailsNotice").style.display = "block";
+        const pane = document.getElementById("activeDetailsContent");
+        if (pane) pane.style.display = "none";
+        const formula = document.getElementById("postureFormulaBox");
+        if (formula) formula.style.display = "none";
+        const tabRow = document.getElementById("activeScanTabRow");
+        if (tabRow) tabRow.style.display = "none";
+        const tabPanels = document.getElementById("activeScanTabPanels");
+        if (tabPanels) tabPanels.style.display = "none";
+        const emptyNotice = document.getElementById("emptyDetailsNotice");
+        if (emptyNotice) emptyNotice.style.display = "block";
         loadScans();
     } catch (e) {
         console.error(e);
@@ -3986,13 +4106,16 @@ function closePluginsModal() {
 // Blue Team Defenses (WAF, IDS, SIEM, Hardening)
 async function loadDefenses() {
     if (!currentScanId) return;
-    const container = document.getElementById("defensesContentArea");
-    if (!container) return;
+    const containers = [
+        document.getElementById("defensesContentArea"),
+        document.getElementById("apiSecDefensesArea")
+    ].filter(Boolean);
+    if (!containers.length) return;
 
     try {
         const res = await apiFetch(`/api/scans/${currentScanId}/defenses`);
         if (!res.ok) {
-            container.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 40px;">Defensive rules unavailable for this scan.</div>`;
+            containers.forEach(c => { c.innerHTML = `<div style="color: var(--text-muted); text-align: center; padding: 40px;">Defensive rules unavailable for this scan.</div>`; });
             return;
         }
 
@@ -4080,11 +4203,12 @@ async function loadDefenses() {
             `;
         });
 
-        container.innerHTML = html;
+        containers.forEach(c => { c.innerHTML = html; });
     } catch (e) {
         console.error("Failed to load defenses", e);
     }
 }
+window.loadDefensiveRules = loadDefenses;
 
 function escapeHtml(text) {
     if (text === null || text === undefined) return "";
@@ -10675,6 +10799,92 @@ async function resetAndLoadAllAgents() {
     await loadAgentsGrid(true);
 }
 
+/**
+ * Paint the "Autonomous AI Fleet" SOC KPI card from live registry data.
+ * Shared by the dashboard startup path and loadAgentsGrid() so the tile can
+ * never stay stuck in its static "Loading..." state.
+ */
+function updateSocAgentFleetKpis(summary, registryLive) {
+    const totalAgents = typeof summary.total_discovered === 'number'
+        ? summary.total_discovered
+        : (Array.isArray(allDiscoveredAgents) ? allDiscoveredAgents.length : 0);
+    const readyAgents = typeof summary.available === 'number' ? summary.available : totalAgents;
+
+    const socAgentsEl = document.getElementById('socKpiAgents');
+    if (socAgentsEl) socAgentsEl.innerHTML = `${readyAgents} <span class="soc-kpi-unit">Agents Ready</span>`;
+
+    const socTiersEl = document.getElementById('socKpiAgentTiers');
+    if (socTiersEl) {
+        const tierEntries = Object.entries(summary.tiers || {});
+        socTiersEl.innerHTML = tierEntries.length
+            ? tierEntries.map(e => `<span class="agent-tier-tag">${escapeHtml(String(e[0]).replace(/_/g, ' '))} ${escapeHtml(String(e[1]))}</span>`).join('')
+            : '<span class="agent-tier-tag">No tier data</span>';
+    }
+
+    const socStatusEl = document.getElementById('socKpiAgentStatus');
+    if (socStatusEl) {
+        socStatusEl.textContent = registryLive
+            ? `Runtime registry online · ${totalAgents} registered`
+            : 'Registry unreachable — showing cached manifest';
+    }
+}
+
+/**
+ * Dashboard startup sync for the agent fleet KPI. loadAgentsGrid() only runs
+ * when the Agents view is opened, which left this tile "Loading..." forever.
+ */
+async function syncSocAgentFleet() {
+    try {
+        const cacheBuster = `_t=${Date.now()}`;
+        const [agentsRes, summaryRes] = await Promise.all([
+            apiFetch(`/api/agents?${cacheBuster}`).catch(() => null),
+            apiFetch(`/api/agents/summary?${cacheBuster}`).catch(() => null)
+        ]);
+
+        let roster = [];
+        if (agentsRes && agentsRes.ok) {
+            const raw = await agentsRes.json().catch(() => null);
+            roster = Array.isArray(raw) ? raw
+                : ((raw && (Array.isArray(raw.items) ? raw.items : raw.agents)) || []);
+        }
+        if (!Array.isArray(roster)) roster = [];
+        if (roster.length > 0) allDiscoveredAgents = roster;
+
+        let summary = (summaryRes && summaryRes.ok)
+            ? await summaryRes.json().catch(() => null)
+            : null;
+        if (!summary || typeof summary.total_discovered !== 'number' || summary.total_discovered === 0) {
+            // Derive an honest summary from the live registry payload.
+            const source = roster.length ? roster : (Array.isArray(allDiscoveredAgents) ? allDiscoveredAgents : []);
+            const tiers = {};
+            source.forEach(a => {
+                const t = (a && (a.tier || a.category)) || 'unspecified';
+                tiers[t] = (tiers[t] || 0) + 1;
+            });
+            summary = {
+                total_discovered: source.length,
+                available: source.filter(a => a && (a.available === true || a.status === 'READY' || a.status === 'AVAILABLE')).length,
+                tiers
+            };
+        }
+
+        const registryLive = !!(agentsRes && agentsRes.ok) && !!(summaryRes && summaryRes.ok);
+        updateSocAgentFleetKpis(summary, registryLive);
+    } catch (e) {
+        console.debug('SOC agent fleet sync notice:', e);
+        const cached = Array.isArray(allDiscoveredAgents) ? allDiscoveredAgents : [];
+        const tiers = {};
+        cached.forEach(a => {
+            const t = (a && (a.tier || a.category)) || 'unspecified';
+            tiers[t] = (tiers[t] || 0) + 1;
+        });
+        updateSocAgentFleetKpis(
+            { total_discovered: cached.length, available: cached.length, tiers },
+            false
+        );
+    }
+}
+
 async function loadAgentsGrid(forceRefresh = false) {
     const container = document.getElementById('agentsGridContainer');
     if (!container) return;
@@ -10737,31 +10947,8 @@ async function loadAgentsGrid(forceRefresh = false) {
             };
         }
 
-        const totalAgents = typeof summary.total_discovered === 'number'
-            ? summary.total_discovered
-            : (Array.isArray(allDiscoveredAgents) ? allDiscoveredAgents.length : 0);
-        const readyAgents = typeof summary.available === 'number' ? summary.available : totalAgents;
         const registryLive = !!(agentsRes && agentsRes.ok) && !!(summaryRes && summaryRes.ok);
-
-        const ctxEl = document.getElementById('ctxActiveAgents');
-        if (ctxEl) ctxEl.textContent = `${readyAgents}/${totalAgents} Ready`;
-
-        // SOC KPI card: genuine runtime agent health (never a permanent spinner).
-        const socAgentsEl = document.getElementById('socKpiAgents');
-        if (socAgentsEl) socAgentsEl.innerHTML = `${readyAgents} <span class="soc-kpi-unit">Agents Ready</span>`;
-        const socTiersEl = document.getElementById('socKpiAgentTiers');
-        if (socTiersEl) {
-            const tierEntries = Object.entries(summary.tiers || {});
-            socTiersEl.innerHTML = tierEntries.length
-                ? tierEntries.map(e => `<span class="agent-tier-tag">${escapeHtml(String(e[0]).replace(/_/g, ' '))} ${e[1]}</span>`).join('')
-                : '<span class="agent-tier-tag">No tier data</span>';
-        }
-        const socStatusEl = document.getElementById('socKpiAgentStatus');
-        if (socStatusEl) {
-            socStatusEl.textContent = registryLive
-                ? `Runtime registry online · ${totalAgents} registered`
-                : 'Registry unreachable — showing cached manifest';
-        }
+        updateSocAgentFleetKpis(summary, registryLive);
 
         // Update KPI Counters using values derived from the live registry.
         if (summary.tiers) {
@@ -12730,22 +12917,39 @@ async function loadAcceptanceCategoriesChecklist() {
         if (!res.ok) return;
         const data = await res.json();
 
-        if (!data.sections || data.sections.length === 0) {
+        // The API returns sections as a keyed object (A_summary, B_..., ...)
+        // whose values are arrays of checks. Normalize it to the array shape
+        // this widget expects; skip the non-check summary entry.
+        const rawSections = data.sections || {};
+        const sections = Array.isArray(rawSections)
+            ? rawSections
+            : Object.entries(rawSections)
+                .filter(([, value]) => Array.isArray(value))
+                .map(([key, items]) => ({
+                    title: String(key).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
+                    items
+                }));
+
+        if (sections.length === 0) {
             container.innerHTML = '<div style="color: var(--text-muted); padding: 16px;">Acceptance checklist criteria initialized.</div>';
             return;
         }
 
-        container.innerHTML = data.sections.map((sec, idx) => {
-            const passCount = sec.items ? sec.items.filter(i => i.status === 'PASS').length : 0;
+        container.innerHTML = sections.map((sec, idx) => {
+            const passCount = sec.items ? sec.items.filter(i => (i && i.status) === 'PASS').length : 0;
             const totalCount = sec.items ? sec.items.length : 0;
+            const allPass = totalCount > 0 && passCount === totalCount;
+            const badgeStyle = allPass
+                ? 'background: rgba(16, 185, 129, 0.15); color: #10b981;'
+                : 'background: rgba(245, 158, 11, 0.15); color: #fbbf24;';
             return `
                 <div style="background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <strong style="color: var(--text-title); font-size: 13.5px;">§${idx + 1}. ${escapeHtml(sec.title)}</strong>
+                            <strong style="color: var(--text-title); font-size: 13.5px;">§${idx + 1}. ${escapeHtml(sec.title || sec.name || '')}</strong>
                             <span style="font-size: 12px; color: var(--text-muted); margin-left: 10px;">(${passCount}/${totalCount} Verified)</span>
                         </div>
-                        <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; font-size: 11px; padding: 2px 7px;">VERIFIED PASS</span>
+                        <span class="badge" style="${badgeStyle} font-weight: 700; font-size: 11px; padding: 2px 7px;">${allPass ? 'VERIFIED PASS' : 'PARTIAL'}</span>
                     </div>
                 </div>
             `;
@@ -13630,9 +13834,6 @@ function syncSocMetrics() {
             if (!Array.isArray(findings)) return;
             allFindingsCache = findings;
             const total = findings.length;
-            const crit = findings.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
-            const high = findings.filter(f => (f.severity || '').toLowerCase() === 'high').length;
-            const med = findings.filter(f => (f.severity || '').toLowerCase() === 'medium').length;
 
             // Deduplicate findings using canonical title + endpoint key
             const seenDedupKeys = new Set();
@@ -13647,8 +13848,54 @@ function syncSocMetrics() {
                 }
             }
 
+            // Prefer the canonical posture counts (core/scoring.py) so this
+            // badge agrees with the grade instead of the duplicate-heavy
+            // findings page. Fall back to the deduplicated page when the
+            // posture endpoint is unavailable.
+            const canonicalCounts = (postureData && postureData.counts) || null;
+            const crit = canonicalCounts ? (canonicalCounts.CRITICAL || 0)
+                : uniqueFindings.filter(f => (f.severity || '').toLowerCase() === 'critical').length;
+            const high = canonicalCounts ? (canonicalCounts.HIGH || 0)
+                : uniqueFindings.filter(f => (f.severity || '').toLowerCase() === 'high').length;
+            const med = canonicalCounts ? (canonicalCounts.MEDIUM || 0)
+                : uniqueFindings.filter(f => (f.severity || '').toLowerCase() === 'medium').length;
+
             const totalEl = document.getElementById('socKpiVulnsTotal');
             if (totalEl) totalEl.innerHTML = `${uniqueFindings.length} <span class="soc-kpi-unit">Findings</span>`;
+
+            // Replace the static "Loading..." severity badge and the empty
+            // distribution bars with the same deduplicated counts used above.
+            const sevEl = document.getElementById('socKpiVulnsSeverity');
+            if (sevEl) {
+                const totalUnique = uniqueFindings.length || 1;
+                if (uniqueFindings.length === 0) {
+                    sevEl.className = 'sev-tag sev-low';
+                    sevEl.textContent = 'No findings';
+                } else if (crit > 0) {
+                    sevEl.className = 'sev-tag sev-crit';
+                    sevEl.textContent = `${crit} CRITICAL · ${high} HIGH`;
+                } else if (high > 0) {
+                    sevEl.className = 'sev-tag sev-high';
+                    sevEl.textContent = `${high} HIGH · ${med} MEDIUM`;
+                } else {
+                    sevEl.className = 'sev-tag sev-med';
+                    sevEl.textContent = `${med} MEDIUM · ${uniqueFindings.length - med} LOW`;
+                }
+                const highPct = ((crit + high) / totalUnique) * 100;
+                const medPct = (med / totalUnique) * 100;
+                const lowPct = (Math.max(0, uniqueFindings.length - crit - high - med) / totalUnique) * 100;
+                const bars = [
+                    ['socKpiBarHigh', highPct, `${crit + high} critical/high findings`],
+                    ['socKpiBarMed', medPct, `${med} medium findings`],
+                    ['socKpiBarLow', lowPct, `low/info findings`]
+                ];
+                bars.forEach(([id, pct, title]) => {
+                    const bar = document.getElementById(id);
+                    if (!bar) return;
+                    bar.style.width = `${Math.min(100, Math.max(0, pct))}%`;
+                    bar.title = title;
+                });
+            }
 
             // Use the canonical backend posture (core/scoring.py). Do NOT
             // compute a second, conflicting score in the browser. When no
@@ -13665,6 +13912,23 @@ function syncSocMetrics() {
                     gradeEl.innerHTML = `${gradeText} <span class="soc-kpi-unit">${detail}</span>`;
                     gradeEl.style.color = gradeColor;
                 }
+                // Replace the static "Awaiting telemetry" badge and progress
+                // bar with the canonical posture result.
+                const statusEl = document.getElementById('socKpiPostureStatus');
+                if (statusEl) {
+                    const riskLabel = String(postureData.risk || '').split(' - ')[0].trim();
+                    statusEl.textContent = riskLabel || `${postureData.total || 0} findings scored`;
+                    statusEl.className = 'defense-tag ' +
+                        (score >= 80 ? 'tag-safe' : (score >= 60 ? 'tag-verified' : 'tag-patch'));
+                }
+                const fillEl = document.getElementById('socKpiPostureFill');
+                if (fillEl) {
+                    const pct = Math.min(100, Math.max(0, score));
+                    fillEl.style.width = `${pct}%`;
+                    fillEl.style.background = score >= 60
+                        ? 'linear-gradient(90deg, #10B981 0%, #34D399 100%)'
+                        : 'linear-gradient(90deg, #EF4444 0%, #F87171 100%)';
+                }
                 const postureEl = document.getElementById('ctxPostureGrade');
                 if (postureEl) {
                     postureEl.textContent = `${gradeText} ${detail}`;
@@ -13674,6 +13938,10 @@ function syncSocMetrics() {
             } else {
                 const gradeEl = document.getElementById('socKpiGrade');
                 if (gradeEl) { gradeEl.innerHTML = gradeText; gradeEl.style.color = gradeColor; }
+                const statusEl = document.getElementById('socKpiPostureStatus');
+                if (statusEl) { statusEl.textContent = 'Awaiting assessment'; statusEl.className = 'defense-tag tag-safe'; }
+                const fillEl = document.getElementById('socKpiPostureFill');
+                if (fillEl) fillEl.style.width = '0%';
                 const postureEl = document.getElementById('ctxPostureGrade');
                 if (postureEl) {
                     postureEl.textContent = 'Awaiting completed assessment';
@@ -13765,9 +14033,14 @@ function syncSocTargetScope() {
 
 // Hook into initial page lifecycle
 if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => { syncSocMetrics(); syncSocTargetScope(); });
+    document.addEventListener('DOMContentLoaded', () => {
+        syncSocMetrics();
+        syncSocAgentFleet();
+        syncSocTargetScope();
+    });
 } else {
     syncSocMetrics();
+    syncSocAgentFleet();
     syncSocTargetScope();
 }
 

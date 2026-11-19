@@ -119,7 +119,7 @@ class NativeScannerBridge:
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=20.0)
             if proc.returncode == 0 and stdout:
-                data = json.loads(stdout.decode("utf-8", errors="ignore"))
+                data = json.loads(stdout.decode("utf-8", errors="ignore"), strict=False)
                 return data.get("subdomains", [])
         except Exception as e:
             logger.warning(f"Native C++ subdomain probe fallback triggered: {e}")
@@ -155,7 +155,7 @@ class NativeScannerBridge:
             )
             stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=25.0)
             if proc.returncode == 0 and stdout:
-                return json.loads(stdout.decode("utf-8", errors="ignore"))
+                return json.loads(stdout.decode("utf-8", errors="ignore"), strict=False)
         except Exception as e:
             logger.warning(f"Native C++ full scan execution failed: {e}")
             return None

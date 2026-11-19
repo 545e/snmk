@@ -514,12 +514,12 @@
                 <div class="soc-kpi-body">
                     <div class="soc-kpi-number" id="socKpiVulnsTotal">&mdash; <span class="soc-kpi-unit">Findings</span></div>
                     <div class="soc-kpi-subtags">
-                        <span class="sev-tag sev-crit">Loading&hellip;</span>
+                        <span class="sev-tag sev-crit" id="socKpiVulnsSeverity">Loading&hellip;</span>
                     </div>
                     <div class="soc-kpi-bar-track">
-                        <div class="soc-kpi-bar-fill fill-high" style="width: 0%;" title="Awaiting live data"></div>
-                        <div class="soc-kpi-bar-fill fill-med" style="width: 0%;" title="Awaiting live data"></div>
-                        <div class="soc-kpi-bar-fill fill-low" style="width: 0%;" title="Awaiting live data"></div>
+                        <div class="soc-kpi-bar-fill fill-high" id="socKpiBarHigh" style="width: 0%;" title="Awaiting live data"></div>
+                        <div class="soc-kpi-bar-fill fill-med" id="socKpiBarMed" style="width: 0%;" title="Awaiting live data"></div>
+                        <div class="soc-kpi-bar-fill fill-low" id="socKpiBarLow" style="width: 0%;" title="Awaiting live data"></div>
                     </div>
                 </div>
             </button>
@@ -555,10 +555,10 @@
                 <div class="soc-kpi-body">
                     <div class="soc-kpi-number" id="socKpiGrade">Grade &mdash; <span class="soc-kpi-unit"></span></div>
                     <div class="soc-kpi-subtags">
-                        <span class="defense-tag tag-safe">Awaiting telemetry</span>
+                        <span class="defense-tag tag-safe" id="socKpiPostureStatus">Awaiting telemetry</span>
                     </div>
                     <div class="soc-posture-progress">
-                        <div class="soc-posture-fill" style="width: 0%;"></div>
+                        <div class="soc-posture-fill" id="socKpiPostureFill" style="width: 0%;"></div>
                     </div>
                 </div>
             </button>
@@ -1218,7 +1218,7 @@
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
                         <span>Stop Assessment</span>
                     </button>
-                    <button class="btn btn-secondary" onclick="navToView('vulnerabilities')" style="padding: 7px 14px; font-size: 12px;">
+                    <button class="btn btn-secondary" id="btnActiveViewFindings" onclick="viewActiveScanFindings()" style="padding: 7px 14px; font-size: 12px;" title="View verified findings for this active assessment">
                         <span>View Findings</span>
                     </button>
                     <button class="btn btn-danger" onclick="deleteActiveScan()" style="padding: 7px 14px; font-size: 12px;">
@@ -1277,7 +1277,7 @@
 
 <!-- Tab Row with Crisp Inline SVGs -->
 
-                    <div class="tab-row">
+                    <div class="tab-row" id="activeScanTabRow">
 
                         <button class="tab-item active" onclick="switchWorkspaceTab('tabFindings', this)">
 
@@ -1452,9 +1452,93 @@
 
                     </div>
 
+                    <!-- Dashboard Assessment Telemetry Tab Panels -->
+                    <div id="activeScanTabPanels" class="swa-telemetry-panels" style="margin-top: 18px;">
+                        <!-- Tab 1: Findings for Active Assessment -->
+                        <div id="tabFindings" class="tab-content" style="display: block;">
+                            <div id="dashFindingsContainer">
+                                <div style="color: var(--text-muted); text-align: center; padding: 40px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                                    No vulnerabilities confirmed yet. Probing target endpoints...
+                                </div>
+                            </div>
+                        </div>
 
+                        <!-- Tab 2: Discovered Subdomains -->
+                        <div id="tabSubdomains" class="tab-content" style="display: none;">
+                            <div id="subdomainsContainer">
+                                <div style="color: var(--text-muted); text-align: center; padding: 40px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                                    Subdomain discovery in progress...
+                                </div>
+                            </div>
+                        </div>
 
-                    <!-- Tab 1: Findings -->
+                        <!-- Tab 3: Fuzzed Assets -->
+                        <div id="tabFuzzing" class="tab-content" style="display: none;">
+                            <div id="fuzzingContainer">
+                                <div style="color: var(--text-muted); text-align: center; padding: 40px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                                    Fuzzing paths and parameter anomalies...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 4: Blue Team Defenses -->
+                        <div id="tabDefenses" class="tab-content" style="display: none;">
+                            <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <h3 style="font-size: 15px; font-weight: 700; color: var(--text-title); margin: 0;">Automated Blue Team & WAF Rules</h3>
+                                    <p style="font-size: 12px; color: var(--text-muted); margin: 3px 0 0 0;">Tailored ModSecurity WAF rules, Suricata/Snort signatures, and Nginx hardening blocks.</p>
+                                </div>
+                                <button class="btn btn-secondary" onclick="loadDefenses()" style="padding: 5px 12px; font-size: 12px;">↻ Regenerate Rules</button>
+                            </div>
+                            <div id="defensesContentArea">
+                                <div style="color: var(--text-muted); text-align: center; padding: 40px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                                    Select an assessment to generate tailored defensive rules.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 5: Forensics & Footprints -->
+                        <div id="tabForensics" class="tab-content" style="display: none;">
+                            <div id="forensicsContainer">
+                                <div style="color: var(--text-muted); text-align: center; padding: 40px; background: var(--bg-card); border: 1px dashed var(--border); border-radius: 8px;">
+                                    Incident forensic evidence and target attack footprints will appear here.
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Tab 6: Terminal Logs -->
+                        <div id="tabLogs" class="tab-content" style="display: none;">
+                            <div style="margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 12.5px; font-weight: 700; color: var(--text-title);">Live Security Audit Stream</span>
+                                <button class="btn btn-secondary" onclick="loadTerminalLogs()" style="padding: 4px 10px; font-size: 11px;">↻ Refresh Stream</button>
+                            </div>
+                            <div class="cyber-terminal" id="terminalLogs" style="background: #080c14; border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: var(--mono); font-size: 12px; max-height: 400px; overflow-y: auto; color: #94a3b8;">
+                                Loading security event stream...
+                            </div>
+                        </div>
+
+                        <!-- Tab 7: Export Reports -->
+                        <div id="tabReports" class="tab-content" style="display: none;">
+                            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 22px;">
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; flex-wrap: wrap; gap: 10px;">
+                                    <div>
+                                        <h3 style="margin: 0 0 4px 0; font-size: 16px; font-weight: 700; color: var(--text-title);">Download Assessment Deliverables</h3>
+                                        <p style="color: var(--text-muted); font-size: 12.5px; margin: 0;">
+                                            Generate audit-ready reports formatted for engineering, devops, and security leadership.
+                                        </p>
+                                    </div>
+                                    <span class="badge" style="background: rgba(16, 185, 129, 0.15); color: #10b981; font-weight: 700; font-size: 11px; padding: 4px 10px; border-radius: 6px;">COMPLIANCE READY</span>
+                                </div>
+                                <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                                    <button class="btn btn-primary" onclick="downloadActiveScanReport('html')" style="padding: 8px 16px; font-size: 12.5px;">📄 Executive HTML Report</button>
+                                    <button class="btn btn-secondary" onclick="downloadActiveScanReport('sarif')" style="padding: 8px 16px; font-size: 12.5px;">🛡️ SARIF 2.1.0 (GitHub / DefectDojo)</button>
+                                    <button class="btn btn-secondary" onclick="downloadActiveScanReport('json')" style="padding: 8px 16px; font-size: 12.5px;">💾 Structured JSON</button>
+                                    <button class="btn btn-secondary" onclick="downloadActiveScanReport('markdown')" style="padding: 8px 16px; font-size: 12.5px;">📝 Markdown Pentest Report</button>
+                                    <button class="btn btn-secondary" onclick="downloadActiveScanReport('pdf')" style="padding: 8px 16px; font-size: 12.5px;">📑 Executive PDF Brief</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
 
         </div><!-- /viewDashboard -->
 
@@ -2758,7 +2842,7 @@
     </div>
 
     <!-- Backward Compatibility Hook for older handlers -->
-    <div id="tabFindings" class="tab-content" style="display: none;">
+    <div id="tabFindingsLegacy" class="tab-content" style="display: none;">
         <div id="findingsContainer"></div>
     </div>
 </div><!-- /viewVulnerabilities -->
@@ -3062,9 +3146,9 @@ Content-Type: application/json
         </div>
     </div>
 
-<div id="tabSubdomains" class="tab-content" style="display: block;">
+<div id="viewNetSecTabSubdomains" class="tab-content" style="display: block;">
 
-                        <div id="subdomainsContainer">
+                        <div id="netSecSubdomainsContainer">
 
                             <div style="color: var(--text-muted); text-align: center; padding: 40px;">
 
@@ -3094,9 +3178,9 @@ Content-Type: application/json
 
 <!-- Tab 3: Fuzzing Assets -->
 
-                    <div id="tabFuzzing" class="tab-content" style="display: block;">
+                    <div id="viewWebSecTabFuzzing" class="tab-content" style="display: block;">
 
-                        <div id="fuzzingContainer">
+                        <div id="webSecFuzzingContainer">
 
                             <div style="color: var(--text-muted); text-align: center; padding: 40px;">
 
@@ -3366,7 +3450,7 @@ Content-Type: application/json
     </div>
     <!-- Tab: Blue Team Defenses (WAF, IDS, SIEM, Hardening) -->
 
-                    <div id="tabDefenses" class="tab-content" style="display: block;">
+                    <div id="viewApiSecTabDefenses" class="tab-content" style="display: block;">
 
                         <div style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
 
@@ -3382,7 +3466,7 @@ Content-Type: application/json
 
                         </div>
 
-                        <div id="defensesContentArea">
+                        <div id="apiSecDefensesArea">
 
                             <div style="color: var(--text-muted); text-align: center; padding: 40px;">
 
@@ -3407,7 +3491,7 @@ Content-Type: application/json
     </div>
     <!-- Tab: Digital Forensics & Attack Footprints (DFIR - Cross-Platform) -->
 
-                    <div id="tabForensics" class="tab-content" style="display: block;">
+                    <div id="viewCodeSecTabForensics" class="tab-content" style="display: block;">
 
                         <!-- Digital Forensics & Data Recovery Sub-Navigation -->
                         <div class="dfir-subnav-bar" style="display: flex; gap: 8px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; padding-bottom: 2px;">
@@ -3798,9 +3882,9 @@ Content-Type: application/json
 
 <!-- Tab 5: Logs -->
 
-                    <div id="tabLogs" class="tab-content" style="display: none;">
+                    <div id="viewCodeSecTabLogs" class="tab-content" style="display: none;">
 
-                        <div class="log-terminal" id="terminalLogs"></div>
+                        <div class="log-terminal" id="codeSecTerminalLogs"></div>
 
                     </div>
 
@@ -7752,7 +7836,7 @@ Content-Type: application/json
 
 
 
-    <script src="app.js?v=3.5.2"></script>
+    <script src="app.js?v=3.5.3"></script>
     <script src="digital_forensics.js"></script>
 
 <!-- ADD / EDIT / TEST API KEY MODAL -->
