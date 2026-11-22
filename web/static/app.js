@@ -16022,7 +16022,7 @@ function renderApiKeysGrid() {
     const grid = document.getElementById('apiKeysGrid');
     if (!grid) return;
 
-    const { integrations, providers, activeCategory, searchQuery } = _apiKeysState;
+    const { integrations, activeCategory, searchQuery } = _apiKeysState;
 
     // Filter integrations
     let filtered = integrations.filter(item => {

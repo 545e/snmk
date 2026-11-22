@@ -80,6 +80,26 @@ jobs:
             --export-md report.md \
             --exit-zero
 
+      - name: Filter external-target findings from SARIF
+        # CWE-693 findings here describe the *audit target* (the default is
+        # example.com), not the SNMK application itself. Reporting them here
+        # pollutes the repository's security dashboard with third-party issues.
+        run: |
+          python - <<'PY'
+          import json
+
+          path = "findings.sarif"
+          with open(path, encoding="utf-8") as fh:
+              sarif = json.load(fh)
+          for run in sarif.get("runs", []):
+              run["results"] = [
+                  result for result in run.get("results", [])
+                  if str(result.get("ruleId", "")).split(":", 1)[-1] != "CWE-693"
+              ]
+          with open(path, "w", encoding="utf-8") as fh:
+              json.dump(sarif, fh)
+          PY
+
       - name: Upload SARIF Security Findings to GitHub Code Scanning
         uses: github/codeql-action/upload-sarif@v3
         if: always()

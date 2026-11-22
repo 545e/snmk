@@ -24,7 +24,9 @@ from core.error_sanitizer import safe_log_text
 logger = logging.getLogger("snmk.map.interfaces")
 
 
-_cached_network_info: tuple[float, LocalNetworkInfo] | None = None
+# Mutable cache container: updating entries avoids reassigning a module global,
+# which static analysers flag as an unused global variable.
+_network_cache: dict[str, object] = {"at": 0.0, "info": None}
 _NETWORK_CACHE_TTL_SEC: float = 60.0
 
 
@@ -214,12 +216,12 @@ def get_network_interfaces() -> list[NetworkInterfaceInfo]:
 
 def get_local_network_info(force_refresh: bool = False) -> LocalNetworkInfo:
     """Compiles complete local network posture for MAP dashboard."""
-    global _cached_network_info
     now = time.time()
-    if not force_refresh and _cached_network_info is not None:
-        cached_time, cached_val = _cached_network_info
-        if (now - cached_time) < _NETWORK_CACHE_TTL_SEC:
-            return cached_val
+    cached = _network_cache
+    cached_info = cached["info"]
+    if not force_refresh and cached_info is not None:
+        if (now - float(cached["at"])) < _NETWORK_CACHE_TTL_SEC:
+            return cached_info
 
     hostname = socket.gethostname()
     interfaces = get_network_interfaces()
@@ -284,5 +286,6 @@ def get_local_network_info(force_refresh: bool = False) -> LocalNetworkInfo:
         capture_driver_installed=capture_ok,
         capture_driver_type=driver_type
     )
-    _cached_network_info = (now, res)
+    _network_cache["at"] = now
+    _network_cache["info"] = res
     return res
