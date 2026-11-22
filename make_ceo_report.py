@@ -4,9 +4,8 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.lib import colors
 from reportlab.platypus import (BaseDocTemplate, PageTemplate, Frame, Paragraph, Spacer,
-                                Table, TableStyle, FrameBreak, Flowable)
+                                Table, TableStyle, Flowable)
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
 
 from pathlib import Path as _Path
 OUT = str(_Path(__file__).resolve().parent / "SNMK_CEO_Report.pdf")

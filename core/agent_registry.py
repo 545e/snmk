@@ -1221,7 +1221,7 @@ class AgentRegistry:
                         outputs["ast_secrets"] = len(res.get("secrets", []))
                         outputs["ast_cloud_storage"] = len(res.get("cloud_storage", []))
                     elif manifest.id == "dfir_forensics_engine":
-                        engine = cls(raw_logs="")
+                        cls(raw_logs="")
                         outputs["forensics_status"] = "Active telemetry and log analysis ready"
                         outputs["supported_formats"] = ["nginx", "apache", "iis", "syslog"]
                     elif manifest.id == "blue_team_engine":
@@ -1235,7 +1235,7 @@ class AgentRegistry:
                         det = engine.detect_waf(headers={}, body="")
                         outputs["waf_detected"] = det.get("waf_name") if isinstance(det, dict) else "None"
                     elif manifest.id == "rea_disassembler_engine":
-                        engine = cls()
+                        cls()
                         outputs["rea_status"] = "Binary reverse engineering engine initialized"
                         outputs["supported_architectures"] = ["x86", "x64", "arm64"]
                     elif manifest.id == "bug_bounty_hub":
@@ -1243,61 +1243,61 @@ class AgentRegistry:
                         progs = engine.get_all_programs() if hasattr(engine, "get_all_programs") else []
                         outputs["cataloged_bounties"] = len(progs) if isinstance(progs, list) else 90
                     elif manifest.id == "sqli_testing_engine":
-                        engine = cls()
+                        cls()
                         outputs["sqli_modes"] = ["error_based", "boolean_blind", "time_blind", "union_query"]
                     elif manifest.id == "multi_injection_suite":
-                        engine = cls()
+                        cls()
                         outputs["injection_classes"] = 27
                     elif manifest.id == "antivirus_edr_manager":
                         engine = cls() if isinstance(cls, type) else cls
                         outputs["av_edr_inventory"] = engine.get_quick_status() if hasattr(engine, "get_quick_status") else {"status": "ACTIVE"}
                     elif manifest.id == "identity_access_auditor":
-                        engine = cls()
+                        cls()
                         outputs["identity_access_audit"] = {
                             "jwt_checks": ["alg_none", "exp_validation", "tampering"],
                             "cookie_checks": ["SameSite", "Secure", "HttpOnly"]
                         }
                     elif manifest.id == "llm_security_testing_engine":
-                        engine = cls()
+                        cls()
                         outputs["llm_security_testing"] = "OWASP LLM Top 10 red team benchmark ready"
                     elif manifest.id == "ai_model_trainer":
                         engine = cls()
                         outputs["ai_compute_hardware"] = engine.hardware_info
                     elif manifest.id == "ai_evaluation_engine":
-                        engine = cls()
+                        cls()
                         outputs["eval_metrics"] = ["accuracy", "precision", "recall", "f1_score", "latency_ms"]
                     elif manifest.id == "data_management_engine":
                         engine = cls()
                         ds = engine.list_datasets() if hasattr(engine, "list_datasets") else []
                         outputs["security_datasets"] = len(ds) if isinstance(ds, list) else 0
                     elif manifest.id == "cyber_export_engine":
-                        engine = cls()
+                        cls()
                         outputs["export_formats"] = ["pdf", "sarif", "html", "csv", "json", "markdown"]
                     elif manifest.id == "cyber_test_engine":
-                        engine = cls()
+                        cls()
                         outputs["cyber_test_profiles"] = ["smoke", "security", "infrastructure", "full"]
                     elif manifest.id == "cyber_deploy_engine":
-                        engine = cls()
+                        cls()
                         outputs["deployment_stages"] = 15
                     elif manifest.id == "post_deployment_acceptance_engine":
-                        engine = cls()
+                        cls()
                         outputs["acceptance_sections"] = 10
                         outputs["acceptance_checks_total"] = 108
                     elif manifest.id == "attack_surface_intel_engine":
-                        engine = cls()
+                        cls()
                         outputs["attack_surface_graph"] = {"state": "SYNCHRONIZED", "drift_monitoring": "ACTIVE"}
                     elif manifest.id == "knowledge_graph_engine":
-                        engine = cls()
+                        cls()
                         outputs["knowledge_graph"] = {"nodes": 150, "edges": 320, "status": "ONLINE"}
                     elif manifest.id == "remediation_ticket_engine":
-                        engine = cls()
+                        cls()
                         outputs["remediation_tickets"] = {"open_tickets": 0, "sla_tiers": ["P0", "P1", "P2", "P3", "P4"]}
                     elif manifest.id == "risk_scoring_engine":
                         engine = cls()
                         posture = engine.compute_posture_score([]) if hasattr(engine, "compute_posture_score") else 100.0
                         outputs["baseline_posture_score"] = posture
                     elif manifest.id == "approval_gate_engine":
-                        engine = cls()
+                        cls()
                         outputs["approval_gate_policy"] = {"human_in_the_loop": True, "status": "ENFORCED"}
                     elif manifest.id == "app_security_hardener":
                         outputs["application_security_hardening"] = cls.audit_security_posture() if hasattr(cls, "audit_security_posture") else {"status": "HARDENED"}
@@ -1318,10 +1318,10 @@ class AgentRegistry:
                         outputs["daemon_state"] = getattr(engine, "status", "IDLE")
                         outputs["daemon_targets_file"] = _targets_file
                     elif manifest.id == "scoped_recon_assistant":
-                        engine = cls(target=target)
+                        cls(target=target)
                         outputs["scoped_assistant"] = "READY"
                     elif manifest.id == "enterprise_report_engine":
-                        engine = cls()
+                        cls()
                         outputs["supported_standards"] = ["ASVS", "NIST", "PCI-DSS", "OWASP"]
                     elif manifest.id == "vulnerability_report_generator":
                         from core.models import ScanConfig, ScanJob, ScanProfile
@@ -1330,7 +1330,7 @@ class AgentRegistry:
                             target_url=target,
                             config=ScanConfig(target_url=target, profile=ScanProfile.STANDARD),
                         )
-                        engine = cls(scan=dummy_scan, findings=[])
+                        cls(scan=dummy_scan, findings=[])
                         outputs["report_templates"] = ["executive", "technical", "developer_remediation"]
                     elif manifest.id == "queue_event_bus":
                         outputs["queue_bus_status"] = "CONNECTED"
@@ -1338,7 +1338,7 @@ class AgentRegistry:
                         engine = cls()
                         outputs["llm_gateway"] = engine.get_status()
                     elif manifest.id == "security_notifier_engine":
-                        engine = cls()
+                        cls()
                         outputs["notification_channels"] = ["console", "audit_log", "webhook", "sse"]
                     else:
                         outputs["engine_status"] = "OPERATIONAL"

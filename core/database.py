@@ -5185,7 +5185,7 @@ class Database:
 
 
 
-        from core.data_management import DatasetMetadata
+        from core.dataset_models import DatasetMetadata
 
 
 
@@ -5309,7 +5309,7 @@ class Database:
 
 
 
-        from core.data_management import DatasetMetadata
+        from core.dataset_models import DatasetMetadata
 
 
 

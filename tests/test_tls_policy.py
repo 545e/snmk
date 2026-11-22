@@ -117,9 +117,8 @@ class TestTLSVerificationPolicy(unittest.TestCase):
         mistaken for a real connection.
         """
         import ast
-        import pathlib
 
-        root = pathlib.Path(__file__).resolve().parent.parent
+        root = Path(__file__).resolve().parent.parent
         offenders = []
 
         for path in root.rglob("*.py"):

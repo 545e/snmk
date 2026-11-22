@@ -26,8 +26,8 @@ class TestToolRegistry(unittest.TestCase):
 
     def test_02_tool_metadata_fields(self):
         for tool in tool_registry.list_all():
-            self.assertTrue(len(tool.id) > 0)
-            self.assertTrue(len(tool.name) > 0)
+            self.assertGreater(len(tool.id), 0)
+            self.assertGreater(len(tool.name), 0)
             self.assertIn("type", tool.input_schema)
             self.assertIsNotNone(tool.backend_handler)
             self.assertIn(tool.status, ["active", "degraded", "external_optional"])

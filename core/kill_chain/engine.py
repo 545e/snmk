@@ -14,6 +14,7 @@ from core.kill_chain.controls_matrix import SecurityControlMatrix
 from core.kill_chain.correlation import ThreatCorrelationEngine
 from core.kill_chain.db import (
     count_evidence,
+    count_findings,
     count_incidents,
     list_evidence,
     list_findings,
@@ -42,22 +43,6 @@ from core.kill_chain.stages.installation import InstallationAnalyzer
 from core.kill_chain.stages.reconnaissance import ReconnaissanceAnalyzer
 from core.kill_chain.stages.weaponization import WeaponizationAnalyzer
 from core.kill_chain.threat_intel import ThreatIntelligenceEngine
-from core.kill_chain.controls_matrix import SecurityControlMatrix
-from core.kill_chain.ai_analyzer import KillChainAIAnalyzer
-from core.kill_chain.incident_manager import IncidentManager
-from core.kill_chain.reporter import KillChainReportGenerator
-from core.kill_chain.db import (
-    save_finding,
-    save_evidence,
-    save_indicator,
-    list_findings,
-    list_evidence,
-    list_indicators,
-    list_incidents,
-    count_incidents,
-    count_evidence,
-    count_findings,
-)
 
 
 class CyberKillChainEngine:
@@ -210,7 +195,8 @@ class CyberKillChainEngine:
         """
         all_findings = findings if findings is not None else list_findings()
         all_ev = evidence if evidence is not None else list_evidence()
-        _all_inc = incidents if incidents is not None else list_incidents()
+        if incidents is None:
+            list_incidents()
         all_ind = indicators if indicators is not None else list_indicators()
         coverage = self.controls_matrix.get_matrix()
 

@@ -58,7 +58,6 @@ class ReconnaissanceAnalyzer(BaseStageAnalyzer):
 
         # 1. Analyze Subdomains & DNS Telemetry
         subdomains = telemetry.get("subdomains", [])
-        _dns_records = telemetry.get("dns_records", {})
         if subdomains:
             ev = self.create_evidence(
                 artifact_type="SUBDOMAIN_INVENTORY",

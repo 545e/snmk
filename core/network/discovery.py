@@ -99,7 +99,6 @@ class DeviceDiscoveryEngine:
                 if len(parts) >= 3:
                     ip_candidate = parts[0]
                     mac_candidate = parts[1]
-                    _entry_type = parts[2].lower()
 
                     # Filter out multicast/broadcast ranges
                     if ip_candidate.startswith("224.") or ip_candidate.startswith("239.") or ip_candidate.endswith(".255"):

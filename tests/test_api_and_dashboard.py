@@ -77,7 +77,7 @@ class TestApiAndDashboard(unittest.TestCase):
         resp_lab = self.client.post("/api/scans", json={"target_url": "http://127.0.0.1:8000", "profile": "lab_assessment"})
         self.assertEqual(resp_lab.status_code, 200)
         scan_id = resp_lab.json()["id"]
-        self.assertTrue(len(scan_id) > 0)
+        self.assertGreater(len(scan_id), 0)
 
     def test_05_scan_status_and_cancellation(self):
         """Scan creation, retrieval, and clean cancellation endpoints."""
@@ -129,7 +129,7 @@ class TestApiAndDashboard(unittest.TestCase):
         
         # Retrieve findings
         findings = db.list_findings(scan_id)
-        self.assertTrue(len(findings) >= 1)
+        self.assertGreaterEqual(len(findings), 1)
         target_f = next(f for f in findings if f.id == "FIND-TEST-9999")
         self.assertEqual(target_f.confidence, "Confirmed")
         self.assertEqual(target_f.detection_method, "Active PoC Probe")

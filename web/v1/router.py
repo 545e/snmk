@@ -34,7 +34,6 @@ from core.models import (
     ScanProfile,
     ScanStatus,
 )
-from core.scope_policy import scope_policy
 from core.tool_registry import tool_registry
 from core.error_sanitizer import safe_error
 
@@ -444,8 +443,7 @@ async def v1_get_assessment_findings(scan_id: str):
 @v1_router.get("/assessments/{scan_id}/logs")
 async def v1_get_assessment_logs(scan_id: str):
     """Get real-time execution telemetry logs for an assessment."""
-    from web.server import get_scan_logs
-    logs = await get_scan_logs(scan_id)
+    logs = db.get_logs(scan_id)
     return v1_envelope(data=logs)
 
 

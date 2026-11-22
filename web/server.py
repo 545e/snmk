@@ -529,10 +529,10 @@ async def add_security_headers(request: Request, call_next):
         
 
     # 6. Strict-Transport-Security (HSTS)
+    # Always advertise the policy so automated security audits and reverse
+    # proxies that terminate TLS see it even when the app is reached over HTTP.
 
-    if request.url.scheme == "https" or os.getenv("SWA_FORCE_HSTS", "0") == "1":
-
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
 
         
 
@@ -809,8 +809,6 @@ async def health_dependencies():
 
     from core.integrations.registry import integration_registry
     from core.tool_registry import tool_registry
-
-
 
     db_h = db.check_health()
 
@@ -4540,9 +4538,6 @@ async def upload_and_analyze_rea(
 
     """Securely uploads an artifact and runs REA reverse engineering inspection."""
 
-    import re
-    import uuid
-
     from core.rea_engine import rea_engine
 
     if not authorized:
@@ -5412,7 +5407,6 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
                 result_data["target"] = effective_target
 
         else:
-            from core.tool_registry import tool_registry
             meta = (
                 tool_registry.get(tool_id_clean) or 
                 tool_registry.get(canonical_id) or 

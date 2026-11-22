@@ -75,12 +75,9 @@ def record_alert(severity: str) -> None:
 def otel_status() -> dict[str, Any]:
     """Reports whether OpenTelemetry tracing is genuinely enabled."""
     enabled = os.environ.get("SWA_OTEL_ENABLED", "0").lower() in ("1", "true", "yes", "on")
-    try:
-        import opentelemetry.sdk  # noqa: F401
+    import importlib.util
 
-        installed = True
-    except ImportError:
-        installed = False
+    installed = importlib.util.find_spec("opentelemetry.sdk") is not None
     return {
         "otel_sdk_installed": installed,
         "tracing_enabled": bool(enabled and installed),

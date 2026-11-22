@@ -74,7 +74,7 @@ class PostDeploymentChecklistEngine:
 
         git_meta = self._get_git_metadata()
         av_telemetry = antivirus_edr_manager.get_live_host_telemetry()
-        _tool_inv = ScannerIntegrations.get_tool_inventory()
+        ScannerIntegrations.get_tool_inventory()
 
         # Section A: Deployment Summary
         summary = {

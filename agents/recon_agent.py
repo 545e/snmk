@@ -192,7 +192,7 @@ class ReconAgent:
             from core.cyber_tools import _validate_safe_target_url
             safe_target = _validate_safe_target_url(self.base_url)
             if not safe_target:
-                await self.log(f"Target host is invalid or points to restricted address space; skipping external HTTP inspection.", "WARN")
+                await self.log("Target host is invalid or points to restricted address space; skipping external HTTP inspection.", "WARN")
                 return
 
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False)) as client:

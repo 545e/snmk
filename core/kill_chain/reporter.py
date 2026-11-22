@@ -544,7 +544,6 @@ pre {{
         crit = sum(1 for f in findings if f.severity == SeverityEnum.CRITICAL)
         high = sum(1 for f in findings if f.severity == SeverityEnum.HIGH)
         med = sum(1 for f in findings if f.severity == SeverityEnum.MEDIUM)
-        _low = sum(1 for f in findings if f.severity == SeverityEnum.LOW)
 
         summary_data = [
             ["Metric", "Value", "Metric", "Value"],

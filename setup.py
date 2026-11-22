@@ -5,7 +5,6 @@ Package configuration and installation setup.
 """
 
 from setuptools import setup, find_packages
-import os
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()

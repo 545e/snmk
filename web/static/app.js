@@ -2132,7 +2132,6 @@ function updateVulnMetricsUI(m) {
     if (Array.isArray(m.severity_distribution)) {
         let summaryParts = [];
         m.severity_distribution.forEach(sd => {
-            const sev = sd.severity.toLowerCase();
             const segEl = document.getElementById(`vfBar${sd.severity.charAt(0) + sd.severity.slice(1).toLowerCase()}`);
             if (segEl) {
                 segEl.style.width = `${sd.percentage}%`;
@@ -2450,7 +2449,6 @@ function getFindingPlainEnglishSummary(f) {
     const method = (f.method || 'GET').toUpperCase();
     const resp = f.response_evidence || '';
     const expl = f.poc_explanation || '';
-    const desc = f.description || '';
     const cwe = f.cwe_id || '';
 
     // 1. Extract or determine HTTP Status Code
@@ -6846,7 +6844,7 @@ async function triageFinding(findingId, status) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ status: status })
         });
-        const data = await res.json();
+        await res.json();
         
         // Update in-memory state
         const targetFinding = activeFindings.find(f => f.id === findingId);
@@ -6902,7 +6900,7 @@ async function loadToolInventoryStatus() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const inv = await res.json();
         let cards = '';
-        for (const [key, tool] of Object.entries(inv)) {
+        for (const tool of Object.values(inv)) {
             const isInstalled = tool.installed;
             const badgeColor = isInstalled ? '#10b981' : '#f59e0b';
             const badgeBg = isInstalled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.15)';
@@ -8263,8 +8261,6 @@ async function initiateDeployAction() {
     const stepText = document.getElementById('deployCurrentStepText');
     const badge = document.getElementById('deployStatusBadge');
     const bar = document.getElementById('deployProgressBar');
-    const approvalArea = document.getElementById('deployApprovalArea');
-    const rollbackArea = document.getElementById('deployRollbackArea');
 
     if (btn) { btn.disabled = true; btn.textContent = 'Deploying...'; }
     if (term) term.textContent = `[${new Date().toISOString()}] Initiating deployment for environment: ${env.toUpperCase()}...\n`;
@@ -13852,7 +13848,6 @@ function syncSocMetrics() {
             const findings = Array.isArray(payload) ? payload : ((payload && payload.items) || []);
             if (!Array.isArray(findings)) return;
             allFindingsCache = findings;
-            const total = findings.length;
 
             // Deduplicate findings using canonical title + endpoint key
             const seenDedupKeys = new Set();
@@ -16073,7 +16068,6 @@ function renderApiKeysGrid() {
 
     let cardsHtml = '';
     for (const item of filtered) {
-        const provMeta = providers.find(p => p.provider_id === item.provider_id) || {};
         const catLabel = _categoryLabels[item.category] || item.category;
 
         // Status badge styling
@@ -16759,7 +16753,6 @@ function updateToolHealthIndicators(data) {
     if (!data) return;
     const btn = document.getElementById('topNavToolHealthBtn');
     const textEl = document.getElementById('topNavToolHealthText');
-    const dotEl = document.getElementById('toolHealthStatusDot');
     const pillEl = document.getElementById('socNavToolHealthPill');
     const tdcBadge = document.getElementById('tdcStatusBadge');
 
@@ -17155,7 +17148,7 @@ async function executeConfirmedInstallation() {
                 await pollInstallJob(data.job_id, statusEl, detailEl);
             }
         } else {
-            const res = await apiFetch('/api/tools/install-all', {
+            await apiFetch('/api/tools/install-all', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ tool_ids: toolsToInstall, skip_healthy: true })

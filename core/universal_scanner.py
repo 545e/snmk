@@ -435,7 +435,7 @@ class UniversalScannerEngine:
 
             with socket.create_connection((hostname, port), timeout=6.0) as sock:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                    _cert = ssock.getpeercert(binary_form=True)
+                    ssock.getpeercert(binary_form=True)
                     version = ssock.version()
                     cipher = ssock.cipher()
 
@@ -1340,15 +1340,15 @@ class UniversalScannerEngine:
 
         elif format_type in ("md", "markdown"):
             md = [
-                f"# SNMK Universal Vulnerability Scanner Report",
+                "# SNMK Universal Vulnerability Scanner Report",
                 f"**Target:** `{job.target}` | **Scan ID:** `{job.id}` | **Date:** {job.completed_at or job.started_at}",
-                f"",
-                f"### Executive Summary",
+                "",
+                "### Executive Summary",
                 f"- **Total Findings:** {job.total_findings}",
                 f"- **Critical:** {job.critical_count} | **High:** {job.high_count} | **Medium:** {job.medium_count} | **Low:** {job.low_count} | **Informational:** {job.info_count}",
                 f"- **Status:** {job.status}",
-                f"",
-                f"### Detailed Findings",
+                "",
+                "### Detailed Findings",
             ]
             for idx, f in enumerate(job.findings, 1):
                 md.append(f"#### {idx}. [{f.severity}] {f.finding_title}")

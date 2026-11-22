@@ -560,12 +560,12 @@ class ScannerIntegrations:
             elif t_id == "clamav":
                 fc = ScannerIntegrations._find_binary("freshclam")
                 if fc:
-                    p = subprocess.run([fc, "--quiet"], capture_output=True, text=True, timeout=3.0)
+                    subprocess.run([fc, "--quiet"], capture_output=True, text=True, timeout=3.0)
                     output_msg = "ClamAV virus database definitions updated."
                 else:
                     output_msg = "ClamAV engine active. Signatures verified."
             elif t_id == "trivy":
-                p = subprocess.run([binary, "image", "--download-db-only"], capture_output=True, text=True, timeout=3.0)
+                subprocess.run([binary, "image", "--download-db-only"], capture_output=True, text=True, timeout=3.0)
                 output_msg = "Trivy vulnerability database synchronized."
             elif t_id == "semgrep":
                 p = subprocess.run([binary, "--version"], capture_output=True, text=True, timeout=3.0)

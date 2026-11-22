@@ -1267,7 +1267,6 @@ class PluginA09_LoggingMonitoring(BaseSecurityPlugin):
         findings = []
         for ep in endpoints[:4]:
             try:
-                _parsed = urlparse(ep.url)
                 test_url = f"{ep.url}?__test_probe=%ff%fe%fd"
                 r = await client.get(test_url, timeout=3.0)
                 if r.status_code in [401, 403]:

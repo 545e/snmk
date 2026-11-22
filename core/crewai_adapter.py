@@ -553,7 +553,7 @@ def create_universal_scanner_crew(scan_type: str = "all", target: str = "") -> S
             tools=["risk_engine", "severity_classifier", "remediation_planner"]
         ),
         CrewAITaskConfig(
-            description=f"Format assessment output into standard enterprise report formats",
+            description="Format assessment output into standard enterprise report formats",
             expected_output="Multi-format report bundle (JSON, HTML, SARIF, Markdown, CSV)",
             agent_role="Report Generation Agent",
             tools=["report_generator", "sarif_builder"]

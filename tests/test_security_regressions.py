@@ -103,7 +103,7 @@ class TestSecretScrubbing:
 
     def test_memory_metadata_is_scrubbed(self, tmp_path, monkeypatch):
         """The metadata blob is persisted verbatim unless it is scrubbed."""
-        import core.agent_memory as am
+        from core import agent_memory as am
 
         rows = []
 
