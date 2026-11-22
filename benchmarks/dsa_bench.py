@@ -10,13 +10,12 @@ import json
 import sys
 import time
 import statistics
-from typing import Any, Dict, List
+from typing import Dict, List
 
 sys.path.insert(0, ".")
 
-from core.rag_engine import rag_engine, _tokenize, RetrievalResult
-from core.knowledge_graph import GraphNode, GraphEdge, GraphNodeType, SecurityKnowledgeGraph
-from core.scoring import canonical_finding_key, SEVERITY_WEIGHTS
+from core.rag_engine import rag_engine, _tokenize
+from core.knowledge_graph import GraphNode, GraphEdge, GraphNodeType
 from core.scanner_integrations import ScannerIntegrations
 
 
@@ -71,7 +70,7 @@ def bench_rag_retrieval():
     # Old-path simulation: un-cached TF parsing of ALL project chunks per query
     def old_retrieve_like(q: str):
         from core.rag_engine import db as _db
-        q_terms = _tokenize(q)
+        _tokenize(q)
         with _db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -81,7 +80,7 @@ def bench_rag_retrieval():
             """, (project,))
             rows = cursor.fetchall()
         for r in rows:
-            tf = json.loads(r["tf_json"] or "{}")
+            json.loads(r["tf_json"] or "{}")
         return len(rows)
     print(f"retrieve() OLD un-cached TF parse stage only: {time_it(lambda: old_retrieve_like(queries[0]), repeat=10):.2f} ms best (json.loads all chunks)")
 

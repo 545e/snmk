@@ -22,16 +22,14 @@ import os
 import re
 import shutil
 import socket
-import sys
 import tempfile
-import time
 import urllib.parse
 import urllib.request
 import uuid
 import zipfile
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from core.tls_policy import inspection_context
 
@@ -437,7 +435,7 @@ class UniversalScannerEngine:
 
             with socket.create_connection((hostname, port), timeout=6.0) as sock:
                 with context.wrap_socket(sock, server_hostname=hostname) as ssock:
-                    cert = ssock.getpeercert(binary_form=True)
+                    _cert = ssock.getpeercert(binary_form=True)
                     version = ssock.version()
                     cipher = ssock.cipher()
 

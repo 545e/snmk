@@ -5,7 +5,7 @@ with schema, handler, dependency, and authorization metadata.
 """
 
 import unittest
-from core.tool_registry import tool_registry, ToolMetadata
+from core.tool_registry import tool_registry
 from fastapi.testclient import TestClient
 from web.server import app
 

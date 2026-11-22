@@ -11,7 +11,6 @@ import os
 import ssl
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 from core import tls_policy
 

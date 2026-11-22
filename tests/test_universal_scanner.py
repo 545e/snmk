@@ -15,11 +15,9 @@ Comprehensive validation of:
 
 import asyncio
 import io
-import json
 import os
 import tempfile
 import zipfile
-import pytest
 from fastapi.testclient import TestClient
 
 from core.alert_manager import alert_manager
@@ -28,11 +26,8 @@ from core.crewai_adapter import (
     create_universal_scanner_crew,
     get_universal_scanner_fleet,
 )
-from core.mysql_database import mysql_manager
 from core.universal_scanner import (
     UniversalFinding,
-    UniversalScanJob,
-    UniversalScannerEngine,
     universal_scanner,
 )
 from web.server import app

@@ -18,7 +18,6 @@ These tests pin:
 import os
 import re
 
-import pytest
 
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 STATIC = os.path.join(REPO, "web", "static")

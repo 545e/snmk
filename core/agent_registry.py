@@ -1182,7 +1182,7 @@ class AgentRegistry:
                         from agents.orchestrator import SWAOrchestrator
                         from core.models import ScanConfig, ScanJob, ScanProfile
                         job = ScanJob(id=scan_id, target_url=target, profile=ScanProfile.LIGHT, config=ScanConfig(target_url=target, profile=ScanProfile.LIGHT))
-                        orch = SWAOrchestrator(job=job)
+                        SWAOrchestrator(job=job)
                         outputs["orchestrator_phases"] = ["scope_validation", "reconnaissance", "vulnerability_hunting", "exploit_validation", "remediation", "reporting"]
                         outputs["orchestrator_status"] = "READY"
                     except Exception as orch_err:

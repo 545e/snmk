@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import re
 
 from core.js_intelligence import EndpointAndStorageExtractor
 from core.url_utils import host_matches, is_expected_redirect, safe_hostname

@@ -25,7 +25,7 @@ from __future__ import annotations
 import ipaddress
 import os
 import socket
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Optional
 from urllib.parse import urlparse
 
 __all__ = [

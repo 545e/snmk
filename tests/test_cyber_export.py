@@ -10,7 +10,6 @@ import pytest
 from fastapi.testclient import TestClient
 from web.server import app
 from core.cyber_export import cyber_exporter, redact_sensitive_data
-from core.database import db
 
 @pytest.fixture
 def client():

@@ -10,7 +10,6 @@ Covers:
           under ``python -O``.
 """
 
-import os
 import re
 import unittest
 from unittest.mock import MagicMock, patch
@@ -45,7 +44,7 @@ class TestReportDownloadTraversal(unittest.TestCase):
         """A legitimate identifier must pass validation and reach FileResponse."""
         from web.kill_chain_router import download_kill_chain_report
 
-        with patch("web.kill_chain_router.FileResponse") as file_response, patch(
+        with patch("web.kill_chain_router.FileResponse") as _, patch(
             "web.kill_chain_router.Path"
         ) as path_cls:
             path_cls.return_value.resolve.return_value.__truediv__ = MagicMock()
@@ -149,7 +148,6 @@ class TestOrchestratorKeyDecryption(unittest.TestCase):
 
     def test_07_explicit_config_key_wins_over_vault(self):
         """A key supplied in the scan config is already plaintext."""
-        from types import SimpleNamespace
 
         from core.models import ScanConfig
         from agents.orchestrator import SWAOrchestrator

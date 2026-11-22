@@ -8,14 +8,10 @@ Verifies:
 - AI Model management (Add, Configure, Default selection, Fallbacks)
 """
 
-import os
 import unittest
 from fastapi.testclient import TestClient
 
-from core.database import db
 from core.credentials import credentials_vault, mask_secret
-from core.integrations.registry import integration_registry
-from core.ai_models import ai_model_manager
 from web.server import app
 
 client = TestClient(app)
@@ -87,7 +83,7 @@ class TestIntegrationsAndAIModels(unittest.TestCase):
         self.assertEqual(data["display_name"], "Production VirusTotal Feed")
 
         # Ensure plaintext secret is NOT returned in response
-        self.assertNotIn("vt-secret-key-1234567890abcdef12345678", json_str := str(create_res.json()))
+        self.assertNotIn("vt-secret-key-1234567890abcdef12345678", str(create_res.json()))
         self.assertIn("***", data["masked_credentials"]["api_key"])
 
         # 2. List integrations

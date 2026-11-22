@@ -9,7 +9,7 @@ from core.alert_manager import (
     AlertStatus,
     alert_manager,
 )
-from core.mysql_database import MySQLConfig, MySQLDatabaseManager, mysql_manager
+from core.mysql_database import MySQLConfig, MySQLDatabaseManager
 
 
 def test_mysql_config_and_telemetry():

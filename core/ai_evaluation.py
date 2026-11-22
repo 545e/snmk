@@ -19,7 +19,7 @@ from core.error_sanitizer import safe_error
 def asyncio_run(coro):
     """Run a coroutine from sync code, reusing a loop when one is already open."""
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()
     except RuntimeError:
         return asyncio.run(coro)
     import concurrent.futures

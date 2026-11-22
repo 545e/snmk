@@ -9,14 +9,13 @@ Tests:
 """
 
 import logging
-import pytest
 import os
 import asyncio
 import httpx
 from urllib.parse import parse_qs, unquote, urlsplit
-from core.sqli_engine import sqli_engine, DB_ENGINE_SIGNATURES
+from core.sqli_engine import sqli_engine
 from core.injection_suite import injection_suite
-from core.antivirus_edr_manager import antivirus_edr_manager, AV_EVALUATION_DATABASE
+from core.antivirus_edr_manager import antivirus_edr_manager
 from core.identity_access_auditor import identity_access_auditor
 from core.scanner_integrations import ScannerIntegrations
 from core.tool_registry import tool_registry

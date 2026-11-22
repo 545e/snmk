@@ -210,7 +210,7 @@ class CyberKillChainEngine:
         """
         all_findings = findings if findings is not None else list_findings()
         all_ev = evidence if evidence is not None else list_evidence()
-        all_inc = incidents if incidents is not None else list_incidents()
+        _all_inc = incidents if incidents is not None else list_incidents()
         all_ind = indicators if indicators is not None else list_indicators()
         coverage = self.controls_matrix.get_matrix()
 

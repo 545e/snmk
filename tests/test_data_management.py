@@ -5,10 +5,7 @@ dataset splitting, secret redaction, and deletion controls.
 """
 
 import unittest
-import os
-import json
-import tempfile
-from core.data_management import dataset_manager, DatasetMetadata
+from core.data_management import dataset_manager
 from core.database import db
 
 

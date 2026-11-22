@@ -8,7 +8,6 @@ import logging
 import asyncio
 import re
 import socket
-import ssl
 from urllib.parse import urlparse
 
 import httpx

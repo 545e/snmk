@@ -8,7 +8,6 @@ import pytest
 from fastapi.testclient import TestClient
 from web.server import app
 from core.cyber_deploy import cyber_deployer
-from core.database import db
 
 @pytest.fixture
 def client():

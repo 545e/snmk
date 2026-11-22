@@ -11,7 +11,6 @@ Provides production-grade /api/v1/* endpoints for all platform subsystems:
 from __future__ import annotations
 
 import datetime
-import hmac
 import os
 import uuid
 from typing import Any
@@ -20,11 +19,8 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from core.app_security import (
-    SecurityContext,
     authenticate_request,
     create_login_session,
-    create_session,
-    require_role,
     SWA_AUTH_ENABLED,
     SWA_MASTER_API_KEY,
 )

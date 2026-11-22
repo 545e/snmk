@@ -19,7 +19,6 @@ patch is effective -- and, unlike a reload, it cannot leak into the rest of
 the test session.
 """
 
-import os
 import unittest
 from unittest.mock import patch
 

@@ -19,7 +19,6 @@ import os
 import subprocess
 import sys
 
-import pytest
 
 from core.agent_registry import agent_registry
 from core.database import db

@@ -14,7 +14,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from core.rea_engine import REAEngine, SUPPORTED_TARGET_TYPES
+from core.rea_engine import REAEngine
 
 
 class TestREAEngine(unittest.TestCase):

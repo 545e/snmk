@@ -15,7 +15,6 @@ import asyncio
 import datetime
 import json
 import socket
-import ssl
 from typing import Any
 from urllib.parse import urlparse
 

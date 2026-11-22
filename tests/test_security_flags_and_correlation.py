@@ -14,13 +14,10 @@ import unittest
 from core.correlation_engine import (
     AttackStage,
     IncidentSeverity,
-    IncidentStatus,
     correlation_engine,
 )
 from core.security_flags import (
     FLAG_CATALOG,
-    FlagCategory,
-    FlagSeverity,
     SecurityFlag,
     VerificationStatus,
     security_flags_engine,

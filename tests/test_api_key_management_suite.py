@@ -4,12 +4,9 @@ Tests cryptographic storage, masked secret handling, ad-hoc connection probing,
 rotation workflows, and integration with the SWALLMClient.
 """
 
-import os
-import pytest
 from fastapi.testclient import TestClient
 from web.server import app
-from core.credentials import credentials_vault, mask_secret
-from core.integrations.registry import integration_registry
+from core.credentials import mask_secret
 from core.llm_client import SWALLMClient
 
 client = TestClient(app)

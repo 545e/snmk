@@ -2,8 +2,6 @@
 Unit and Integration Test Suite for Professional Nessus-Style Vulnerability Assessment Report Engine
 """
 
-import os
-import io
 import json
 import pytest
 from fastapi.testclient import TestClient

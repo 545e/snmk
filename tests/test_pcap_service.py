@@ -7,7 +7,6 @@ and cleartext credential extraction using Scapy synthetic captures.
 
 from __future__ import annotations
 
-import io
 import os
 import tempfile
 import unittest
@@ -17,7 +16,7 @@ from scapy.layers.dns import DNS, DNSQR
 from scapy.layers.inet import ICMP, IP, TCP, UDP
 from scapy.packet import Raw
 from scapy.utils import wrpcap
-from services.pcap_service.engine import PcapAnalyzerEngine, pcap_analyzer
+from services.pcap_service.engine import pcap_analyzer
 from services.pcap_service.main import app
 
 

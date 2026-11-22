@@ -6,14 +6,13 @@ Provides high-assurance cryptographic operations, recipe execution, and key deri
 
 from __future__ import annotations
 
-import base64
 import datetime
 import os
 import secrets
 import sys
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException
 from pydantic import BaseModel, Field
 
 # Ensure project root in python path

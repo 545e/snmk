@@ -26,10 +26,8 @@ from core.tool_dependency_manager import (
     tool_dependency_manager,
     DependencyGraph,
     SecureToolInstaller,
-    ToolHealthEngine,
     ToolHealthState,
     InstallStatus,
-    ToolDependencyManifestItem,
     SecurityError
 )
 from core.database import db

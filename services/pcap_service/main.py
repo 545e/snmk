@@ -10,17 +10,14 @@ import datetime
 import os
 import sys
 import uuid
-from typing import Any, Dict, List, Optional
+from typing import Dict, Optional
 
 from fastapi import APIRouter, BackgroundTasks, FastAPI, File, HTTPException, Query, Response, UploadFile
-from pydantic import BaseModel
 
 # Ensure project root in python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from core.alert_manager import alert_manager
-from core.database import db
-from core.mysql_database import mysql_manager
 from services.pcap_service.engine import PcapAnalysisResult, pcap_analyzer
 
 app = FastAPI(
@@ -99,7 +96,7 @@ async def upload_pcap_endpoint(
                         remediation=finding.remediation,
                         source="pcap_forensics_service"
                     )
-        except Exception as e:
+        except Exception:
             err_res = PcapAnalysisResult(id=analysis_id, filename=filename, status="FAILED")
             ACTIVE_ANALYSES[analysis_id] = err_res
 

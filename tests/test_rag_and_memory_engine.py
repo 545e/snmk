@@ -3,7 +3,6 @@ Verification test suite for Enterprise RAG Knowledge Engine & Agent Memory Store
 Tests ingestion, chunking, BM25 retrieval, citation grounding, secret scrubbing, and REST API routes.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 from web.server import app
 from core.rag_engine import rag_engine

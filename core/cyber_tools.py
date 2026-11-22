@@ -599,7 +599,7 @@ class CryptoEncoderTool:
                 output = html.unescape(text)
             else:
                 error = f"Unknown operation: {operation}"
-        except Exception as e:
+        except Exception:
             error = f"Operation '{operation}' failed on input."
 
         return {"input": text, "operation": operation, "output": output, "error": error}

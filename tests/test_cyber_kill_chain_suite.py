@@ -18,7 +18,6 @@ import asyncio
 from fastapi.testclient import TestClient
 
 from web.server import app
-from core.kill_chain.engine import kill_chain_engine, CyberKillChainEngine
 from core.kill_chain.models import (
     KillChainStageEnum,
     SeverityEnum,
@@ -26,7 +25,6 @@ from core.kill_chain.models import (
     IncidentStatusEnum,
     StageStatusEnum,
     KillChainFinding,
-    EvidenceItem,
 )
 from core.kill_chain.stages.reconnaissance import ReconnaissanceAnalyzer
 from core.kill_chain.stages.weaponization import WeaponizationAnalyzer
@@ -41,19 +39,6 @@ from core.kill_chain.controls_matrix import SecurityControlMatrix
 from core.kill_chain.ai_analyzer import KillChainAIAnalyzer
 from core.kill_chain.incident_manager import IncidentManager
 from core.kill_chain.reporter import KillChainReportGenerator
-from core.kill_chain.db import (
-    save_finding,
-    get_finding,
-    list_findings,
-    save_evidence,
-    get_evidence,
-    list_evidence,
-    save_indicator,
-    list_indicators,
-    save_incident,
-    get_incident,
-    list_incidents,
-)
 
 client = TestClient(app)
 

@@ -5,7 +5,6 @@ All data is grounded in actual codebase metrics, live test runs, and empirical b
 """
 
 import os
-import sys
 from datetime import datetime
 
 REPORTS_DIR = os.path.dirname(os.path.abspath(__file__))

@@ -3,7 +3,6 @@ Tests for SNMK C++ High-Speed Native Scanner Engine & Python Bridge
 """
 
 import asyncio
-import os
 import pytest
 from core.native_scanner import native_scanner
 

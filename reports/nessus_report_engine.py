@@ -32,13 +32,6 @@ from typing import List, Dict, Any, Optional, Tuple
 
 from core.database import db
 from core.models import VulnerabilityFinding, Severity, ScanJob
-from core.intelligence_models import (
-    FINDING_STATUS_METADATA,
-    REMEDIATION_STATUS_METADATA,
-    SEVERITY_COLOR_METADATA,
-    FindingLifecycleStatus,
-    RemediationStatus
-)
 
 # Export directory
 EXPORT_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "exports")
@@ -68,7 +61,7 @@ def redact_secrets(text: Optional[str]) -> str:
 
 # Reportlab availability
 try:
-    from reportlab.lib.pagesizes import letter, A4
+    from reportlab.lib.pagesizes import A4
     from reportlab.lib import colors
     from reportlab.platypus import (
         SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle,

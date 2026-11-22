@@ -1,7 +1,5 @@
-import pytest
 from fastapi.testclient import TestClient
 from web.server import app
-from core.scope_policy import scope_policy
 
 client = TestClient(app)
 

@@ -169,7 +169,7 @@ class MapReportGenerator:
 
     def to_html(self, data: dict[str, Any]) -> str:
         """Renders report into a self-contained, enterprise HTML document."""
-        md_content = self.to_markdown(data)
+        _md_content = self.to_markdown(data)
         import html
         escaped_title = html.escape(data['report_id'])
         return f"""<!DOCTYPE html>

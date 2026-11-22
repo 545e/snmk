@@ -79,7 +79,6 @@ class GeolocationEngine:
             )
 
         import ipaddress
-        import urllib.parse
 
         try:
             ip_obj = ipaddress.ip_address(ip.strip())

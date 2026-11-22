@@ -23,7 +23,6 @@ Covered areas:
 
 import logging
 import asyncio
-import json
 import os
 import socket
 import sqlite3

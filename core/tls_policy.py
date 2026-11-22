@@ -42,7 +42,6 @@ import os
 import ssl
 from typing import Any, Dict, Optional
 
-import httpx
 
 __all__ = [
     "verification_enabled",

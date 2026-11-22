@@ -11,9 +11,7 @@ Verifies:
 8. REST API Integration Endpoints
 """
 
-import pytest
 import asyncio
-import datetime
 from fastapi.testclient import TestClient
 from web.server import app
 from core.database import db
@@ -31,7 +29,7 @@ from core.risk_engine import risk_engine
 from core.remediation_engine import remediation_engine
 from agents.agent_workforce import agent_workforce
 from reports.enterprise_reports import enterprise_report_engine
-from core.models import ScanJob, ScanConfig, ScanProfile, VulnerabilityFinding, Severity, ReconResult
+from core.models import ScanJob, ScanConfig, VulnerabilityFinding, Severity, ReconResult
 
 client = TestClient(app)
 

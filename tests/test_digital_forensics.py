@@ -4,23 +4,15 @@ Tests physical media inspection, PhotoRec file carving station with 'Left ⬅ Ba
 Autopsy case management, ExifTool GPS extraction (zero Cloudinary), and Chain-of-Custody ledger.
 """
 
-import os
-import tempfile
-from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
 from core.digital_forensics import (
-    StorageMediaInspector,
-    PhotoRecCarver,
     AutopsyCaseManager,
     ExifToolGpsEngine,
     ChainOfCustodyLedger,
     storage_inspector,
     photorec_carver,
-    autopsy_manager,
-    exif_engine,
-    custody_ledger,
 )
 from web.server import app
 

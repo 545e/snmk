@@ -9,8 +9,8 @@ STRICT ENFORCEMENT: Cloudinary is completely forbidden and not integrated.
 from __future__ import annotations
 
 import base64
-from typing import Any, Dict, List, Optional
-from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
+from typing import List, Optional
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core.digital_forensics import (

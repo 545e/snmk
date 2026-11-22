@@ -41,7 +41,7 @@ logger = logging.getLogger("swa_server")
 
 
 
-from typing import Any, Dict, List, Literal, Optional, Set, Tuple
+from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import (
     BackgroundTasks,
@@ -106,15 +106,12 @@ from core.metrics import (
     HTTP_REQUESTS_TOTAL,
 )
 from core.logging_config import (
-    current_agent_id,
     current_request_id,
-    current_task_id,
     current_trace_id,
 )
 from core.tracing import (
     extract_trace_id_from_header,
     generate_traceparent,
-    tracer,
 )
 
 app = FastAPI(
@@ -812,7 +809,6 @@ async def health_dependencies():
 
     from core.integrations.registry import integration_registry
     from core.tool_registry import tool_registry
-    from web.enterprise_api import list_agents as get_enterprise_agents
 
 
 
@@ -3621,7 +3617,7 @@ async def toggle_plugin(plugin_id: str, enabled: bool | None = None):
 
 
 
-    success = plugin_manager.toggle_plugin(plugin_id, enabled)
+    plugin_manager.toggle_plugin(plugin_id, enabled)
 
 
 
@@ -4975,7 +4971,6 @@ _REGISTRY_INSTANCE_FACTORIES: Dict[str, Any] = {}
 def _build_blue_team_engine(payload: Dict[str, Any]):
     """Builds a BlueTeamDefenseEngine from the request payload."""
     from core.blue_team_engine import BlueTeamDefenseEngine
-    from core.models import ScanJob
     scan = None
     scan_id = payload.get("scan_id")
     if scan_id:
@@ -5007,7 +5002,6 @@ def _build_forensics_engine(payload: Dict[str, Any]):
 def _build_report_generator(payload: Dict[str, Any]):
     """Builds a ReportGenerator from the request payload."""
     from core.database import db
-    from core.models import ScanJob
     from reports.generator import ReportGenerator
     scan_id = payload.get("scan_id")
     if not scan_id:
@@ -5729,7 +5723,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     # Run all enabled OWASP Top 10 plugins
     try:
         from plugins.plugin_manager import plugin_manager
-        owasp_res = await asyncio.wait_for(
+        await asyncio.wait_for(
             plugin_manager.run_all_enabled_plugins(target=req.target, scan_id=scan_id),
             timeout=10.0
         )

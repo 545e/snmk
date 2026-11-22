@@ -6,8 +6,6 @@ Cyber Testing, and Deployment Operations in SWA AI.
 import unittest
 from fastapi.testclient import TestClient
 from web.server import app
-from core.database import db
-from core.automation_engine import automation_engine
 
 
 class TestAiAutomationAndOperations(unittest.TestCase):

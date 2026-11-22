@@ -5,26 +5,16 @@ PCAP/PCAPNG forensics, geolocation, DNS, routing, BGP, Wi-Fi, speed benchmarks,
 AI investigation, reporting, and FastAPI REST endpoints.
 """
 
-import os
-import sys
 import pytest
 from starlette.testclient import TestClient
 
-from core.network.models import (
-    NetworkInterfaceInfo, LocalNetworkInfo, GeolocationInfo,
-    PacketSummary, PacketDetail, FlowSummary, OriginInvestigation
-)
 from core.network.interfaces import get_local_network_info, get_network_interfaces, check_capture_drivers
 from core.network.geo_engine import decimal_to_dms, is_private_ip, geo_engine
-from core.network.infrastructure import infra_engine
 from core.network.dns_engine import dns_engine, calculate_shannon_entropy
-from core.network.packet_engine import PacketDissector, format_hex_dump, parse_tcp_flags, live_capture
-from core.network.pcap_forensics import validate_pcap_header, pcap_engine
+from core.network.packet_engine import PacketDissector
+from core.network.pcap_forensics import validate_pcap_header
 from core.network.origin_engine import origin_engine
 from core.network.discovery import lookup_mac_vendor, discovery_engine
-from core.network.routing_engine import route_engine
-from core.network.wifi_engine import wifi_engine
-from core.network.performance_engine import perf_engine
 from core.network.threat_engine import threat_engine
 from core.network.ai_assistant import map_ai_assistant
 from core.network.reporting import report_generator
@@ -99,7 +89,7 @@ class TestMapSubsystem:
 
     # 4. Wireshark-Style Packet Dissector
     def test_08_packet_dissector_and_hex_dump(self):
-        from scapy.all import Ether, IP, TCP, UDP
+        from scapy.all import Ether, IP, TCP
         dissector = PacketDissector()
 
         # TCP packet

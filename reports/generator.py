@@ -9,7 +9,7 @@ import json
 import csv
 import io
 import datetime
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from urllib.parse import urlparse
 from core.models import ScanJob, VulnerabilityFinding, Severity
 
@@ -764,7 +764,7 @@ class ReportGenerator:
             import docx
             from docx.shared import Inches, Pt, RGBColor
             from docx.enum.text import WD_ALIGN_PARAGRAPH
-            from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+            from docx.enum.table import WD_TABLE_ALIGNMENT
             from docx.oxml import OxmlElement
             from docx.oxml.ns import qn
         except ImportError:

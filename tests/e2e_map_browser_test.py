@@ -4,7 +4,6 @@ Spins up local test server, opens Chromium, clicks MAP button, tests all 15 work
 validates Wireshark packet inspection and hex viewer, verifies coordinates, and captures real UI screenshots.
 """
 
-import asyncio
 import os
 import sys
 

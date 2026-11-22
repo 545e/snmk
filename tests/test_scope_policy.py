@@ -5,7 +5,7 @@ cloud metadata defense, dual-stack DNS inspection, allowlist enforcement, and au
 """
 
 import unittest
-from core.scope_policy import ScopePolicy, ScopeValidationResult, CLOUD_METADATA_IPS
+from core.scope_policy import ScopePolicy, CLOUD_METADATA_IPS
 
 class TestScopePolicy(unittest.TestCase):
     def setUp(self):

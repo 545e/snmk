@@ -73,7 +73,7 @@ class PacketDissector:
         from scapy.all import ARP, DNS, ICMP, IP, TCP, UDP, Ether, IPv6
 
         pkt_time = float(getattr(pkt, "time", time.time()))
-        rel_time = round(pkt_time - base_time, 4) if base_time else 0.0000
+        _rel_time = round(pkt_time - base_time, 4) if base_time else 0.0000
         time_str = datetime.datetime.fromtimestamp(pkt_time, tz=datetime.UTC).strftime("%H:%M:%S.%f")[:-2]
 
         src_ip = "0.0.0.0"

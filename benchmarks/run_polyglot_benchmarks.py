@@ -19,7 +19,7 @@ def run_benchmarks():
     iterations = 500
     start = time.perf_counter()
     for _ in range(iterations):
-        h = hashlib.sha256(test_data).hexdigest()
+        hashlib.sha256(test_data).hexdigest()
     hash_duration = time.perf_counter() - start
     hash_throughput_mb_s = (len(test_data) * iterations / (1024 * 1024)) / hash_duration
     results["sha256_native_c"] = {

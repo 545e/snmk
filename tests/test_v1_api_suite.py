@@ -3,7 +3,6 @@ Comprehensive Test Suite for SWA AI Master Version 1 API Architecture.
 Verifies all /api/v1/* subsystems, health probes, RBAC, SSRF defenses, and integrations.
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from web.server import app

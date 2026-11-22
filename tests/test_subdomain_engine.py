@@ -18,7 +18,7 @@ import unittest
 from unittest.mock import patch, AsyncMock, MagicMock
 import httpx
 
-from agents.amass_engine import AmassSubdomainEngine, SubdomainDiscoveryEngine
+from agents.amass_engine import AmassSubdomainEngine
 
 
 class TestSubdomainEngine(unittest.TestCase):

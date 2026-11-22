@@ -23,13 +23,11 @@ try:
     from scapy.all import (
         ARP,
         DNS,
-        DNSRR,
         ICMP,
         IP,
         IPv6,
         TCP,
         UDP,
-        Ether,
         Raw,
         rdpcap,
     )

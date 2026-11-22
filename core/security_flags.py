@@ -9,7 +9,6 @@ from __future__ import annotations
 import datetime
 import json
 import logging
-import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from enum import Enum

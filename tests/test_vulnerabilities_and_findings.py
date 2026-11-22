@@ -13,7 +13,6 @@ Covers:
 - Vulnerability Reporting Engine (§10)
 """
 
-import pytest
 from fastapi.testclient import TestClient
 
 from core.database import db
@@ -24,9 +23,7 @@ from core.intelligence_models import (
     PoCVerificationState,
     FINDING_STATUS_METADATA,
     REMEDIATION_STATUS_METADATA,
-    SEVERITY_COLOR_METADATA,
-    PERMITTED_LIFECYCLE_TRANSITIONS,
-    PERMITTED_REMEDIATION_TRANSITIONS
+    SEVERITY_COLOR_METADATA
 )
 from reports.vulnerability_reports import VulnerabilityReportEngine
 from web.server import app
