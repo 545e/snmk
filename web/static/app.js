@@ -535,7 +535,7 @@ function pollScanStatus(scanId) {
     }, 2000);
 }
 
-async function loadScans(triggerBtn, options = {}) {
+async function loadScans(triggerBtn) {
     // Only lock the button when the *user* clicked it. Background refreshes
     // (dashboard init, view switches) previously grabbed #refreshScansBtn by
     // fallback and disabled it; when that background promise did not settle
@@ -678,9 +678,9 @@ async function loadScans(triggerBtn, options = {}) {
         }
 
         // Auto-select latest active scan or maintain current selection.
-        // Callers that just deleted a scan pass keepDetailsHidden so the
-        // details pane does not immediately reopen with a different scan.
-        if (!options.keepDetailsHidden && !suppressScanAutoSelect) {
+        // suppressScanAutoSelect keeps a just-deleted scan's details pane
+        // from immediately reopening with a different scan.
+        if (!suppressScanAutoSelect) {
             if (!currentScanId && scans.length > 0) {
                 selectScan(scans[0].id);
             } else if (currentScanId && scansData[currentScanId]) {
@@ -3777,7 +3777,7 @@ async function deleteActiveScan() {
     if (tabPanels) tabPanels.style.display = "none";
     const emptyNotice = document.getElementById("emptyDetailsNotice");
     if (emptyNotice) emptyNotice.style.display = "block";
-    loadScans(null, { keepDetailsHidden: true });
+    loadScans();
     if (typeof showToast === 'function') showToast(`Assessment ${scanId} deleted.`, 'success');
 }
 
