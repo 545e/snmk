@@ -43,7 +43,7 @@ def test_specialist_agent_workforce_manifests():
     manifests = agent_workforce.list_manifests()
     assert len(manifests) == 17, f"Expected 17 specialist agents, got {len(manifests)}"
     roles = {m.role for m in manifests}
-    for expected in AgentRole:
+    for expected in AgentRole.__members__.values():
         assert expected in roles, f"Missing agent role in manifests: {expected}"
 
 
@@ -226,7 +226,7 @@ def test_remediation_lifecycle_and_retest():
 # ---------------------------------------------------------------------------
 def test_all_12_enterprise_reports():
     target = "127.0.0.1:8000"
-    for template_type in ReportTemplateType:
+    for template_type in ReportTemplateType.__members__.values():
         record = enterprise_report_engine.generate_report(
             template_type=template_type,
             target=target,

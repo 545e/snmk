@@ -103,6 +103,33 @@ class RemediationEngine:
         return ticket
 
     @staticmethod
+    async def _probe_retest(method: str, test_url: str, finding_dict) -> tuple[str, str]:
+        """Return (status, evidence) for one non-destructive retest probe."""
+        try:
+            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
+                res = await client.request(method, test_url)
+                if res.status_code in (404, 410):
+                    return "VERIFIED_RESOLVED", f"Endpoint now returns HTTP {res.status_code} (Removed/Unreachable)."
+                if res.status_code in (401, 403):
+                    return "VERIFIED_RESOLVED", (
+                        "Endpoint now strictly enforces authentication/authorization "
+                        f"(HTTP {res.status_code})."
+                    )
+                if finding_dict.parameter and finding_dict.parameter in res.text:
+                    return "FAILED_PERSISTS", (
+                        f"Endpoint is reachable (HTTP {res.status_code}) and reflection "
+                        "persists in response body."
+                    )
+                return "VERIFIED_RESOLVED", (
+                    f"Endpoint responded with HTTP {res.status_code}; test payload "
+                    "reflection no longer present."
+                )
+        except Exception as e:
+            return "VERIFIED_RESOLVED", safe_error(
+                "Endpoint is no longer reachable or connection refused.", e
+            )
+
+    @staticmethod
     async def run_retest(ticket_id: str, actor: str = "Retest Specialist Agent") -> dict[str, Any]:
         """
         Executes an automated retest probe against the vulnerable endpoint
@@ -121,28 +148,7 @@ class RemediationEngine:
 
         # Safe non-destructive probe to endpoint
         test_url = endpoint if "://" in endpoint else f"http://{endpoint}"
-        status_result = "VERIFIED_RESOLVED"
-        retest_evidence = ""
-
-        try:
-            async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
-                res = await client.request(method, test_url)
-                # Check response characteristics
-                if res.status_code in (404, 410):
-                    status_result = "VERIFIED_RESOLVED"
-                    retest_evidence = f"Endpoint now returns HTTP {res.status_code} (Removed/Unreachable)."
-                elif res.status_code in (401, 403):
-                    status_result = "VERIFIED_RESOLVED"
-                    retest_evidence = f"Endpoint now strictly enforces authentication/authorization (HTTP {res.status_code})."
-                elif finding_dict.parameter and finding_dict.parameter in res.text:
-                    status_result = "FAILED_PERSISTS"
-                    retest_evidence = f"Endpoint is reachable (HTTP {res.status_code}) and reflection persists in response body."
-                else:
-                    status_result = "VERIFIED_RESOLVED"
-                    retest_evidence = f"Endpoint responded with HTTP {res.status_code}; test payload reflection no longer present."
-        except Exception as e:
-            status_result = "VERIFIED_RESOLVED"
-            retest_evidence = safe_error("Endpoint is no longer reachable or connection refused.", e)
+        status_result, retest_evidence = await RemediationEngine._probe_retest(method, test_url, finding_dict)
 
         # Determine target lifecycle status based on retest result
         target_status = FindingLifecycleStatus.VERIFIED if status_result == "VERIFIED_RESOLVED" else FindingLifecycleStatus.IN_PROGRESS

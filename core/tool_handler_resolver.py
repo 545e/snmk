@@ -32,7 +32,6 @@ satisfied from the request, the caller is expected to report
 
 from __future__ import annotations
 
-import asyncio
 import importlib
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple

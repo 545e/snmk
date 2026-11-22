@@ -4,8 +4,6 @@ Exception messages must stay in server-side logs and never appear in values
 returned to API clients.
 """
 
-import pytest
-
 from core.error_sanitizer import safe_error
 from core.digital_forensics import PhotoRecCarver
 

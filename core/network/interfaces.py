@@ -30,9 +30,6 @@ _NETWORK_CACHE_TTL_SEC: float = 60.0
 
 def check_capture_drivers() -> tuple[bool, str]:
     """Detects packet capture capabilities on host (Npcap, libpcap, TShark, Scapy)."""
-    driver_type = "None"
-    driver_installed = False
-
     # Check TShark / Dumpcap
     tshark_path = shutil.which("tshark") or shutil.which("dumpcap")
     if sys.platform.startswith("win"):

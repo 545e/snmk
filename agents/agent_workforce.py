@@ -1654,11 +1654,6 @@ class PlatformHealthAgent(BaseSpecialistAgent):
 
 
         # Real database integrity probe rather than an assumed "HEALTHY".
-
-        db_status = "UNAVAILABLE"
-
-        db_detail = ""
-
         try:
 
             from core.database import db as _db

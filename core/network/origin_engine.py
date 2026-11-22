@@ -35,7 +35,6 @@ class NetworkOriginEngine:
 
         resolved_ip = target
         dest_hostname = None
-        target_type = "IPv4"
 
         # Check if domain
         try:
@@ -70,9 +69,6 @@ class NetworkOriginEngine:
         geo_info = await geo_engine.lookup_ip_geolocation(resolved_ip)
 
         # Classification Logic
-        classification = "Unknown"
-        confidence = "Medium"
-
         if is_local_host:
             classification = "Local Host Device"
             confidence = "High"

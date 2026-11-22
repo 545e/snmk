@@ -1700,6 +1700,32 @@ function filterSeverity(sev) {{
     # =========================================================================
     # HIGH-LEVEL REPORT GENERATION DISPATCHER
     # =========================================================================
+    @staticmethod
+    def _render_report(fmt: str, data: Dict[str, Any], file_path: str) -> Tuple[str, int]:
+        """Render a report to *file_path* and return (content, size).
+
+        Keeping the format dispatch in one function with explicit returns
+        guarantees both values are always defined for every supported format.
+        """
+        if fmt == "pdf":
+            content_bytes = NessusVulnerabilityReportEngine.generate_pdf(data)
+            with open(file_path, "wb") as f_out:
+                f_out.write(content_bytes)
+            return f"[Binary PDF Report {len(content_bytes)} bytes]", len(content_bytes)
+
+        generators = {
+            "html": NessusVulnerabilityReportEngine.generate_html,
+            "csv": NessusVulnerabilityReportEngine.generate_csv,
+            "json": NessusVulnerabilityReportEngine.generate_json,
+            "nessus": NessusVulnerabilityReportEngine.generate_nessus_xml,
+            "sarif": NessusVulnerabilityReportEngine.generate_sarif,
+        }
+        generator = generators.get(fmt, NessusVulnerabilityReportEngine.generate_html)
+        content_str = generator(data)
+        with open(file_path, "w", encoding="utf-8") as f_out:
+            f_out.write(content_str)
+        return content_str, os.path.getsize(file_path)
+
     @classmethod
     def generate_report(
         cls,
@@ -1735,37 +1761,7 @@ function filterSeverity(sev) {{
         filename = f"{data['report_id']}.{ 'xml' if fmt == 'nessus' else fmt }"
         file_path = os.path.join(EXPORT_DIR, filename)
 
-        if fmt == "pdf":
-            content_bytes = cls.generate_pdf(data)
-            with open(file_path, "wb") as f_out:
-                f_out.write(content_bytes)
-            content_str = f"[Binary PDF Report {len(content_bytes)} bytes]"
-            file_size = len(content_bytes)
-        elif fmt == "html":
-            content_str = cls.generate_html(data)
-            with open(file_path, "w", encoding="utf-8") as f_out:
-                f_out.write(content_str)
-            file_size = os.path.getsize(file_path)
-        elif fmt == "csv":
-            content_str = cls.generate_csv(data)
-            with open(file_path, "w", encoding="utf-8") as f_out:
-                f_out.write(content_str)
-            file_size = os.path.getsize(file_path)
-        elif fmt == "json":
-            content_str = cls.generate_json(data)
-            with open(file_path, "w", encoding="utf-8") as f_out:
-                f_out.write(content_str)
-            file_size = os.path.getsize(file_path)
-        elif fmt == "nessus":
-            content_str = cls.generate_nessus_xml(data)
-            with open(file_path, "w", encoding="utf-8") as f_out:
-                f_out.write(content_str)
-            file_size = os.path.getsize(file_path)
-        elif fmt == "sarif":
-            content_str = cls.generate_sarif(data)
-            with open(file_path, "w", encoding="utf-8") as f_out:
-                f_out.write(content_str)
-            file_size = os.path.getsize(file_path)
+        content_str, file_size = cls._render_report(fmt, data, file_path)
 
         # Store in database (both report_records and vulnerability_assessment_reports for full compatibility)
         record = {

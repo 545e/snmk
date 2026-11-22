@@ -55,7 +55,8 @@ def test_api_path_pattern_does_not_backtrack_on_long_input():
 def test_dangerous_scheme_signature_is_not_a_sanitizer():
     import benchmarks.run_polyglot_benchmarks as bench  # noqa: F401
 
-    source = open(bench.__file__, encoding="utf-8").read()
+    with open(bench.__file__, encoding="utf-8") as fh:
+        source = fh.read()
     assert "(javascript|data):[^\\s]*" not in source
 
 

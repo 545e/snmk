@@ -13,7 +13,7 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional
 
 from core.alert_manager import alert_manager
 from core.database import db

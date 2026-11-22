@@ -7,7 +7,6 @@ schema migration, health diagnostics, and dual-backend (MySQL + SQLite) resilien
 from __future__ import annotations
 
 import datetime
-import json
 import logging
 import os
 import time

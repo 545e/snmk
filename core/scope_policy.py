@@ -12,7 +12,7 @@ import re
 import socket
 from collections import OrderedDict
 from urllib.parse import urlparse
-from typing import Dict, List, Optional, Tuple, Set
+from typing import List, Optional, Tuple, Set
 from pydantic import BaseModel
 from core.error_sanitizer import safe_error
 

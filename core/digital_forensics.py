@@ -23,7 +23,7 @@ import time
 import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("snmk.digital_forensics")
