@@ -2455,8 +2455,8 @@ function getFindingPlainEnglishSummary(f) {
 
     // 1. Extract or determine HTTP Status Code
     let httpCode = null;
-    let httpText = "HTTP 200 OK";
-    let cssClass = "status-200";
+    let httpText;
+    let cssClass;
 
     const mHttp = (resp + ' ' + expl).match(/HTTP\/[0-9.]+\s+(\d{3})/i);
     if (mHttp) {
@@ -2480,7 +2480,7 @@ function getFindingPlainEnglishSummary(f) {
         }
     }
 
-    let httpHeadline = `Target Server Responded with HTTP ${httpCode}`;
+    let httpHeadline;
     let httpMeaning = "";
 
     if (httpCode === 200) {
@@ -2513,11 +2513,7 @@ function getFindingPlainEnglishSummary(f) {
     // 2. Generate beginner-friendly Plain English explanations
     let simpleWhat = "";
     let simpleRisk = "";
-    let simpleFix = [
-        "Review server configuration and apply recommended hardening parameters.",
-        "Restrict access to authorized operators and internal subnets only.",
-        "Verify changes by re-running SNMK automated security assessment."
-    ];
+    let simpleFix;
 
     if (titleLower.includes('openapi') || titleLower.includes('swagger') || endpoint.includes('openapi.json') || endpoint.includes('swagger')) {
         simpleWhat = "The application leaves its complete API blueprint (OpenAPI/Swagger specification) completely public without authentication.";
@@ -4991,7 +4987,7 @@ async function runAllTools() {
         clearInterval(atPollTimer);
         const errMsg = err && err.message ? err.message : String(err);
         const isScopeError = errMsg.includes('Scope Refusal') || errMsg.includes('allowlist');
-        const cleanHost = (rawTarget || '').replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
+        const cleanHost = rawTarget.replace(/^https?:\/\//i, '').split('/')[0].split(':')[0];
 
         let actionHtml = '<div style="font-size: 11px; margin-top: 8px; opacity: 0.8;">Ensure the target is in authorized scope or enable Lab Mode for local lab testing.</div>';
         if (isScopeError && cleanHost) {
@@ -6250,8 +6246,8 @@ function recalculateActiveScanScore() {
 
     score = Math.max(0, Math.min(100, Math.round(score)));
 
-    let grade = "Grade A (Hardened)";
-    let gradeClass = "score-A";
+    let grade;
+    let gradeClass;
 
     if (crit > 0 || score < 45) {
         grade = "Grade F (Critical Risk)";

@@ -966,12 +966,10 @@ class SecureToolInstaller:
             # 4. Safe Extraction
             log("Extracting package with ZipSlip & Symlink protection")
             if asset_name.endswith(".zip"):
-                _extracted = self._safe_extract_zip(temp_archive, extract_dir)
+                self._safe_extract_zip(temp_archive, extract_dir)
             elif asset_name.endswith(".tar.gz") or asset_name.endswith(".tgz"):
-                _extracted = self._safe_extract_tar(temp_archive, extract_dir)
-            else:
-                # Standalone binary
-                _extracted = [temp_archive]
+                self._safe_extract_tar(temp_archive, extract_dir)
+            # Standalone binaries are used directly from temp_archive.
 
             job_record["status"] = InstallStatus.INSTALLING
             target_bin_name = item.binary_names.get(sys.platform, f"{item.tool_id}.exe" if sys.platform == "win32" else item.tool_id)
