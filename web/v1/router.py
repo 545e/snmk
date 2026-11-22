@@ -688,11 +688,34 @@ async def v1_get_security_tools_catalog():
 
 @v1_router.post("/security-tools/run")
 async def v1_run_security_tool(payload: V1ToolRunPayload):
-    """Execute a single security tool against an authorized target."""
-    from web.server import SingleToolRunRequest, execute_single_tool
-    req = SingleToolRunRequest(tool_id=payload.tool_id, target=payload.target)
-    result = await execute_single_tool(req)
-    return v1_envelope(data=result, message=f"Tool {payload.tool_id} executed")
+    """Execute a single registry tool against an authorized target.
+
+    Handlers are resolved locally so this router does not import ``web.server``
+    (which imports this module and would create an import cycle).
+    """
+    from core.tool_handler_resolver import invoke_handler
+
+    tool = tool_registry.get(payload.tool_id)
+    if not tool:
+        raise HTTPException(status_code=404, detail=safe_error("Tool not found."))
+
+    options = dict(payload.arguments or {})
+    for key in ("target", "url", "target_url", "host", "domain"):
+        options.setdefault(key, payload.target)
+
+    try:
+        result = await invoke_handler(tool.backend_handler, payload=options)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502, detail=safe_error("Tool execution failed.", exc)
+        ) from exc
+
+    return v1_envelope(data={
+        "status": "COMPLETED",
+        "tool_id": payload.tool_id,
+        "target": payload.target,
+        "result": result,
+    }, message=f"Tool {payload.tool_id} executed")
 
 @v1_router.get("/security-tools/health")
 async def v1_security_tools_health():

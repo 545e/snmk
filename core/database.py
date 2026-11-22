@@ -5573,7 +5573,7 @@ class Database:
 
 
 
-        from core.ai_training import TrainingConfig, TrainingJob
+        from core.training_models import TrainingConfig, TrainingJob
 
 
 
@@ -5697,7 +5697,7 @@ class Database:
 
 
 
-        from core.ai_training import TrainingConfig, TrainingJob
+        from core.training_models import TrainingConfig, TrainingJob
 
 
 

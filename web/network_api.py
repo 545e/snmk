@@ -62,8 +62,7 @@ logger = logging.getLogger("snmk.map.api")
 
 router = APIRouter(prefix="/api/network", tags=["Network Intelligence (MAP)"])
 
-# In-memory storage for active assessment sessions and generated reports
-_active_sessions: dict[str, dict[str, Any]] = {}
+# In-memory storage for generated reports
 _saved_reports: dict[str, dict[str, Any]] = {}
 
 

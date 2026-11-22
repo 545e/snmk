@@ -5018,7 +5018,6 @@ function atRenderRecon(recon) {
     const ports = recon.open_ports || [];
     const tech = recon.technologies || recon.tech_stack || [];
     const ssl = recon.ssl_info || recon.ssl || null;
-    const whois = recon.whois || null;
 
     if (target) {
         html += `<div class="at-section-head">Target</div>
@@ -5248,7 +5247,6 @@ function atRenderForensics(forensics) {
 
     const threats = forensics.threats || [];
     const huntProfiles = forensics.threat_hunt_profiles || [];
-    const events = forensics.events || [];
     const vectors = forensics.attack_vectors || [];
     const summary = forensics.threat_summary || forensics.summary || null;
     const totalCount = threats.length || huntProfiles.length;

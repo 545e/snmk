@@ -100,7 +100,7 @@ def _rank_probe_parameters(params):
         if rank is None:
             # Unknown parameters sort after the known ones; the original
             # index keeps the ordering deterministic for equal ranks.
-            return (1, index, lowered)
+            return (1, 0, index, lowered)
         return (0, rank, index, lowered)
 
     return [name for _, name in sorted(enumerate(unique), key=sort_key)]
