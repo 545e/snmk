@@ -45,6 +45,7 @@ from core.integrations.threat_intel import (
     URLhausAdapter,
     VirusTotalAdapter,
 )
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("swa.integrations")
 
@@ -516,7 +517,7 @@ class IntegrationRegistry:
                         "success": False,
                         "status": "ERROR",
                         "latency_ms": None,
-                        "message": str(exc),
+                        "message": safe_error("Integration check failed.", exc),
                         "tested_at": _utc_now()
                     }
 

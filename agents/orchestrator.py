@@ -19,6 +19,7 @@ from core.database import db
 from core.llm_client import SWALLMClient
 from core.models import LogEvent, ScanJob, ScanProfile, ScanStatus
 from core.queue_manager import queue_manager
+from core.error_sanitizer import safe_error
 
 
 class SWAOrchestrator:
@@ -272,7 +273,7 @@ class SWAOrchestrator:
                 db.update_scan_counts(self.scan_id, force=True)
             except Exception:
                 logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
-            db.update_scan_progress(self.scan_id, 100, "Failed", error=str(e))
+            db.update_scan_progress(self.scan_id, 100, "Failed", error=safe_error("Scan failed.", e))
         finally:
             if self.scan_id in queue_manager.active_tasks:
                 del queue_manager.active_tasks[self.scan_id]

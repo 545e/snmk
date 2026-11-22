@@ -11,6 +11,7 @@ import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
+from core.error_sanitizer import safe_error
 
 # Synthetic benign canary token used to objectively verify data leakage
 CANARY_SECRET = "SECRET_CANARY_TOKEN_918273_SWA"
@@ -289,7 +290,7 @@ class LLMSecurityTestingHarness:
             response = await asyncio.wait_for(client._call_llm(full_system_context), timeout=15.0)
             return response
         except Exception as e:
-            return f"[LLM Error or Refusal]: {e!s}"
+            return safe_error("[LLM error or refusal]", e)
 
     def _heuristic_test_response(self, test_case: LLMTestCase) -> str:
         """Simulates standard aligned LLM responses for local offline verification."""

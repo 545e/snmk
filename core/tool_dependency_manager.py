@@ -25,6 +25,7 @@ from enum import Enum
 from typing import Any
 
 from pydantic import BaseModel, Field
+from core.error_sanitizer import safe_error
 
 # =====================================================================
 # Constants & Paths
@@ -786,14 +787,14 @@ class SecureToolInstaller:
                     }
 
             except Exception as e:
-                log(f"ERROR: Installation failed: {e!s}")
+                log(safe_error("ERROR: Installation failed.", e))
                 job_record["status"] = InstallStatus.FAILED
-                job_record["error"] = str(e)
+                job_record["error"] = safe_error("Installation failed.", e)
                 return {
                     "job_id": job_id,
                     "tool_id": item.tool_id,
                     "status": InstallStatus.FAILED,
-                    "message": f"Installation failed: {e!s}"
+                    "message": safe_error("Installation failed.", e)
                 }
 
     async def _install_pip_package(
@@ -1424,8 +1425,8 @@ class ToolHealthEngine:
             return diag
         except Exception as e:
             diag.status = ToolHealthState.ERROR
-            diag.diagnostics = f"Version query failed: {e!s}"
-            diag.checks_failed.append(f"Level 2: Version query failed: {e!s}")
+            diag.diagnostics = safe_error("Version query failed.", e)
+            diag.checks_failed.append(safe_error("Level 2: Version query failed.", e))
             diag.latency_ms = round((time.time() - start_time) * 1000, 2)
             return diag
 
@@ -1463,8 +1464,8 @@ class ToolHealthEngine:
                 diag.diagnostics = "Functional execution check returned non-zero code or degraded status."
         except Exception as e:
             diag.status = ToolHealthState.DEGRADED
-            diag.checks_failed.append(f"Level 5: Functional check error: {e!s}")
-            diag.diagnostics = f"Level 5 functional test note: {e!s}"
+            diag.checks_failed.append(safe_error("Level 5: Functional check error.", e))
+            diag.diagnostics = safe_error("Level 5 functional test note.", e)
 
         diag.latency_ms = round((time.time() - start_time) * 1000, 2)
         return diag
@@ -1546,7 +1547,7 @@ class ToolHealthEngine:
                     level_passed=0,
                     installed=False,
                     required_version=item.required_version,
-                    diagnostics=f"Health check execution failure: {res!s}",
+                    diagnostics=safe_error("Health check execution failure.", res),
                     last_check=datetime.datetime.now(datetime.UTC).isoformat()
                 )
             else:

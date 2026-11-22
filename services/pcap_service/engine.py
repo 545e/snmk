@@ -16,6 +16,7 @@ import re
 import uuid
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional, Set, Tuple
+from core.error_sanitizer import safe_error
 
 # Scapy with safe fallbacks
 try:
@@ -168,7 +169,7 @@ class PcapAnalyzerEngine:
                 flag_name="SUSPICIOUS_FILE_SIGNATURE",
                 severity="MEDIUM",
                 title="Malformed or Unsupported PCAP File Structure",
-                description=f"Could not parse packet capture: {str(e)}"
+                description=safe_error("Could not parse packet capture.", e)
             ))
             return result
 

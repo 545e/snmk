@@ -40,6 +40,7 @@ from core.models import (
 )
 from core.scope_policy import scope_policy
 from core.tool_registry import tool_registry
+from core.error_sanitizer import safe_error
 
 v1_router = APIRouter(tags=["v1"])
 
@@ -753,7 +754,7 @@ async def v1_rotate_integration(integration_id: str, payload: V1IntegrationRotat
         updated = integration_registry.rotate_credential(integration_id, payload.credentials)
         return v1_envelope(data=updated, message="Credentials rotated successfully")
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", exc))
 
 @v1_router.post("/integrations/test")
 async def v1_test_integration(payload: V1IntegrationTestPayload):
@@ -802,7 +803,7 @@ async def v1_query_cisa_kev(cve: str | None = None):
     try:
         data = await get_cisa_kev(cve)
     except ThreatIntelUnavailable as exc:
-        raise HTTPException(status_code=503, detail=f"CISA KEV feed unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=safe_error("CISA KEV feed unavailable.", exc))
     return v1_envelope(data=data)
 
 @v1_router.get("/threat-intelligence/first-epss")
@@ -814,7 +815,7 @@ async def v1_query_first_epss(cve: str | None = None):
     try:
         data = await get_first_epss(cve)
     except ThreatIntelUnavailable as exc:
-        raise HTTPException(status_code=503, detail=f"FIRST EPSS API unavailable: {exc}")
+        raise HTTPException(status_code=503, detail=safe_error("FIRST EPSS API unavailable.", exc))
     return v1_envelope(data=data)
 
 

@@ -15,6 +15,7 @@ import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
+from core.error_sanitizer import safe_error
 
 CHECKPOINT_DIR = os.getenv("SWA_CHECKPOINT_DIR", os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "model_checkpoints"))
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
@@ -224,10 +225,10 @@ class AITrainingEngine:
             self.db.save_training_job(job)
         except Exception as e:
             job.status = "FAILED"
-            job.error_message = str(e)
+            job.error_message = safe_error("Training failed.", e)
             job.completed_at = datetime.datetime.now(datetime.UTC).isoformat()
             job.duration_seconds = round(time.time() - start_time, 2)
-            job.logs.append(f"Fatal error during training: {e!s}")
+            job.logs.append(safe_error("Fatal error during training.", e))
             self.db.save_training_job(job)
         finally:
             self.active_jobs.pop(job_id, None)

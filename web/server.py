@@ -71,6 +71,7 @@ from agents.orchestrator import SWAOrchestrator
 from core.ai_models import ai_model_manager
 from core.audit import audit
 from core.database import db
+from core.error_sanitizer import safe_error
 from core.integrations.registry import integration_registry
 from core.models import (
     LogEvent,
@@ -301,6 +302,30 @@ async def snmk_error_handler(request: Request, exc: SNMKError):
         details=exc.details,
     )
     return JSONResponse(status_code=status_code, content=payload)
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    """Return a generic 500 for unexpected errors; keep the detail in server logs.
+
+    This is defence in depth for the ``py/info-exposure-through-exception``
+    class of findings: even if an exception escapes a route without being
+    wrapped, its message is never serialised into the HTTP response.
+    """
+    logger.error(
+        "Unhandled error while processing %s %s",
+        request.method,
+        request.url.path,
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content=StandardErrorEnvelope.create(
+            code="INTERNAL_ERROR",
+            message=safe_error("An internal error occurred."),
+            request_id=getattr(request.state, "request_id", ""),
+        ),
+    )
 
 
 
@@ -2054,7 +2079,7 @@ async def import_nessus_report(
             "message": f"Successfully imported {len(imported)} findings from Nessus XML"
         }
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse Nessus XML: {e!s}")
+        raise HTTPException(status_code=400, detail=safe_error("Failed to parse Nessus XML.", e))
 
 
 
@@ -4493,15 +4518,15 @@ async def run_rea_analysis(payload: REAAnalyzePayload):
 
     except PermissionError as pe:
 
-        raise HTTPException(status_code=403, detail=str(pe))
+        raise HTTPException(status_code=403, detail=safe_error("Path validation failed.", pe))
 
     except ValueError as ve:
 
-        raise HTTPException(status_code=400, detail=str(ve))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid analysis request.", ve))
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"REA analysis failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("REA analysis failed.", e))
 
 
 
@@ -4576,7 +4601,7 @@ async def upload_and_analyze_rea(
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Upload analysis failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Upload analysis failed.", e))
 
 
 
@@ -4813,7 +4838,7 @@ async def submit_crew_task(req: CrewTaskRequest):
 
     except (ValueError, RuntimeError) as exc:
 
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", exc))
 
     return {"task_id": task.task_id, "status": task.status.value, "orchestrator": task.orchestrator}
 
@@ -5068,21 +5093,27 @@ async def _execute_registry_handler(
             **base,
             "status": "NOT_IMPLEMENTED",
             "executed": False,
-            "reason": str(exc),
+            "reason": safe_error("Handler could not be executed.", exc),
         }
     except HandlerNotExecutable as exc:
         return {
             **base,
             "status": "NOT_EXECUTABLE",
             "executed": False,
-            "reason": str(exc),
+            "reason": safe_error("Handler could not be executed.", exc),
         }
     except ValueError as exc:
+        # ValueError here is input validation (for example a missing
+        # 'scan_id'), never an internal detail. Return a fixed message rather
+        # than the exception text so no exception data reaches the response.
         return {
             **base,
             "status": "NOT_EXECUTABLE",
             "executed": False,
-            "reason": str(exc),
+            "reason": safe_error(
+                "Handler input validation failed: a required option such as 'scan_id' is missing or invalid.",
+                exc,
+            ),
         }
     except Exception as exc:
         logger.error(f"Error executing registry handler {handler}: {exc}")
@@ -5090,7 +5121,7 @@ async def _execute_registry_handler(
             **base,
             "status": "FAILED",
             "executed": False,
-            "reason": f"Handler raised {type(exc).__name__}: {exc}",
+            "reason": safe_error("Handler raised an error.", exc),
         }
 
     return {
@@ -5494,18 +5525,18 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
             completed_at=_failed_finished,
             exit_code=1,
             stderr_reference=f"/api/scans/{tool_scan_id}/results",
-            error_message=str(e)[:1000],
+            error_message=safe_error("Tool execution failed.", e)[:1000],
         )
         persistent_store.update_scan(
             tool_scan_id,
             status="FAILED",
             started_at=tool_started,
             completed_at=_failed_finished,
-            error_message=str(e)[:1000],
+            error_message=safe_error("Tool execution failed.", e)[:1000],
             duration_seconds=round(time.time() - t_start, 3),
         )
 
-        raise HTTPException(status_code=500, detail=f"Tool execution failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Tool execution failed.", e))
 
 
 
@@ -6382,11 +6413,11 @@ async def upload_dataset(
 
     except ValueError as e:
 
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", e))
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Upload processing failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Upload processing failed.", e))
 
 
 
@@ -6500,11 +6531,11 @@ async def split_dataset(dataset_id: str, req: DatasetSplitRequest):
 
     except ValueError as e:
 
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", e))
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=safe_error("Operation failed.", e))
 
 
 
@@ -6564,11 +6595,11 @@ async def start_ai_training(config: dict):
 
     except ValueError as e:
 
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", e))
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Failed to start training: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Failed to start training.", e))
 
 
 
@@ -6682,7 +6713,7 @@ async def run_ai_evaluation(req: RunEvaluationRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Model evaluation failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Model evaluation failed.", e))
 
 
 
@@ -6766,7 +6797,7 @@ async def run_redteam_suite(req: RunRedteamRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Red-team execution failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Red-team execution failed.", e))
 
 
 
@@ -6835,7 +6866,7 @@ async def api_rag_ingest(req: RAGIngestRequest):
             "message": f"Successfully ingested document '{doc.title}' into {doc.chunk_count} semantic chunks."
         }
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", exc))
 
 @app.post("/api/ai/rag/query")
 async def api_rag_query(req: RAGQueryRequest):
@@ -7009,7 +7040,7 @@ async def generate_cyber_export(req: CyberExportRequest):
 
     except Exception as e:
 
-        raise HTTPException(status_code=500, detail=f"Export generation failed: {e!s}")
+        raise HTTPException(status_code=500, detail=safe_error("Export generation failed.", e))
 
 
 
@@ -7705,7 +7736,7 @@ def _tool_inventory_component() -> dict:
 
             "scanner_tools", "External scanner integrations", "DEGRADED",
 
-            f"Failed to query inventory: {exc}", category="inventory_error", retry=True,
+            safe_error("Failed to query inventory.", exc), category="inventory_error", retry=True,
 
         )
 
@@ -7855,7 +7886,7 @@ async def system_status():
     except Exception as e:
         components.append(_component(
             "security_tool_dependencies", "Security Tool Dependency Engine & Health Monitor",
-            "DEGRADED", f"Error querying tool health: {e}"
+            "DEGRADED", safe_error("Error querying tool health.", e)
         ))
 
     components.append(_component(
@@ -7939,7 +7970,7 @@ async def system_status():
 
             "scans", "Scan workload", "DEGRADED",
 
-            f"Could not read scan state: {exc}",
+            safe_error("Could not read scan state.", exc),
 
             category="query_failed",
 
@@ -8015,7 +8046,7 @@ async def system_status():
 
             "scope", "Target scope enforcement", "FAILED",
 
-            f"Scope policy failed to load: {exc}",
+            safe_error("Scope policy failed to load.", exc),
 
             category="scope_policy_error",
 
@@ -8235,7 +8266,7 @@ async def ai_status(probe: bool = False):
 
         result["reachability"] = "UNAVAILABLE"
 
-        result["error"] = f"{type(exc).__name__}: {exc}"
+        result["error"] = safe_error("The provider probe failed.", exc)
 
 
 
@@ -8417,7 +8448,7 @@ async def save_integration_endpoint(req: IntegrationCreateRequest):
 
     except Exception as exc:
 
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", exc))
 
 
 
@@ -8491,7 +8522,7 @@ async def rotate_integration_endpoint(integration_id: str, req: IntegrationRotat
         updated = integration_registry.rotate_credential(integration_id, req.credentials)
         return {"status": "SUCCESS", "integration": updated, "message": "Credentials rotated successfully"}
     except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", exc))
 
 
 
@@ -8866,7 +8897,7 @@ async def run_automation_workflow(wf_id: str, payload: WorkflowRunPayload):
 
     except Exception as e:
 
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid request.", e))
 
 
 
@@ -9211,7 +9242,7 @@ async def download_universal_scan_report_endpoint(scan_id: str, format: str = Qu
     try:
         content, media_type = universal_scanner.generate_report(scan_id, format_type=format)
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=safe_error("Resource not found.", e))
 
     ext_map = {
         "json": "json",

@@ -11,6 +11,7 @@ from typing import Any
 import httpx
 
 from core.integrations.base import BaseIntegrationAdapter
+from core.error_sanitizer import safe_error
 
 
 class AWSAdapter(BaseIntegrationAdapter):
@@ -64,7 +65,7 @@ class AWSAdapter(BaseIntegrationAdapter):
                 return {"success": True, "status": "CONNECTED", "message": "AWS Access Key format validated (boto3 optional for live call).", "latency_ms": latency}
             return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid AWS Access Key ID prefix.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "AUTHENTICATION_FAILED", "message": f"AWS STS call failed: {exc}", "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "AUTHENTICATION_FAILED", "message": safe_error("AWS STS call failed.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class AzureCloudAdapter(BaseIntegrationAdapter):
@@ -106,7 +107,7 @@ class AzureCloudAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "Azure Management OAuth token acquired.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Azure authentication failed.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Cloud provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class GCPAdapter(BaseIntegrationAdapter):
@@ -147,4 +148,4 @@ class GCPAdapter(BaseIntegrationAdapter):
                 }
             return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Missing client_email or project_id in JSON.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "ERROR", "message": f"Invalid JSON format: {exc}", "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "ERROR", "message": safe_error("Invalid JSON format.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}

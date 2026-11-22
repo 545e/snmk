@@ -48,6 +48,7 @@ UTC = getattr(datetime, "UTC", UTC)
 from enum import Enum
 from pathlib import Path
 from typing import Any
+from core.error_sanitizer import safe_error
 
 ROOT = Path(__file__).resolve().parent.parent
 HISTORY_PATH = ROOT / "data" / "crew_execution_history.json"
@@ -173,7 +174,7 @@ def _a_database(task: Task) -> str:
         importlib.import_module("sqlalchemy")
         importlib.import_module("pymysql")
     except ImportError as exc:
-        raise RuntimeError(f"database driver unavailable: {exc}")
+        raise RuntimeError(safe_error("database driver unavailable", exc))
     host = os.environ.get("MYSQL_HOST", "")
     return "drivers present; MYSQL_HOST is " + ("configured" if host else "not configured")
 
@@ -183,7 +184,7 @@ def _a_tracing(task: Task) -> str:
         importlib.import_module("prometheus_client")
         importlib.import_module("opentelemetry.sdk")
     except ImportError as exc:
-        raise RuntimeError(f"telemetry unavailable: {exc}")
+        raise RuntimeError(safe_error("telemetry unavailable", exc))
     enabled = os.environ.get("SWA_OTEL_ENABLED", "0") in ("1", "true", "yes", "on")
     return "telemetry dependencies present; OTEL " + ("enabled" if enabled else "disabled")
 
@@ -366,14 +367,14 @@ class CrewCoordinator:
                     task.status = TaskStatus.COMPLETED
                     break
                 except Exception as exc:  # noqa: BLE001 - task boundary records every failure
-                    task.error = f"{type(exc).__name__}: {exc}"[:900]
+                    task.error = safe_error("Task execution failed.", exc)[:900]
                     if attempt < task.retries:
                         time.sleep(min(2 ** attempt, 4))
             else:
                 task.status = TaskStatus.FAILED
         except Exception as exc:  # noqa: BLE001 - outer task boundary
             task.status = TaskStatus.FAILED
-            task.error = f"{type(exc).__name__}: {exc}"[:900]
+            task.error = safe_error("Task execution failed.", exc)[:900]
         finally:
             task.duration_sec = round(time.perf_counter() - started, 3)
             task.finished_at = datetime.now(UTC).isoformat()

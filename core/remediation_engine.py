@@ -17,6 +17,7 @@ from core.models import VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 from core import tls_policy
+from core.error_sanitizer import safe_error
 
 
 class RemediationEngine:
@@ -141,7 +142,7 @@ class RemediationEngine:
                     retest_evidence = f"Endpoint responded with HTTP {res.status_code}; test payload reflection no longer present."
         except Exception as e:
             status_result = "VERIFIED_RESOLVED"
-            retest_evidence = f"Endpoint is no longer reachable or connection refused ({e!s})."
+            retest_evidence = safe_error("Endpoint is no longer reachable or connection refused.", e)
 
         # Determine target lifecycle status based on retest result
         target_status = FindingLifecycleStatus.VERIFIED if status_result == "VERIFIED_RESOLVED" else FindingLifecycleStatus.IN_PROGRESS

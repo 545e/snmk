@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 
 from core.database import db
 from core.scope_policy import ScopeViolation, scope_policy
+from core.error_sanitizer import safe_error
 
 
 class WorkflowStep(BaseModel):
@@ -596,7 +597,7 @@ class AutomationEngine:
                         step_rec["output"] = str((rec.get("outputs") or {}).get("summary") or rec.get("error_message") or "Recon dispatch returned no summary.")[:500]
                     except Exception as recon_err:
                         step_rec["status"] = "FAILED"
-                        step_rec["output"] = f"Recon dispatch failed: {recon_err}"
+                        step_rec["output"] = safe_error("Recon dispatch failed.", recon_err)
                 elif action_type == "tool_run":
                     tool = step.get("tool_id", "security_tool")
                     step_rec["status"] = "SIMULATED"
@@ -622,7 +623,7 @@ class AutomationEngine:
                         step_rec["output"] = str(outputs.get("summary") or outputs.get("note") or rec.get("error_message") or f"Agent {agent_id} status: {rec_status}.")[:500]
                     except Exception as agent_err:
                         step_rec["status"] = "FAILED"
-                        step_rec["output"] = f"Agent dispatch failed: {agent_err}"
+                        step_rec["output"] = safe_error("Agent dispatch failed.", agent_err)
                 elif action_type == "risk_analysis":
                     from core.scoring import compute_posture
                     posture = compute_posture(db.list_findings())
@@ -640,7 +641,7 @@ class AutomationEngine:
                                                f"{rules.get('generated_hardening_rules', 0)} hardening blocks (deterministic Blue Team engine, no model claim).")
                     except Exception as rem_err:
                         step_rec["status"] = "FAILED"
-                        step_rec["output"] = f"Remediation generation failed: {rem_err}"
+                        step_rec["output"] = safe_error("Remediation generation failed.", rem_err)
                 elif action_type == "approval_gate":
                     step_rec["output"] = "Approval gate cleared (authorized lab or pre-approved context)."
                     step_rec["status"] = "SUCCESS"
@@ -655,8 +656,8 @@ class AutomationEngine:
 
             except Exception as e:
                 step_rec["status"] = "FAILED"
-                step_rec["error"] = str(e)
-                error_msg = f"Step {idx} ({step_name}) failed: {e!s}"
+                step_rec["error"] = safe_error("Workflow step failed.", e)
+                error_msg = safe_error(f"Step {idx} ({step_name}) failed.", e)
                 overall_status = "FAILED"
                 step_logs.append(step_rec)
                 break

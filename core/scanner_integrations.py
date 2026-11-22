@@ -33,6 +33,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.models import Severity, VulnerabilityFinding
+from core.error_sanitizer import safe_error
+
+logger = logging.getLogger(__name__)
 
 
 class ScannerIntegrations:
@@ -622,7 +625,7 @@ class ScannerIntegrations:
                         "tool_id": tid,
                         "name": tid.replace("_", " ").title(),
                         "status": "UP_TO_DATE",
-                        "message": f"Tool operational. Baseline verified ({e!s})",
+                        "message": safe_error("Tool operational. Baseline verified (offline fallback active).", e),
                         "current_version": "2.3.0",
                         "updated_at": now_iso
                     })
@@ -954,7 +957,7 @@ class ScannerIntegrations:
                 "status": "ERROR",
                 "installed": True,
                 "latency_ms": latency,
-                "message": f"Health check failed: {e!s}"
+                "message": safe_error("Health check failed.", e)
             }
 
     # =====================================================================
@@ -1067,7 +1070,7 @@ class ScannerIntegrations:
         except TimeoutError:
             return {"tool": "nmap", "executed": False, "error": f"Nmap execution timed out after {timeout}s."}
         except Exception as e:
-            return {"tool": "nmap", "executed": False, "error": f"Nmap execution failed: {e!s}"}
+            return {"tool": "nmap", "executed": False, "error": safe_error("Nmap execution failed.", e)}
 
     # =====================================================================
     # Nuclei Safe Execution
@@ -1158,7 +1161,7 @@ class ScannerIntegrations:
         except TimeoutError:
             return [], {"tool": "nuclei", "executed": False, "error": f"Nuclei timed out after {timeout}s."}
         except Exception as e:
-            return [], {"tool": "nuclei", "executed": False, "error": str(e)}
+            return [], {"tool": "nuclei", "executed": False, "error": safe_error("Nuclei execution failed.", e)}
 
     # =====================================================================
     # SQLmap Safe Lab Detection (Disabled by default, non-destructive only)
@@ -1244,7 +1247,7 @@ class ScannerIntegrations:
         except TimeoutError:
             return [], {"tool": "sqlmap", "executed": False, "error": f"SQLmap timed out after {timeout}s."}
         except Exception as e:
-            return [], {"tool": "sqlmap", "executed": False, "error": str(e)}
+            return [], {"tool": "sqlmap", "executed": False, "error": safe_error("SQLmap execution failed.", e)}
 
     # =====================================================================
     # Dependency Manifest Scanner (package.json, requirements.txt)
@@ -1377,7 +1380,7 @@ class ScannerIntegrations:
                 "tool": canonical_id,
                 "executed": False,
                 "status": "SCOPE_CHECK_FAILED",
-                "reason": f"Scope validation could not be completed: {exc}",
+                "reason": safe_error("Scope validation could not be completed.", exc),
             }
 
         if not scope.is_allowed:
@@ -1426,7 +1429,7 @@ class ScannerIntegrations:
                 "tool": canonical_id,
                 "executed": False,
                 "status": "ERROR",
-                "reason": f"{tool['name']} could not be executed: {exc}",
+                "reason": safe_error(f"{tool['name']} could not be executed.", exc),
             }
 
         out_text = stdout.decode("utf-8", errors="ignore")

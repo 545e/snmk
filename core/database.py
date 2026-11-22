@@ -39,6 +39,7 @@ from core.models import (
     Severity,
     VulnerabilityFinding,
 )
+from core.error_sanitizer import safe_error
 
 DB_PATH = os.getenv("SWA_DB_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "swa_data.db"))
 
@@ -195,7 +196,7 @@ class Database:
 
                 "database_path": os.path.abspath(self.db_path),
 
-                "error": str(e)
+                "error": safe_error("Database operation failed.", e)
 
             }
 

@@ -31,6 +31,7 @@ import httpx
 
 from core import tls_policy
 from core.scope_policy import scope_policy
+from core.error_sanitizer import safe_error
 
 
 def _validate_safe_target_url(target_url: str, allow_lab: bool = False) -> str | None:
@@ -130,7 +131,7 @@ class DNSLookupTool:
                         if ip not in results["records"]["A"]:
                             results["records"]["A"].append(ip)
             except Exception as e:
-                results["records"]["error"] = str(e)
+                results["records"]["error"] = safe_error("Database query failed.", e)
 
         # Inspect TXT records for SPF
         txt_records = results["records"].get("TXT", [])
@@ -240,7 +241,7 @@ class SecurityHeadersTool:
             except Exception as e:
                 return {
                     "target_url": target_url,
-                    "error": f"Failed to connect to target: {e!s}",
+                    "error": safe_error("Failed to connect to target.", e),
                     "score": 0,
                     "grade": "F"
                 }
@@ -348,9 +349,9 @@ class SSLCertificateTool:
             except ssl.SSLCertVerificationError as exc:
                 return False, f"Certificate verification failed: {exc.verify_message or exc}"
             except ssl.SSLError as exc:
-                return False, f"TLS handshake failed: {exc}"
+                return False, safe_error("TLS handshake failed.", exc)
             except OSError as exc:
-                return False, f"Connection failed: {exc}"
+                return False, safe_error("Connection failed.", exc)
 
         try:
             cert, bin_cert, tls_version, cipher = await loop.run_in_executor(None, _tls_probe)
@@ -358,7 +359,7 @@ class SSLCertificateTool:
             return {
                 "target": target,
                 "port": port,
-                "error": f"TLS Connection failed: {e!s}",
+                "error": safe_error("TLS connection failed.", e),
                 "valid": False
             }
 
@@ -729,7 +730,7 @@ class SubnetCalculatorTool:
                 "is_global": net.is_global
             }
         except Exception as e:
-            return {"error": f"Invalid CIDR or IP address: {e!s}"}
+            return {"error": safe_error("Invalid CIDR or IP address.", e)}
 
 
 # =====================================================================
@@ -815,7 +816,7 @@ class TargetedVulnProberTool:
                         "summary": summary
                     }
                 except Exception as e:
-                    return {"target_url": target_url, "error": str(e), "vulnerable": False}
+                    return {"target_url": target_url, "error": safe_error("Request failed.", e), "vulnerable": False}
 
         # Execute tests for parameter-based probes
         async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=5.0)) as client:

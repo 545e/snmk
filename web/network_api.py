@@ -56,6 +56,7 @@ from core.network.reporting import report_generator
 from core.network.routing_engine import route_engine
 from core.network.threat_engine import threat_engine
 from core.network.wifi_engine import wifi_engine
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.map.api")
 
@@ -490,7 +491,7 @@ async def download_report_file(request: Request, report_id: str, format: str = Q
             )
         except Exception as e:
             logger.error(f"PDF generation error: {e}")
-            raise HTTPException(status_code=500, detail=f"PDF generation failed: {e}")
+            raise HTTPException(status_code=500, detail=safe_error("PDF generation failed.", e))
 
     raise HTTPException(status_code=400, detail=f"Unsupported format '{format}'. Use json, md, html, or pdf.")
 

@@ -27,6 +27,7 @@ from core import tls_policy
 from core.pattern_gating import GateFilter
 from core.scope_policy import scope_policy
 from core.url_utils import host_matches, safe_hostname
+from core.error_sanitizer import safe_error
 
 # =====================================================================
 # 0. Line index helpers
@@ -2013,7 +2014,7 @@ class GhostJsAnalyzer:
                 content = f.read()
             return self.scan_content(content, source_url=filepath)
         except Exception as e:
-            return {"error": str(e), "findings": []}
+            return {"error": safe_error("JavaScript analysis failed.", e), "findings": []}
 
     async def scan_url(self, target_url: str, active_fetch_bundles: bool = True) -> dict[str, Any]:
         """
@@ -2065,7 +2066,7 @@ class GhostJsAnalyzer:
             except Exception as e:
                 return {
                     "target_url": target_url,
-                    "error": f"Failed to fetch initial target: {e}",
+                    "error": safe_error("Failed to fetch initial target.", e),
                     "findings": [],
                     "api_endpoints": [],
                     "cloud_storage": [],

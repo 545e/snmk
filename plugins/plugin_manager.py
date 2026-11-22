@@ -25,6 +25,7 @@ from plugins.owasp_plugins import (
 )
 
 from core import tls_policy
+from core.error_sanitizer import safe_error
 
 
 class SecurityPluginManager:
@@ -148,7 +149,7 @@ class SecurityPluginManager:
                     "plugin_id": plugin_id,
                     "plugin_name": plugin.name,
                     "target": target,
-                    "error": str(e),
+                    "error": safe_error("Plugin execution failed.", e),
                     "findings": []
                 }
         

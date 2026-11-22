@@ -26,6 +26,7 @@ from core.integrations.ai_providers import (
     OpenRouterAdapter,
 )
 from core.scope_policy import scope_policy
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("swa.ai_agent_api")
 
@@ -489,7 +490,7 @@ async def run_multi_agent_collaboration(req: dict[str, Any]):
         except TimeoutError:
             rec = {"status": "FAILED", "error_message": "Stage timed out after 90s."}
         except Exception as e:
-            rec = {"status": "FAILED", "error_message": str(e)}
+            rec = {"status": "FAILED", "error_message": safe_error("Agent execution failed.", e)}
         if rec:
             status = str(rec.get("status") or "FAILED").upper()
             outputs = rec.get("outputs") or {}

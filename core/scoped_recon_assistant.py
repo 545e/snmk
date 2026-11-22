@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 import httpx
 
 from core import tls_policy
+from core.error_sanitizer import safe_error
 
 ALLOWED_TARGETS = [
     "0a2f008804b73639822f564400da00ed.web-security-academy.net",
@@ -151,7 +152,7 @@ class ScopedReconAssistant:
             except Exception:
                 logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
-            dns_obs["error"] = str(e)
+            dns_obs["error"] = safe_error("DNS observation unavailable.", e)
         self.observations.append(dns_obs)
 
         # B. TLS Certificate (if HTTPS)
@@ -171,7 +172,7 @@ class ScopedReconAssistant:
                             tls_obs["subject"] = dict(x[0] for x in cert.get("subject", []))
                             tls_obs["issuer"] = dict(x[0] for x in cert.get("issuer", []))
             except Exception as e:
-                tls_obs["notice"] = str(e)
+                tls_obs["notice"] = safe_error("TLS observation unavailable.", e)
             self.observations.append(tls_obs)
 
         # C. HTTP Root Response & Security Headers
@@ -196,7 +197,7 @@ class ScopedReconAssistant:
                 if "set-cookie" in h_lower:
                     header_obs["tech_fingerprint"].append(f"Cookie Flags: {h_lower['set-cookie']}")
             except Exception as e:
-                header_obs["notice"] = f"Root connection notice: {e!s}"
+                header_obs["notice"] = safe_error("Root connection unavailable.", e)
         self.observations.append(header_obs)
 
         # D. Robots.txt and Sitemap.xml
@@ -250,7 +251,7 @@ class ScopedReconAssistant:
                         "path": path,
                         "url": url,
                         "status_code": None,
-                        "error": str(e)
+                        "error": safe_error("Observation failed.", e)
                     })
 
                 # Hard constraint: rate limit to max 1 request/second

@@ -19,6 +19,7 @@ from core.integrations.endpoint_policy import (
 )
 
 from core import tls_policy
+from core.error_sanitizer import safe_error
 
 
 class WazuhAdapter(BaseIntegrationAdapter):
@@ -50,7 +51,7 @@ class WazuhAdapter(BaseIntegrationAdapter):
             # The manager credentials are about to be sent to this host.
             url = validate_integration_endpoint(url, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Platform blocked the request.", exc), "latency_ms": 0}
 
         start = time.perf_counter()
         try:
@@ -63,7 +64,7 @@ class WazuhAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid Wazuh API username or password.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"Wazuh returned HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": f"Could not reach Wazuh manager: {exc}", "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Could not reach Wazuh manager.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class SplunkAdapter(BaseIntegrationAdapter):
@@ -90,7 +91,7 @@ class SplunkAdapter(BaseIntegrationAdapter):
             # The HEC token is about to be sent to this host.
             url = validate_integration_endpoint(url, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Platform blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
@@ -100,7 +101,7 @@ class SplunkAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "Splunk HEC is healthy and accepting payloads.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"Splunk status: HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Platform is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class ElasticSecurityAdapter(BaseIntegrationAdapter):
@@ -127,7 +128,7 @@ class ElasticSecurityAdapter(BaseIntegrationAdapter):
             # The API key is about to be sent to this host.
             url = validate_integration_endpoint(url, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Platform blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
@@ -138,7 +139,7 @@ class ElasticSecurityAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": f"Connected to Elastic cluster '{cluster}'.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Elasticsearch key rejected.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Platform is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class MicrosoftSentinelAdapter(BaseIntegrationAdapter):
@@ -181,7 +182,7 @@ class MicrosoftSentinelAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "Microsoft Azure Entra token granted.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": f"Azure authentication failed: {res.json().get('error_description', 'invalid credentials')}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Platform is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class CrowdStrikeAdapter(BaseIntegrationAdapter):
@@ -210,7 +211,7 @@ class CrowdStrikeAdapter(BaseIntegrationAdapter):
             # The client secret is about to be sent to this host.
             base = validate_integration_endpoint(base, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Platform blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0) as client:
@@ -223,7 +224,7 @@ class CrowdStrikeAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "CrowdStrike Falcon OAuth2 connected.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "CrowdStrike OAuth failed.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Platform is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class DefectDojoAdapter(BaseIntegrationAdapter):
@@ -251,7 +252,7 @@ class DefectDojoAdapter(BaseIntegrationAdapter):
             # The DefectDojo API key is about to be sent to this host.
             url = validate_integration_endpoint(url, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Platform blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=8.0)) as client:
@@ -261,7 +262,7 @@ class DefectDojoAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "DefectDojo API v2 connection authenticated.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "DefectDojo key unauthorized.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Platform is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class TenableAdapter(BaseIntegrationAdapter):
@@ -296,4 +297,4 @@ class TenableAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "Tenable.io connected.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Tenable keys rejected.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Platform is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}

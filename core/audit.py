@@ -14,6 +14,7 @@ UTC = getattr(datetime, "UTC", timezone.utc)
 from typing import Any
 
 from core.database import db
+from core.error_sanitizer import safe_error
 
 
 def _utc_now() -> str:
@@ -97,7 +98,7 @@ class AuditLog:
                     row_id = cur.lastrowid
             return {"recorded": True, "id": row_id, "created_at": created}
         except Exception as exc:  # pragma: no cover - defensive
-            return {"recorded": False, "error": str(exc)}
+            return {"recorded": False, "error": safe_error("Audit event could not be recorded.", exc)}
 
     # ------------------------------------------------------------------ list
     def entries(
@@ -128,7 +129,7 @@ class AuditLog:
                     ).fetchall()
             return [dict(r) for r in rows]
         except Exception as exc:
-            return [{"error": str(exc)}]
+            return [{"error": safe_error("Audit events could not be loaded.", exc)}]
 
     def count(self) -> int:
         self.ensure_table()

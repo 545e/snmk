@@ -59,6 +59,7 @@ from core.intelligence_models import (
 )
 from core.models import LogEvent, ReconResult
 from core.queue_manager import queue_manager
+from core.error_sanitizer import safe_error
 
 
 class BaseSpecialistAgent:
@@ -129,7 +130,7 @@ class BaseSpecialistAgent:
 
             task.status = "FAILED"
 
-            task.error_message = str(e)
+            task.error_message = safe_error("Agent task execution failed.", e)
 
             await self.log(task.scan_id, f"Agent [{self.name}] encountered error: {e!s}", "ERROR")
 
@@ -343,7 +344,7 @@ class ReconnaissanceAgent(BaseSpecialistAgent):
 
                 "subdomains_discovered": 0,
 
-                "note": f"Passive DNS resolution failed for '{host}': {exc}",
+                "note": safe_error(f"Passive DNS resolution failed for '{host}'.", exc),
 
             }
 
@@ -618,7 +619,7 @@ class NetworkSecurityAgent(BaseSpecialistAgent):
 
         except Exception as exc:
 
-            return {"status": "FAILED", "reason": f"Port probe failed: {exc}"}
+            return {"status": "FAILED", "reason": safe_error("Port probe failed.", exc)}
 
 
 
@@ -876,7 +877,7 @@ class SourceCodeSecurityAgent(BaseSpecialistAgent):
 
             except Exception as exc:
 
-                per_tool[tool] = {"executed": False, "error": str(exc)}
+                per_tool[tool] = {"executed": False, "error": safe_error("Tool execution failed.", exc)}
 
 
 
@@ -1674,7 +1675,7 @@ class PlatformHealthAgent(BaseSpecialistAgent):
 
             db_status = "FAILED"
 
-            db_detail = str(exc)
+            db_detail = safe_error("Database operation failed.", exc)
 
 
 

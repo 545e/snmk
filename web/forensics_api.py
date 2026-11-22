@@ -20,6 +20,7 @@ from core.digital_forensics import (
     exif_engine,
     custody_ledger,
 )
+from core.error_sanitizer import safe_error
 
 forensics_router = APIRouter(prefix="/api/forensics", tags=["Digital Forensics & Data Recovery"])
 
@@ -90,7 +91,7 @@ async def hash_evidence_file(file_path: str = Query(...)):
         res = storage_inspector.hash_evidence_file(file_path)
         return {"status": "SUCCESS", "hashes": res}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid forensics request.", e))
 
 
 # =====================================================================
@@ -214,7 +215,7 @@ async def extract_exif_metadata(req: ExifExtractRequest):
 
         return {"status": "SUCCESS", "report": report.__dict__}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid forensics request.", e))
 
 
 # =====================================================================

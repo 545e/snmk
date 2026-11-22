@@ -1,5 +1,10 @@
 name: "CodeQL Security Analysis"
 
+# Convention for py/info-exposure-through-exception findings:
+# raw exception text must never be placed in an HTTP response or a value that
+# is returned by an API route. Use core.error_sanitizer.safe_error() to pass a
+# fixed, client-safe message; it keeps the exception detail in server logs.
+
 on:
   push:
     branches: [ main, generation-2-complete-modernization ]

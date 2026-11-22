@@ -32,6 +32,7 @@ from cryptography.hazmat.primitives.serialization import (
     load_pem_private_key,
     load_pem_public_key,
 )
+from core.error_sanitizer import safe_error
 
 
 class CryptoWorkbenchEngine:
@@ -99,7 +100,7 @@ class CryptoWorkbenchEngine:
             else:
                 raise ValueError(f"Unsupported decoding scheme: {scheme}")
         except Exception as e:
-            raise ValueError(f"Failed to decode data using {scheme}: {str(e)}")
+            raise ValueError(safe_error(f"Failed to decode data using {scheme}.", e))
 
         return {"scheme": scheme, "input_length": len(text), "output": res}
 
@@ -352,9 +353,9 @@ class CryptoWorkbenchEngine:
                     "step": idx,
                     "operation": op_name,
                     "status": "FAILED",
-                    "error": str(e)
+                    "error": safe_error("Cryptographic operation failed.", e)
                 })
-                raise ValueError(f"Step {idx} ({op_name}) failed: {str(e)}")
+                raise ValueError(safe_error(f"Step {idx} ({op_name}) failed.", e))
 
         return {
             "success": True,

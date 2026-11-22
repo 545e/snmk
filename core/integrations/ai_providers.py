@@ -16,6 +16,7 @@ from core.integrations.endpoint_policy import (
     EndpointPolicyError,
     validate_integration_endpoint,
 )
+from core.error_sanitizer import safe_error
 
 
 class OpenAIAdapter(BaseIntegrationAdapter):
@@ -49,7 +50,7 @@ class OpenAIAdapter(BaseIntegrationAdapter):
                 custom_base, provider_id=self.provider_id
             )
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Provider blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(base_url=safe_base, timeout=8.0) as client:
@@ -62,7 +63,7 @@ class OpenAIAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid OpenAI API key.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"OpenAI HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class AnthropicAdapter(BaseIntegrationAdapter):
@@ -98,7 +99,7 @@ class AnthropicAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid Anthropic API key.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"Anthropic HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class GoogleGeminiAdapter(BaseIntegrationAdapter):
@@ -131,7 +132,7 @@ class GoogleGeminiAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid Google Gemini API key.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"Gemini HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class OpenRouterAdapter(BaseIntegrationAdapter):
@@ -162,7 +163,7 @@ class OpenRouterAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": f"OpenRouter connected. Usage: {data.get('usage', 0)} USD.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "OpenRouter key rejected.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class OllamaLocalAdapter(BaseIntegrationAdapter):
@@ -195,7 +196,7 @@ class OllamaLocalAdapter(BaseIntegrationAdapter):
                 allow_private_addresses=True,
             )
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Provider blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(base_url=safe_base, timeout=5.0) as client:
@@ -206,4 +207,4 @@ class OllamaLocalAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": f"Ollama operational. Models: {', '.join(models) if models else 'None installed'}", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"Ollama HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": f"Ollama is not running on {safe_base}: {exc}", "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Ollama is not running.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}

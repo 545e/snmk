@@ -36,6 +36,7 @@ import asyncio
 import importlib
 import inspect
 from typing import Any, Callable, Dict, List, Optional, Tuple
+from core.error_sanitizer import safe_error
 
 __all__ = [
     "HandlerNotResolvable",
@@ -109,7 +110,7 @@ def _import_module(module_path: str):
         return importlib.import_module(module_path)
     except Exception as exc:
         raise HandlerNotResolvable(
-            f"Could not import module '{module_path}': {exc}"
+            safe_error(f"Could not import module '{module_path}'.", exc)
         ) from exc
 
 
@@ -301,7 +302,7 @@ def describe_handler(handler_str: str) -> Dict[str, Any]:
     try:
         func, is_bound = resolve_handler(handler_str)
     except HandlerNotResolvable as exc:
-        description["error"] = str(exc)
+        description["error"] = safe_error("Handler could not be resolved.", exc)
         return description
 
     description["resolved"] = True

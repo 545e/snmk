@@ -25,6 +25,7 @@ import os
 import time
 from dataclasses import dataclass
 from typing import Any
+from core.error_sanitizer import safe_error
 
 __all__ = ["MySQLConfig", "mysql_health", "mysql_metrics", "mysql_status"]
 
@@ -65,7 +66,7 @@ class MySQLConfig:
             port = int(os.environ.get("MYSQL_PORT", "3306"))
             pool = int(os.environ.get("MYSQL_POOL_SIZE", "5"))
         except ValueError as exc:
-            raise MySQLUnavailable(f"Invalid MySQL numeric configuration: {exc}")
+            raise MySQLUnavailable(safe_error("Invalid MySQL numeric configuration", exc))
         return cls(
             host=os.environ["MYSQL_HOST"],
             port=port,
@@ -131,7 +132,7 @@ def _query(config: MySQLConfig, sql: str, params: tuple = ()) -> Any:
             last_error = exc
             if attempt < 2:
                 time.sleep(0.25 * (attempt + 1))
-    raise MySQLUnavailable(f"MySQL query failed: {type(last_error).__name__}: {last_error}")
+    raise MySQLUnavailable(safe_error("MySQL query failed.", last_error))
 
 
 def mysql_status() -> dict[str, Any]:
@@ -139,7 +140,7 @@ def mysql_status() -> dict[str, Any]:
     try:
         config = MySQLConfig.from_env()
     except MySQLUnavailable as exc:
-        return {"enabled": False, "status": "Not Available", "reason": str(exc)}
+        return {"enabled": False, "status": "Not Available", "reason": safe_error("MySQL is not configured.", exc)}
     if config is None:
         return {
             "enabled": False,
@@ -163,7 +164,7 @@ def mysql_status() -> dict[str, Any]:
             "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
     except MySQLUnavailable as exc:
-        return {"enabled": True, "status": "Failed", "reason": str(exc)}
+        return {"enabled": True, "status": "Failed", "reason": safe_error("MySQL status could not be determined.", exc)}
 
 
 def mysql_health() -> bool:
@@ -208,7 +209,7 @@ def mysql_metrics() -> dict[str, Any]:
             "checked_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         }
     except MySQLUnavailable as exc:
-        return {"available": False, "reason": str(exc)}
+        return {"available": False, "reason": safe_error("MySQL metrics are unavailable.", exc)}
 
 
 def _status_value(config: MySQLConfig, name: str) -> Any:

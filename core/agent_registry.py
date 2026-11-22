@@ -37,6 +37,7 @@ from pydantic import BaseModel, Field
 from core.intelligence_models import AgentPermissionBoundary, AgentRole
 
 from core import tls_policy
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("swa.agent_registry")
 
@@ -1062,7 +1063,7 @@ class AgentRegistry:
                                     "owasp": getattr(f, "owasp_category", "OWASP 2025 Standard")
                                 })
                 except Exception as p_err:
-                    outputs["plugin_note"] = str(p_err)
+                    outputs["plugin_note"] = safe_error("Plugin dispatch unavailable.", p_err)
 
                 # Connect AI Threat Reasoning using active Vault API Keys (OpenAI/Anthropic/Gemini/Ollama)
                 try:
@@ -1097,7 +1098,7 @@ class AgentRegistry:
                         "reasoning_summary": ai_analysis[:500] + ("..." if len(ai_analysis) > 500 else "")
                     })
                 except Exception as ai_err:
-                    outputs["ai_note"] = str(ai_err)
+                    outputs["ai_note"] = safe_error("AI provider unavailable.", ai_err)
 
             elif manifest.tier == "offensive_recon":
                 handled = True
@@ -1114,7 +1115,7 @@ class AgentRegistry:
                         outputs["subdomains_count"] = 0
                         outputs["takeovers_count"] = 0
                         outputs["discovered_subdomains"] = []
-                        outputs["amass_note"] = str(am_err)
+                        outputs["amass_note"] = safe_error("Amass engine unavailable.", am_err)
                 elif manifest.id == "attack_surface_agent":
                     try:
                         from agents.attack_surface_agent import AttackSurfaceAgent
@@ -1122,7 +1123,7 @@ class AgentRegistry:
                         eps = await agent_inst.run()
                         outputs["endpoints_discovered"] = len(eps) if eps else 0
                     except Exception as as_err:
-                        outputs["recon_note"] = str(as_err)
+                        outputs["recon_note"] = safe_error("Recon agent unavailable.", as_err)
                 elif manifest.id == "dependency_confusion_agent":
                     try:
                         from agents.dependency_confusion_agent import (
@@ -1132,7 +1133,7 @@ class AgentRegistry:
                         findings = await dep_inst.run()
                         outputs["dependency_confusion_findings"] = len(findings) if findings else 0
                     except Exception as dep_err:
-                        outputs["dependency_note"] = str(dep_err)
+                        outputs["dependency_note"] = safe_error("Dependency check unavailable.", dep_err)
                 elif manifest.id == "exploit_validator_agent":
                     try:
                         from agents.exploit_validator_agent import ExploitValidatorAgent
@@ -1142,7 +1143,7 @@ class AgentRegistry:
                         validated = await val_agent.run(findings=inputs.get("findings") or [])
                         outputs["validated_findings_count"] = len(validated)
                     except Exception as ev_err:
-                        outputs["exploit_validator_note"] = str(ev_err)
+                        outputs["exploit_validator_note"] = safe_error("Exploit validator unavailable.", ev_err)
                 elif manifest.id == "fuzzer_agent":
                     try:
                         from agents.fuzzer_agent import FuzzerAgent
@@ -1150,7 +1151,7 @@ class AgentRegistry:
                         findings = await fuzzer.run()
                         outputs["fuzz_findings"] = len(findings) if findings else 0
                     except Exception as fz_err:
-                        outputs["fuzzer_note"] = str(fz_err)
+                        outputs["fuzzer_note"] = safe_error("Fuzzer unavailable.", fz_err)
                 elif manifest.id == "recon_agent":
                     try:
                         from agents.recon_agent import ReconAgent
@@ -1163,7 +1164,7 @@ class AgentRegistry:
                             "tech_stack": getattr(recon_res, "tech_stack", [])
                         }
                     except Exception as rc_err:
-                        outputs["recon_note"] = str(rc_err)
+                        outputs["recon_note"] = safe_error("Recon coordinator unavailable.", rc_err)
                 elif manifest.id == "remediation_lifecycle_agent":
                     try:
                         from agents.remediation_agent import RemediationAgent
@@ -1175,7 +1176,7 @@ class AgentRegistry:
                         rem_res = await rem_agent.run(findings=inputs.get("findings") or [])
                         outputs["remediations_generated"] = len(rem_res)
                     except Exception as rem_err:
-                        outputs["remediation_note"] = str(rem_err)
+                        outputs["remediation_note"] = safe_error("Remediation engine unavailable.", rem_err)
                 elif manifest.id == "swa_orchestrator":
                     try:
                         from agents.orchestrator import SWAOrchestrator
@@ -1185,7 +1186,7 @@ class AgentRegistry:
                         outputs["orchestrator_phases"] = ["scope_validation", "reconnaissance", "vulnerability_hunting", "exploit_validation", "remediation", "reporting"]
                         outputs["orchestrator_status"] = "READY"
                     except Exception as orch_err:
-                        outputs["orchestrator_note"] = str(orch_err)
+                        outputs["orchestrator_note"] = safe_error("Orchestrator unavailable.", orch_err)
                 elif manifest.id == "vuln_hunter_agent":
                     try:
                         from agents.vuln_hunter_agent import VulnHunterAgent
@@ -1195,7 +1196,7 @@ class AgentRegistry:
                         vh_findings = await vh.run(recon_data=inputs.get("recon_data"))
                         outputs["vulnerabilities_found"] = len(vh_findings)
                     except Exception as vh_err:
-                        outputs["vuln_hunter_note"] = str(vh_err)
+                        outputs["vuln_hunter_note"] = safe_error("Vulnerability hunter unavailable.", vh_err)
 
             elif manifest.tier == "core_engines":
                 handled = True
@@ -1342,10 +1343,10 @@ class AgentRegistry:
                     else:
                         outputs["engine_status"] = "OPERATIONAL"
                 except Exception as eng_err:
-                    outputs["engine_note"] = str(eng_err)
-                    execution_error = str(eng_err)
+                    outputs["engine_note"] = safe_error("Engine unavailable.", eng_err)
+                    execution_error = safe_error("Engine unavailable.", eng_err)
                     manifest.status = "FAILED"
-                    manifest.last_result = f"ERROR: {eng_err}"
+                    manifest.last_result = safe_error("ERROR: engine execution failed.", eng_err)
 
             elif manifest.tier == "network_intelligence":
                 handled = True
@@ -1404,10 +1405,10 @@ class AgentRegistry:
                     # "NOT_EXECUTABLE" even though it had a working handler.
                     outputs["network_intelligence"] = output_data
                 except Exception as map_err:
-                    outputs["engine_note"] = str(map_err)
-                    execution_error = str(map_err)
+                    outputs["engine_note"] = safe_error("Agent mapping unavailable.", map_err)
+                    execution_error = safe_error("Agent mapping unavailable.", map_err)
                     manifest.status = "FAILED"
-                    manifest.last_result = f"ERROR: {map_err}"
+                    manifest.last_result = safe_error("ERROR: agent mapping failed.", map_err)
 
             elif manifest.tier == "tool_adapters":
                 handled = True
@@ -1417,7 +1418,7 @@ class AgentRegistry:
                     tool_name = manifest.id.replace("tool_adapter_", "")
                     outputs["tool_adapter_status"] = inv.get(tool_name, {"status": "REGISTERED", "installed": True})
                 except Exception as t_err:
-                    outputs["tool_note"] = str(t_err)
+                    outputs["tool_note"] = safe_error("Tool execution unavailable.", t_err)
 
             if not handled:
                 duration = round(time.time() - start_time, 2)
@@ -1490,7 +1491,7 @@ class AgentRegistry:
         except Exception as e:
             duration = round(time.time() - start_time, 2)
             manifest.status = "FAILED"
-            manifest.last_result = f"ERROR: {e!s}"
+            manifest.last_result = safe_error("ERROR: execution failed.", e)
             return {
                 "id": task_id,
                 "agent_role": manifest.role or manifest.id,
@@ -1498,9 +1499,9 @@ class AgentRegistry:
                 "title": title,
                 "status": "FAILED",
                 "inputs": inputs,
-                "outputs": {"error": str(e)},
+                "outputs": {"error": safe_error("Internal error.", e)},
                 "evidence": [],
-                "error_message": str(e),
+                "error_message": safe_error("Internal error.", e),
                 "started_at": now_iso,
                 "completed_at": datetime.datetime.now(datetime.UTC).isoformat(),
                 "duration_seconds": duration
@@ -1571,7 +1572,7 @@ class AgentRegistry:
                 except TimeoutError:
                     return agent, {"status": "FAILED", "error_message": "Dispatch timed out after 240s."}
                 except Exception as e:
-                    return agent, {"status": "FAILED", "error_message": str(e)}
+                    return agent, {"status": "FAILED", "error_message": safe_error("Internal error.", e)}
 
         results = await asyncio.gather(*[_run_one(aid, ag) for aid, ag in discovered.items()])
 

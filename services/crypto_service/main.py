@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
 from services.crypto_service.engine import crypto_engine
+from core.error_sanitizer import safe_error
 
 app = FastAPI(
     title="SNMK Cryptography Workbench Service",
@@ -129,7 +130,7 @@ async def encode_endpoint(req: EncodeRequest):
     try:
         return crypto_engine.encode(req.text, req.scheme)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 @router.post("/decode")
@@ -137,7 +138,7 @@ async def decode_endpoint(req: DecodeRequest):
     try:
         return crypto_engine.decode(req.text, req.scheme)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 @router.post("/hash")
@@ -149,7 +150,7 @@ async def hash_endpoint(req: HashRequest):
             data_bytes = req.data.encode("utf-8")
         return crypto_engine.compute_hash(data_bytes, algorithm=req.algorithm)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 @router.post("/encrypt")
@@ -178,7 +179,7 @@ async def encrypt_endpoint(req: EncryptRequest):
         res["key_hex"] = key_bytes.hex()
         return res
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 @router.post("/decrypt")
@@ -205,7 +206,7 @@ async def decrypt_endpoint(req: DecryptRequest):
             "bytes_length": len(decrypted)
         }
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 @router.post("/rsa/generate-keys")
@@ -213,7 +214,7 @@ async def rsa_generate_endpoint(req: RsaGenerateRequest):
     try:
         return crypto_engine.generate_rsa_keypair(key_size=req.key_size)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 @router.post("/rsa/encrypt")
@@ -222,7 +223,7 @@ async def rsa_encrypt_endpoint(req: RsaEncryptRequest):
         b64 = crypto_engine.rsa_encrypt(req.plaintext.encode("utf-8"), req.public_key_pem)
         return {"ciphertext_b64": b64, "algorithm": "RSA-OAEP-SHA256"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"RSA encryption failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=safe_error("RSA encryption failed.", e))
 
 
 @router.post("/rsa/decrypt")
@@ -231,7 +232,7 @@ async def rsa_decrypt_endpoint(req: RsaDecryptRequest):
         dec = crypto_engine.rsa_decrypt(req.ciphertext_b64, req.private_key_pem)
         return {"plaintext": dec.decode("utf-8", errors="replace"), "bytes_length": len(dec)}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"RSA decryption failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=safe_error("RSA decryption failed.", e))
 
 
 @router.post("/rsa/sign")
@@ -240,7 +241,7 @@ async def rsa_sign_endpoint(req: RsaSignRequest):
         sig = crypto_engine.rsa_sign(req.data.encode("utf-8"), req.private_key_pem)
         return {"signature_b64": sig, "algorithm": "RSA-PSS-SHA256"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"RSA signing failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=safe_error("RSA signing failed.", e))
 
 
 @router.post("/rsa/verify")
@@ -249,7 +250,7 @@ async def rsa_verify_endpoint(req: RsaVerifyRequest):
         valid = crypto_engine.rsa_verify(req.data.encode("utf-8"), req.signature_b64, req.public_key_pem)
         return {"valid": valid, "status": "VERIFIED" if valid else "SIGNATURE_MISMATCH"}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"RSA verification failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=safe_error("RSA verification failed.", e))
 
 
 @router.post("/derive-key")
@@ -271,7 +272,7 @@ async def run_recipe_endpoint(req: RecipeRequest):
         ops = [step.model_dump() for step in req.operations]
         return crypto_engine.run_recipe(req.input_data, ops)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=safe_error("Invalid cryptographic request.", e))
 
 
 app.include_router(router)

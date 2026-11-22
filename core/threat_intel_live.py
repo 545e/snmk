@@ -17,6 +17,7 @@ import time
 from typing import Any
 
 import httpx
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("swa.threat_intel_live")
 
@@ -61,7 +62,7 @@ async def get_cisa_kev(cve: str | None = None) -> dict[str, Any]:
                 resp.raise_for_status()
                 raw = resp.json()
         except Exception as exc:
-            raise ThreatIntelUnavailable(f"CISA KEV feed unreachable: {exc}") from exc
+            raise ThreatIntelUnavailable(safe_error("CISA KEV feed unreachable", exc)) from exc
         if not isinstance(raw, dict) or "vulnerabilities" not in raw:
             raise ThreatIntelUnavailable("CISA KEV feed returned an unexpected payload shape.")
         _cache_put("kev", raw)
@@ -116,7 +117,7 @@ async def get_first_epss(cve: str) -> dict[str, Any]:
             resp.raise_for_status()
             data = resp.json()
     except Exception as exc:
-        raise ThreatIntelUnavailable(f"FIRST EPSS API unreachable: {exc}") from exc
+        raise ThreatIntelUnavailable(safe_error("FIRST EPSS API unreachable", exc)) from exc
 
     rows = data.get("data") or []
     if not rows:

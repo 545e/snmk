@@ -15,6 +15,7 @@ from core.integrations.endpoint_policy import (
     EndpointPolicyError,
     validate_integration_endpoint,
 )
+from core.error_sanitizer import safe_error
 
 
 class VirusTotalAdapter(BaseIntegrationAdapter):
@@ -63,7 +64,7 @@ class VirusTotalAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "ERROR", "message": f"VirusTotal responded with HTTP {res.status_code}.", "latency_ms": latency}
         except httpx.RequestError as exc:
             latency = int((time.perf_counter() - start) * 1000)
-            return {"success": False, "status": "UNREACHABLE", "message": f"Connection to VirusTotal timed out or failed: {exc}", "latency_ms": latency}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Connection to VirusTotal timed out or failed.", exc), "latency_ms": latency}
 
 
 class AbuseIPDBAdapter(BaseIntegrationAdapter):
@@ -106,7 +107,7 @@ class AbuseIPDBAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "ERROR", "message": f"AbuseIPDB returned HTTP {res.status_code}.", "latency_ms": latency}
         except Exception as exc:
             latency = int((time.perf_counter() - start) * 1000)
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": latency}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": latency}
 
 
 class ShodanAdapter(BaseIntegrationAdapter):
@@ -143,7 +144,7 @@ class ShodanAdapter(BaseIntegrationAdapter):
                     return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid Shodan key.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"Shodan HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class CensysAdapter(BaseIntegrationAdapter):
@@ -179,7 +180,7 @@ class CensysAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "Censys API authenticated.", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "Invalid Censys credentials.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class AlienVaultOTXAdapter(BaseIntegrationAdapter):
@@ -209,7 +210,7 @@ class AlienVaultOTXAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": f"OTX user verified: {res.json().get('username')}", "latency_ms": latency}
                 return {"success": False, "status": "AUTHENTICATION_FAILED", "message": "OTX Key rejected.", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class URLhausAdapter(BaseIntegrationAdapter):
@@ -238,7 +239,7 @@ class URLhausAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "URLhaus feed is reachable and operational.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"URLhaus returned HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class CisaKevAdapter(BaseIntegrationAdapter):
@@ -262,7 +263,7 @@ class CisaKevAdapter(BaseIntegrationAdapter):
             # supplied, so the SSRF guard still applies.
             url = validate_integration_endpoint(url, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Provider blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -272,7 +273,7 @@ class CisaKevAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "CISA KEV catalog is reachable and operational.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"CISA KEV returned HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
 
 
 class FirstEpssAdapter(BaseIntegrationAdapter):
@@ -296,7 +297,7 @@ class FirstEpssAdapter(BaseIntegrationAdapter):
             # supplied, so the SSRF guard still applies.
             url = validate_integration_endpoint(url, provider_id=self.provider_id)
         except EndpointPolicyError as exc:
-            return {"success": False, "status": "BLOCKED", "message": str(exc), "latency_ms": 0}
+            return {"success": False, "status": "BLOCKED", "message": safe_error("Provider blocked the request.", exc), "latency_ms": 0}
         start = time.perf_counter()
         try:
             async with httpx.AsyncClient(timeout=8.0, follow_redirects=True) as client:
@@ -306,4 +307,4 @@ class FirstEpssAdapter(BaseIntegrationAdapter):
                     return {"success": True, "status": "CONNECTED", "message": "FIRST EPSS API is reachable and operational.", "latency_ms": latency}
                 return {"success": False, "status": "ERROR", "message": f"FIRST EPSS returned HTTP {res.status_code}", "latency_ms": latency}
         except Exception as exc:
-            return {"success": False, "status": "UNREACHABLE", "message": str(exc), "latency_ms": int((time.perf_counter() - start) * 1000)}
+            return {"success": False, "status": "UNREACHABLE", "message": safe_error("Threat intelligence provider is unreachable.", exc), "latency_ms": int((time.perf_counter() - start) * 1000)}

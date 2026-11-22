@@ -60,6 +60,7 @@ from core.models import LogEvent, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 from core import tls_policy
+from core.error_sanitizer import safe_error
 
 # Comprehensive 350+ Curated Enterprise, Microservices & Cloud Infrastructure Wordlist
 AMASS_EXPANDED_WORDLIST = [
@@ -794,7 +795,7 @@ class AmassSubdomainEngine:
                     self._register(h, "AmassCLI")
             await self.log(f"[OWASP Amass CLI] Harvested {len(lines)} discovered assets.", "SUCCESS")
         except Exception as e:
-            self.provider_errors["AmassCLI"] = str(e)
+            self.provider_errors["AmassCLI"] = safe_error("Amass CLI provider is unavailable.", e)
             await self.log(f"Amass CLI notice: {e!s}", "INFO")
 
     async def _run_subfinder_cli(self):
@@ -822,7 +823,7 @@ class AmassSubdomainEngine:
                     self._register(h, "SubfinderCLI")
             await self.log(f"[Subfinder CLI] Harvested {len(lines)} discovered assets.", "SUCCESS")
         except Exception as e:
-            self.provider_errors["SubfinderCLI"] = str(e)
+            self.provider_errors["SubfinderCLI"] = safe_error("Subfinder CLI provider is unavailable.", e)
             await self.log(f"Subfinder CLI notice: {e!s}", "INFO")
 
     # =====================================================================

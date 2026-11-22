@@ -30,6 +30,7 @@ import time
 from typing import Any
 
 from core.database import db
+from core.error_sanitizer import safe_error
 
 
 class CyberDeployEngine:
@@ -204,12 +205,12 @@ class CyberDeployEngine:
             dep["status"] = "FAILED"
             dep["completed_at"] = now_ts
             dep["health_status"] = "UNHEALTHY"
-            log_step("FAILED", f"Deployment halted due to error: {e!s}")
+            log_step("FAILED", safe_error("Deployment halted due to an internal error.", e))
             db.save_cyber_deployment(dep)
             db.record_audit_log(
                 action="CYBER_DEPLOY_FAILED",
                 actor="deploy_engine",
-                details=f"Deployment {dep['id']} failed at step {dep['current_step']}: {e!s}"
+                details=safe_error(f"Deployment {dep['id']} failed at step {dep['current_step']}.", e)
             )
             return dep
 
@@ -267,7 +268,7 @@ class CyberDeployEngine:
                 checklist = post_deployment_checklist_engine.generate_checklist(dep["id"])
                 log_step("CHECKLIST", f"Post-Deployment Acceptance Checklist generated. Overall Status: {checklist['overall_status']}.")
             except Exception as e:
-                log_step("CHECKLIST_WARN", f"Checklist generation warning: {e!s}")
+                log_step("CHECKLIST_WARN", safe_error("Checklist generation unavailable.", e))
 
             db.save_cyber_deployment(dep)
             db.record_audit_log(
@@ -282,7 +283,7 @@ class CyberDeployEngine:
             dep["status"] = "FAILED"
             dep["completed_at"] = now_ts
             dep["health_status"] = "UNHEALTHY"
-            log_step("FAILED", f"Post-deploy pipeline failed: {e!s}")
+            log_step("FAILED", safe_error("Post-deploy pipeline failed.", e))
             db.save_cyber_deployment(dep)
             return dep
 

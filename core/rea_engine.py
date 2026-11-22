@@ -29,6 +29,7 @@ import time
 import uuid
 from pathlib import Path
 from typing import Dict, List, Any, Optional, Tuple
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("SWA.REAEngine")
 
@@ -346,7 +347,7 @@ class REAEngine:
         try:
             native_result = await self._run_native_inspection(target_p, inferred_type)
         except Exception as e:
-            native_error = f"Native inspection failed: {str(e)}"
+            native_error = safe_error("Native inspection failed.", e)
 
         job_record["metadata"] = native_result.get("metadata", {})
         job_record["findings"] = native_result.get("findings", [])
@@ -416,7 +417,7 @@ class REAEngine:
         except asyncio.TimeoutError:
             return None, f"REA CLI timed out after {timeout_sec} seconds."
         except Exception as e:
-            return None, f"REA CLI could not be executed: {str(e)}"
+            return None, safe_error("REA CLI could not be executed.", e)
 
         stdout_text = stdout_data.decode("utf-8", errors="replace")
         stderr_text = stderr_data.decode("utf-8", errors="replace")
@@ -624,7 +625,7 @@ class REAEngine:
                 "view_count": len(views)
             }
         except Exception as e:
-            info = {"format": "SQLite Error", "error": str(e)}
+            info = {"format": "SQLite Error", "error": safe_error("Database inspection failed.", e)}
         finally:
             if conn:
                 try:
@@ -733,7 +734,7 @@ class REAEngine:
                 "uses_wasm": "WebAssembly" in content
             }
         except Exception as e:
-            return {"format": "JavaScript Inspection Error", "error": str(e)}
+            return {"format": "JavaScript Inspection Error", "error": safe_error("JavaScript inspection failed.", e)}
 
     @classmethod
     def _inspect_pcap_headers(cls, path: Path) -> Dict[str, Any]:

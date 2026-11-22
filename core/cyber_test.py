@@ -21,6 +21,7 @@ import urllib.parse
 from typing import Any
 
 from core.database import db
+from core.error_sanitizer import safe_error
 
 
 class CyberTestEngine:
@@ -267,7 +268,7 @@ class CyberTestEngine:
             duration = round(time.time() - t0, 4)
             status = "FAILED"
             evidence = ""
-            error = f"Unhandled test execution exception: {e!s}"
+            error = safe_error("Unhandled test execution exception.", e)
             remediation = "Investigate traceback, ensure dependencies are present."
 
         return {
@@ -400,7 +401,7 @@ class CyberTestEngine:
                     return True, f"Target socket {host}:{port} is actively listening and responsive.", "", ""
                 return True, f"Socket check completed for {host}:{port} (code {res}).", "", ""
         except Exception as e:
-            return True, f"Socket check handled gracefully: {e}", "", ""
+            return True, safe_error("Socket check handled gracefully.", e), "", ""
 
     def _test_fs_permissions(self, target_url: str):
         from core.cyber_export import EXPORT_DIR
@@ -411,7 +412,7 @@ class CyberTestEngine:
             os.remove(test_file)
             return True, f"Export directory {EXPORT_DIR} is writable and secured.", "", ""
         except Exception as e:
-            return False, "", f"Filesystem write failed in exports directory: {e}", "Grant write permissions to data/exports."
+            return False, "", safe_error("Filesystem write failed in exports directory.", e), "Grant write permissions to data/exports."
 
     def _test_db_latency(self, target_url: str):
         t0 = time.time()
@@ -453,6 +454,6 @@ class CyberTestEngine:
             p = subprocess.run([sys.executable, "-c", "import time; time.sleep(0.01)"], timeout=2, capture_output=True)
             return True, f"Subprocess timeout guard functional (exit code: {p.returncode}).", "", ""
         except Exception as e:
-            return True, f"Subprocess guard handled gracefully: {e}", "", ""
+            return True, safe_error("Subprocess guard handled gracefully.", e), "", ""
 
 cyber_tester = CyberTestEngine()

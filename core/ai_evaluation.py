@@ -13,6 +13,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from core.error_sanitizer import safe_error
+
 
 def asyncio_run(coro):
     """Run a coroutine from sync code, reusing a loop when one is already open."""
@@ -393,7 +395,7 @@ class AIEvaluationEngine:
             except Exception as exc:
                 return self._not_run(
                     f"{provider}/{model_name}", "baseline-rule-engine", None, "llm_inference", prompt_count,
-                    f"Live inference request failed: {exc}"
+                    safe_error("Live inference request failed.", exc)
                 )
             latencies.append((time.perf_counter() - t0) * 1000.0)
             prompt_tokens += max(1, len(probe_prompt.split()))

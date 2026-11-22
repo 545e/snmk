@@ -24,6 +24,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.digital_forensics")
 
@@ -440,7 +441,7 @@ class PhotoRecCarver:
                     "has_parent": False,
                     "items": [],
                     "item_count": 0,
-                    "error": str(exc),
+                    "error": safe_error("The requested path is outside the evidence root.", exc),
                 }
 
         if not os.path.exists(curr_str):

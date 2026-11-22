@@ -14,6 +14,7 @@ from collections import OrderedDict
 from urllib.parse import urlparse
 from typing import Dict, List, Optional, Tuple, Set
 from pydantic import BaseModel
+from core.error_sanitizer import safe_error
 
 DEFAULT_ALLOWED_LAB_TARGETS = [
     "127.0.0.1",
@@ -335,7 +336,7 @@ class ScopePolicy:
                     is_allowed=False,
                     target=clean_target,
                     hostname=hostname,
-                    reason=f"Failed to resolve DNS for target '{hostname}': {str(e)}",
+                    reason=safe_error(f"Failed to resolve DNS for target '{hostname}'.", e),
                     error_code="DNS_RESOLUTION_FAILURE"
                 )
 

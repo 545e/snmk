@@ -35,6 +35,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
 
 from core.database import db
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.persistence")
 
@@ -384,7 +385,7 @@ class ScanPersistence:
                         conn.close()
                     except Exception:
                         logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
-        raise RuntimeError(f"MySQL write failed: {type(last_error).__name__}: {last_error}")
+        raise RuntimeError(safe_error("MySQL write failed.", last_error))
 
     def _state(self, local_ok: bool, sql: str, params: Iterable[Any]) -> PersistenceState:
         """Combine a completed local write with the (optional) MySQL mirror."""
@@ -396,7 +397,7 @@ class ScanPersistence:
             self._mysql_write(sql, tuple(params))
             return PersistenceState.PERSISTED
         except Exception as exc:  # noqa: BLE001
-            self._enqueue(sql, tuple(params), str(exc))
+            self._enqueue(sql, tuple(params), safe_error("Database operation failed.", exc))
             return PersistenceState.PENDING
 
     def _enqueue(self, sql: str, params: tuple, error: str) -> None:
@@ -454,7 +455,7 @@ class ScanPersistence:
                     finally:
                         conn.close()
                 except Exception as exc:  # noqa: BLE001
-                    result["mysql"] = f"failed: {type(exc).__name__}: {exc}"
+                    result["mysql"] = safe_error("failed", exc)
                     logger.warning("MySQL schema initialization failed: %s", exc)
         self._schema_ready = True
         return result
@@ -823,7 +824,7 @@ class ScanPersistence:
                     conn.execute(
                         "UPDATE persistence_outbox SET attempts=attempts+1, last_error=?, "
                         "updated_at=? WHERE id=?",
-                        (str(exc)[:500], _now(), row["id"]),
+                        (safe_error("Database operation failed.", exc)[:500], _now(), row["id"]),
                     )
                 result["failed"] += 1
         result["pending"] = len(self._rows(

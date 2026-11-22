@@ -12,6 +12,7 @@ import logging
 import os
 import time
 from typing import Any, Dict, Optional, Tuple
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.mysql")
 
@@ -453,7 +454,7 @@ class MySQLDatabaseManager:
             conn.close()
             return {"success": True, "tables_created": len(ddl_statements)}
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            return {"success": False, "error": safe_error("Database operation failed.", e)}
 
 
 # Global instance

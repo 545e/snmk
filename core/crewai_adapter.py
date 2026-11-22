@@ -15,6 +15,7 @@ import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
+from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.crewai_adapter")
 
@@ -149,7 +150,7 @@ class SNMKCrew:
                     "task_id": task.task_id,
                     "agent_role": task.agent_role,
                     "status": "FAILED",
-                    "error": str(exc)
+                    "error": safe_error("Task execution failed.", exc)
                 })
                 break
 
