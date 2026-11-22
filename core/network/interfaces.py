@@ -19,6 +19,7 @@ import time
 import psutil
 
 from core.network.models import LocalNetworkInfo, NetworkInterfaceInfo
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.interfaces")
 
@@ -80,7 +81,7 @@ def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
                     gateway_ip = parts[2]
                     break
         except Exception as e:
-            logger.debug(f"Fast route print gateway lookup failed: {e}")
+            logger.debug(f"Fast route print gateway lookup failed: {safe_log_text(e)}")
 
         # Fast path 2: query DNS nameservers using dnspython
         try:
@@ -103,7 +104,7 @@ def get_default_gateway_and_dns() -> tuple[str | None, str | None, list[str]]:
                     gateway_ip = data.get("NextHop")
                     iface_alias = data.get("InterfaceAlias")
             except Exception as e:
-                logger.debug(f"Failed to get gateway via Get-NetRoute: {e}")
+                logger.debug(f"Failed to get gateway via Get-NetRoute: {safe_log_text(e)}")
 
         if not dns_servers:
             try:

@@ -11,6 +11,7 @@ import logging
 from core.integrations.registry import integration_registry
 from core.network.geo_engine import is_private_ip
 from core.network.models import ThreatIntelligenceMatch
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.threat")
 
@@ -96,7 +97,7 @@ class ThreatIntelligenceEngine:
                                 recommended_action="Block communication via perimeter firewall." if score > 50 else "Monitor endpoint traffic."
                             )
                 except Exception as e:
-                    logger.debug(f"AbuseIPDB query failed: {e}")
+                    logger.debug(f"AbuseIPDB query failed: {safe_log_text(e)}")
 
         # Default clean result for unflagged public endpoint
         return ThreatIntelligenceMatch(

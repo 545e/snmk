@@ -11,6 +11,7 @@ import subprocess
 import sys
 
 from core.network.models import WifiIntelligence
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.wifi")
 
@@ -115,7 +116,7 @@ class WifiIntelligenceEngine:
             )
 
         except Exception as e:
-            logger.error(f"Windows Wi-Fi query failed: {e}")
+            logger.error(f"Windows Wi-Fi query failed: {safe_log_text(e)}")
             return None
 
     def _get_linux_wifi(self) -> WifiIntelligence | None:

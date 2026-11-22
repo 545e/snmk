@@ -21,6 +21,7 @@ from prometheus_client import (
     generate_latest,
 )
 from starlette.responses import Response
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.metrics")
 
@@ -307,7 +308,7 @@ def refresh_live_telemetry() -> None:
         SYSTEM_DISK_USED_PERCENT.set(disk.percent)
         SYSTEM_DISK_FREE_BYTES.set(disk.free)
     except Exception as exc:  # noqa: BLE001
-        logger.debug(f"Metrics host inspection notice: {exc}")
+        logger.debug(f"Metrics host inspection notice: {safe_log_text(exc)}")
 
     # 3. Database & WAL Metrics
     db_file = os.getenv("SWA_DB_PATH", "swa_data.db")
@@ -334,7 +335,7 @@ def refresh_live_telemetry() -> None:
             count = finding_metrics.get("by_severity", {}).get(sev.lower(), 0) if isinstance(finding_metrics, dict) else 0
             FINDINGS_TOTAL.labels(severity=sev).set(count)
     except Exception as exc:  # noqa: BLE001
-        logger.debug(f"Metrics database inspection notice: {exc}")
+        logger.debug(f"Metrics database inspection notice: {safe_log_text(exc)}")
 
     # 4. Agent Catalog & Multi-Agent Telemetry (Verified against live registry)
     try:

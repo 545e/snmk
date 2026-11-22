@@ -14,6 +14,7 @@ import httpx
 
 from core.network.geo_engine import is_private_ip
 from core.network.models import BgpPrefixInfo, IspAsnInfo
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.infra")
 
@@ -46,7 +47,7 @@ class InternetInfrastructureEngine:
                             self._public_ip_cache = res_obj
                             return res_obj
             except Exception as e:
-                logger.debug(f"Public IP query to {url} failed: {e}")
+                logger.debug(f"Public IP query to {safe_log_text(url)} failed: {safe_log_text(e)}")
 
         return {"success": False, "ip": None, "message": "Unable to discover public IP address (Internet unreachable)."}
 
@@ -128,7 +129,7 @@ class InternetInfrastructureEngine:
                     if not rev_dns and data.get("hostname"):
                         rev_dns = data.get("hostname")
         except Exception as e:
-            logger.debug(f"ipinfo ASN lookup failed for {clean_ip}: {e}")
+            logger.debug(f"ipinfo ASN lookup failed for {safe_log_text(clean_ip)}: {safe_log_text(e)}")
 
         # 2. Query RIPEstat BGP Prefix Overview
         network_prefix = None
@@ -146,7 +147,7 @@ class InternetInfrastructureEngine:
                     if block:
                         network_prefix = block.get("resource")
         except Exception as e:
-            logger.debug(f"RIPEstat query failed: {e}")
+            logger.debug(f"RIPEstat query failed: {safe_log_text(e)}")
 
         # 3. RDAP registry query if ASN still missing
         rdap_reg = "ARIN/RIPE/APNIC"
@@ -218,7 +219,7 @@ class InternetInfrastructureEngine:
                         is_valid=True
                     )
         except Exception as e:
-            logger.error(f"BGP lookup failed: {e}")
+            logger.error(f"BGP lookup failed: {safe_log_text(e)}")
 
         return BgpPrefixInfo(
             prefix=target,

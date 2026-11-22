@@ -446,7 +446,7 @@ class CyberKillChainEngine:
             assigned_analyst="SecOps Lead",
             affected_assets=[target, "10.0.0.15"],
             description="Full-spectrum adversary campaign spanning initial reconnaissance, weaponization, delivery, exploitation, persistence, C2 beaconing, and unauthorized data exfiltration.",
-            stages_involved=[s.value for s in KillChainStageEnum],
+            stages_involved=[s.value for s in KillChainStageEnum.__members__.values()],
             linked_findings=[f.id for f in all_f[:10]],
             linked_evidence=[e.id for e in list_evidence()[:10]],
         )

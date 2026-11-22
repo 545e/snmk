@@ -15,6 +15,7 @@ import threading
 import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.correlation_engine")
 
@@ -147,7 +148,7 @@ class CorrelationEngine:
                 cur.execute("CREATE INDEX IF NOT EXISTS idx_corr_status ON correlated_incidents(status)")
                 conn.commit()
         except Exception as e:
-            logger.warning(f"Failed to initialize correlated_incidents table: {e}")
+            logger.warning(f"Failed to initialize correlated_incidents table: {safe_log_text(e)}")
 
     def _load_from_db(self):
         try:
@@ -173,7 +174,7 @@ class CorrelationEngine:
                     )
                     self._incidents[inc.incident_id] = inc
         except Exception as e:
-            logger.warning(f"Error loading correlated incidents from DB: {e}")
+            logger.warning(f"Error loading correlated incidents from DB: {safe_log_text(e)}")
 
     def _save_incident(self, inc: CorrelatedIncident):
         with self._lock:
@@ -215,7 +216,7 @@ class CorrelationEngine:
                 ))
                 conn.commit()
         except Exception as e:
-            logger.warning(f"Failed to persist correlated incident {inc.incident_id}: {e}")
+            logger.warning(f"Failed to persist correlated incident {safe_log_text(inc.incident_id)}: {safe_log_text(e)}")
 
     def correlate(
         self,

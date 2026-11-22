@@ -368,7 +368,7 @@ class TestSecurityControlsAndPlaybooks(unittest.TestCase):
         self.assertGreater(cov["overall_coverage_pct"], 0.0)
 
         # Verify all 7 stages present
-        for stg in KillChainStageEnum:
+        for stg in KillChainStageEnum.__members__.values():
             self.assertIn(stg.value, cov["matrix"])
 
     def test_incident_management_and_stage_playbooks(self):

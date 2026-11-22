@@ -14,6 +14,7 @@ from typing import Any
 import httpx
 
 from core.network.models import GeolocationInfo
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.geo")
 
@@ -153,7 +154,7 @@ class GeolocationEngine:
                     self._cache[ip] = res_info
                     return res_info
         except Exception as e:
-            logger.debug(f"ipinfo lookup failed for {ip}: {e}")
+            logger.debug(f"ipinfo lookup failed for {safe_log_text(ip)}: {safe_log_text(e)}")
 
         # 2. Try ip-api.com fallback
         try:
@@ -190,7 +191,7 @@ class GeolocationEngine:
                         return res_info
         except Exception as e:
             clean_ip_log = str(ip).replace("\r", "").replace("\n", "")[:64]
-            logger.debug(f"ip-api fallback failed for {clean_ip_log}: {e}")
+            logger.debug(f"ip-api fallback failed for {safe_log_text(clean_ip_log)}: {safe_log_text(e)}")
 
         # If lookups fail or offline, return unestablished result
         return GeolocationInfo(
@@ -230,7 +231,7 @@ class GeolocationEngine:
                         "source": "OpenStreetMap Nominatim Geocoder"
                     }
         except Exception as e:
-            logger.error(f"Forward geocoding error: {e}")
+            logger.error(f"Forward geocoding error: {safe_log_text(e)}")
 
         return {"success": False, "query": query, "message": "Geocoding query could not be resolved."}
 
@@ -259,7 +260,7 @@ class GeolocationEngine:
                         "source": "OpenStreetMap Nominatim Reverse Geocoder"
                     }
         except Exception as e:
-            logger.error(f"Reverse geocoding error: {e}")
+            logger.error(f"Reverse geocoding error: {safe_log_text(e)}")
 
         return {"success": False, "latitude": latitude, "longitude": longitude, "message": "Reverse geocoding query failed."}
 

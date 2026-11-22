@@ -37,7 +37,7 @@ from pydantic import BaseModel, Field
 from core.intelligence_models import AgentPermissionBoundary, AgentRole
 
 from core import tls_policy
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("swa.agent_registry")
 
@@ -844,7 +844,7 @@ class AgentRegistry:
 
         self._agents = agents
         self._discovered = True
-        logger.info(f"SWA AgentRegistry discovered all {len(agents)} cybersecurity agents successfully.")
+        logger.info(f"SWA AgentRegistry discovered all {safe_log_text(len(agents))} cybersecurity agents successfully.")
         return self._agents
 
     def get_agent(self, agent_id: str) -> ExtendedAgentManifest | None:
@@ -966,9 +966,9 @@ class AgentRegistry:
                     ))
                     count += 1
                 conn.commit()
-            logger.info(f"Successfully synchronized {count} agents into SQLite agents_inventory table.")
+            logger.info(f"Successfully synchronized {safe_log_text(count)} agents into SQLite agents_inventory table.")
         except Exception as e:
-            logger.error(f"Error synchronizing agents to database: {e}")
+            logger.error(f"Error synchronizing agents to database: {safe_log_text(e)}")
         return count
 
     async def dispatch_agent_by_id(
@@ -1014,7 +1014,7 @@ class AgentRegistry:
                 manifest.last_result = res.status
                 return res.model_dump()
             except Exception as e:
-                logger.warning(f"Workforce dispatch fallback for {manifest.role}: {e}")
+                logger.warning(f"Workforce dispatch fallback for {safe_log_text(manifest.role)}: {safe_log_text(e)}")
 
         # Tiers 2-5: Native execution engine
         manifest.status = "RUNNING"
@@ -1548,7 +1548,7 @@ class AgentRegistry:
                         log_fn(msg, lvl)
                 except Exception:
                     logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
-            logger.info(f"[{lvl}] {msg}")
+            logger.info(f"[{safe_log_text(lvl)}] {safe_log_text(msg)}")
 
         await _log(f"Dispatching {len(discovered)} registered agents against target: {target} (bounded concurrency, real execution)")
 

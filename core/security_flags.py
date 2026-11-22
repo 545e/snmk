@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional, Set
 from core.alert_manager import alert_manager
 from core.database import db
 from core.mysql_database import mysql_manager
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.security_flags")
 
@@ -196,7 +197,7 @@ class SecurityFlagEngine:
                     );
                 """)
         except Exception as e:
-            logger.warning(f"Error creating security_flags table: {e}")
+            logger.warning(f"Error creating security_flags table: {safe_log_text(e)}")
 
     def raise_flag(
         self,
@@ -293,7 +294,7 @@ class SecurityFlagEngine:
                     return flag
         except Exception as e:
             clean_id = str(flag_id).replace("\r", "").replace("\n", "")[:64]
-            logger.warning(f"Error fetching flag {clean_id}: {e}")
+            logger.warning(f"Error fetching flag {safe_log_text(clean_id)}: {safe_log_text(e)}")
         return None
 
     def list_flags(
@@ -395,7 +396,7 @@ class SecurityFlagEngine:
                     flag.detector_agent_or_tool, flag.reviewer_notes, flag.reviewed_by, flag.reviewed_at
                 ))
         except Exception as e:
-            logger.warning(f"Error persisting flag to SQLite: {e}")
+            logger.warning(f"Error persisting flag to SQLite: {safe_log_text(e)}")
 
         if mysql_manager.is_configured():
             try:
@@ -421,7 +422,7 @@ class SecurityFlagEngine:
                     ))
                 conn.close()
             except Exception as e:
-                logger.warning(f"Error persisting flag to MySQL: {e}")
+                logger.warning(f"Error persisting flag to MySQL: {safe_log_text(e)}")
 
 
 # Singleton instance

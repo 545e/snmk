@@ -17,6 +17,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from core.database import db
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.rag_engine")
 
@@ -245,7 +246,7 @@ class RAGKnowledgeEngine:
                 ))
             conn.commit()
 
-        logger.info("Ingested RAG document %s with %d chunks (Project: %s)", doc_id, len(chunks_text), project_id)
+        logger.info("Ingested RAG document %s with %d chunks (Project: %s)", safe_log_text(doc_id), len(chunks_text), safe_log_text(project_id))
         return RAGDocument(
             id=doc_id,
             project_id=project_id,

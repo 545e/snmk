@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from core.llm_client import SWALLMClient
 from core.rag_engine import rag_engine
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.langchain_adapter")
 
@@ -84,7 +85,7 @@ class SNMKChatModel:
             return res.get("text", "") or res.get("response", "")
         except Exception as exc:  # noqa: BLE001
             logger.warning("LLM generation failed (%s); returning an explicit "
-                           "no-analysis result instead of fabricated findings.", type(exc).__name__)
+                           "no-analysis result instead of fabricated findings.", safe_log_text(type(exc).__name__))
             return (
                 "LLM analysis unavailable: no assessment was performed and no "
                 f"findings are asserted. Cause: {type(exc).__name__}. Configure "
@@ -124,7 +125,7 @@ class SNMKRetriever:
             results = rag_engine.retrieve(query, project_id=self.project_id, top_k=self.top_k)
             return [r.model_dump() if hasattr(r, "model_dump") else r.dict() for r in results]
         except Exception as exc:  # noqa: BLE001
-            logger.warning(f"RAG retrieval failed: {exc}")
+            logger.warning(f"RAG retrieval failed: {safe_log_text(exc)}")
             return []
 
 

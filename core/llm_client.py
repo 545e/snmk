@@ -15,6 +15,7 @@ import httpx
 
 logger = logging.getLogger("swa.llm_client")
 from typing import Any
+from core.error_sanitizer import safe_log_text
 
 
 def _is_valid_api_key(key: str | None) -> bool:
@@ -87,7 +88,7 @@ class SWALLMClient:
                     self.base_url = self.base_url or default_ai.get("endpoint_url")
                     self.credential_source = "database_vault"
         except Exception as exc:
-            logger.debug("Database vault credentials lookup skipped: %s", exc)
+            logger.debug("Database vault credentials lookup skipped: %s", safe_log_text(exc))
 
     def _detect_provider(self):
         if self.provider == "auto":
@@ -203,7 +204,7 @@ Return ONLY valid JSON with:
                 if grounded.get("grounded"):
                     grounding_context = "\n" + grounded.get("context_text", "")
             except Exception as e:
-                logger.debug("RAG context assembly skipped: %s", e)
+                logger.debug("RAG context assembly skipped: %s", safe_log_text(e))
 
         full_system = (system_instruction or "You are SNMK / SWA AI, an elite cybersecurity and threat intelligence platform.")
         if grounding_context:
@@ -216,7 +217,7 @@ Return ONLY valid JSON with:
                 mem_msgs = agent_memory_store.get_session_history(session_id, project_id=project_id, limit=8)
                 history = [{"role": m.role, "content": m.content} for m in mem_msgs]
             except Exception as e:
-                logger.debug("Session memory lookup skipped: %s", e)
+                logger.debug("Session memory lookup skipped: %s", safe_log_text(e))
 
         # Scrub credentials before anything leaves the process.  The prompt,
         # the retrieved session history and the RAG grounding context are all
@@ -234,7 +235,7 @@ Return ONLY valid JSON with:
                     for h in history
                 ]
         except Exception as e:
-            logger.debug("Secret scrubbing skipped: %s", e)
+            logger.debug("Secret scrubbing skipped: %s", safe_log_text(e))
 
         response = await self._call_llm(prompt=prompt, history=history, system_instruction=full_system)
 
@@ -298,7 +299,7 @@ Return ONLY valid JSON with:
                     data = resp.json()
                     return data["content"][0]["text"]
             except Exception as e:
-                logger.warning("Anthropic upstream call failed: %s", e)
+                logger.warning("Anthropic upstream call failed: %s", safe_log_text(e))
                 return "SWA AI Security Notice: Upstream LLM provider unavailable. Local heuristic fallback active."
 
         # Google Gemini API
@@ -324,7 +325,7 @@ Return ONLY valid JSON with:
                     data = resp.json()
                     return data["candidates"][0]["content"]["parts"][0]["text"]
             except Exception as e:
-                logger.warning("Gemini upstream call failed: %s", e)
+                logger.warning("Gemini upstream call failed: %s", safe_log_text(e))
                 return "SWA AI Security Notice: Upstream LLM provider unavailable. Local heuristic fallback active."
 
         # OpenAI, OpenRouter, Ollama, and Custom OpenAI-compatible endpoints
@@ -359,7 +360,7 @@ Return ONLY valid JSON with:
                     data = resp.json()
                     return data["choices"][0]["message"]["content"]
             except Exception as e:
-                logger.warning("LLM upstream call failed: %s", e)
+                logger.warning("LLM upstream call failed: %s", safe_log_text(e))
                 return (
                     "SWA AI Heuristic Analysis:\n"
                     "Deterministic security reasoning active. Findings evaluated against OWASP Top 10 standards."

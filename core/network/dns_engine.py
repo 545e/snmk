@@ -16,6 +16,7 @@ import dns.resolver
 import dns.reversename
 
 from core.network.models import DnsRecord
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.dns")
 
@@ -75,7 +76,7 @@ class DnsIntelligenceEngine:
                         response_time_ms=latency
                     ))
             except Exception as e:
-                logger.debug(f"PTR lookup failed for {target}: {e}")
+                logger.debug(f"PTR lookup failed for {safe_log_text(target)}: {safe_log_text(e)}")
 
             return {
                 "target": target,
@@ -107,7 +108,7 @@ class DnsIntelligenceEngine:
             except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN, dns.resolver.NoNameservers, dns.exception.Timeout):
                 logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
             except Exception as e:
-                logger.debug(f"DNS query {rtype} for {target} error: {e}")
+                logger.debug(f"DNS query {safe_log_text(rtype)} for {safe_log_text(target)} error: {safe_log_text(e)}")
 
         # Check DNSSEC status
         dnssec_valid = False

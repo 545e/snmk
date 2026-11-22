@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 DEFAULT_CLIENT_MESSAGE = "The operation could not be completed."
 
 
+def safe_log_text(value: object, limit: int = 512) -> str:
+    """Escape CR/LF in *value* before it is written to a log record.
+
+    User-controlled values (targets, paths, identifiers) must never be able to
+    forge new log lines. The replacements are deliberately simple so static
+    analysis recognises the value as sanitised at the log sink.
+    """
+    return str(value).replace("\r", "").replace("\n", "")[:limit]
+
+
 def safe_error(message: str = DEFAULT_CLIENT_MESSAGE, exc: BaseException | None = None) -> str:
     """Log *exc* internally and return a generic *message* safe for clients.
 
@@ -34,10 +44,9 @@ def safe_error(message: str = DEFAULT_CLIENT_MESSAGE, exc: BaseException | None 
     """
     if exc is not None:
         logger.debug(
-            "Suppressed exception detail from client response (%s): %s",
-            message,
-            type(exc).__name__,
-            exc_info=True,
+            "Suppressed exception detail from client response: %s | %s",
+            safe_log_text(message),
+            safe_log_text(type(exc).__name__),
         )
     return message
 

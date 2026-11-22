@@ -12,6 +12,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.native_scanner")
 
@@ -86,7 +87,7 @@ class NativeScannerBridge:
                 data = json.loads(stdout.decode("utf-8", errors="ignore"))
                 return data.get("open_ports", [])
         except Exception as e:
-            logger.warning(f"Native C++ port scan fallback triggered: {e}")
+            logger.warning(f"Native C++ port scan fallback triggered: {safe_log_text(e)}")
             return []
 
         return []
@@ -122,7 +123,7 @@ class NativeScannerBridge:
                 data = json.loads(stdout.decode("utf-8", errors="ignore"), strict=False)
                 return data.get("subdomains", [])
         except Exception as e:
-            logger.warning(f"Native C++ subdomain probe fallback triggered: {e}")
+            logger.warning(f"Native C++ subdomain probe fallback triggered: {safe_log_text(e)}")
             return []
 
         return []
@@ -157,7 +158,7 @@ class NativeScannerBridge:
             if proc.returncode == 0 and stdout:
                 return json.loads(stdout.decode("utf-8", errors="ignore"), strict=False)
         except Exception as e:
-            logger.warning(f"Native C++ full scan execution failed: {e}")
+            logger.warning(f"Native C++ full scan execution failed: {safe_log_text(e)}")
             return None
 
         return None

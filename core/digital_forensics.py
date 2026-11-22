@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("snmk.digital_forensics")
 
@@ -276,7 +276,7 @@ class StorageMediaInspector:
                         smart_status=status
                     ))
         except Exception as e:
-            logger.debug("Windows Get-Disk probe fallback: %s", e)
+            logger.debug("Windows Get-Disk probe fallback: %s", safe_log_text(e))
         return devices
 
     def _list_posix_devices(self) -> List[StorageDevice]:
@@ -467,7 +467,7 @@ class PhotoRecCarver:
                 except (PermissionError, OSError):
                     continue
         except (PermissionError, OSError) as e:
-            logger.debug("Directory browse error: %s", e)
+            logger.debug("Directory browse error: %s", safe_log_text(e))
 
         return {
             "current_path": curr_str,

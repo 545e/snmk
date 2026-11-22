@@ -16,7 +16,7 @@ from scapy.all import rdpcap
 
 from core.network.models import FlowSummary, PacketDetail, PacketSummary
 from core.network.packet_engine import PacketDissector
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("snmk.map.pcap")
 
@@ -149,7 +149,7 @@ class PcapForensicsEngine:
             }
 
         except Exception as e:
-            logger.error(f"Error parsing PCAP file {filename}: {e}")
+            logger.error(f"Error parsing PCAP file {safe_log_text(filename)}: {safe_log_text(e)}")
             return {"success": False, "error": safe_error("PCAP parsing failed.", e)}
         finally:
             if os.path.exists(temp_path):

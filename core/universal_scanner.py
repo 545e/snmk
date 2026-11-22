@@ -65,6 +65,7 @@ from core.database import db
 from core.integrations.endpoint_policy import resolve_host_addresses
 from core.mysql_database import mysql_manager
 from core.scope_policy import scope_policy
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.universal_scanner")
 
@@ -275,7 +276,7 @@ class UniversalScannerEngine:
                     );
                 """)
         except Exception as e:
-            logger.warning(f"Failed to initialize SQLite universal scanner tables: {e}")
+            logger.warning(f"Failed to initialize SQLite universal scanner tables: {safe_log_text(e)}")
 
     # =========================================================================
     # Job Lifecycle & Management
@@ -426,7 +427,7 @@ class UniversalScannerEngine:
                     return False, str(ip)
             return True, addrs[0] if addrs else "unknown"
         except Exception as e:
-            logger.warning(f"Failed to resolve host '{hostname}': {e}")
+            logger.warning(f"Failed to resolve host '{safe_log_text(hostname)}': {safe_log_text(e)}")
             return False, "Resolution Failed"
 
     def _audit_tls_configuration(self, job: UniversalScanJob, hostname: str, port: int):
@@ -455,7 +456,7 @@ class UniversalScannerEngine:
                             cvss_score=7.4
                         ))
         except Exception as e:
-            logger.debug(f"TLS inspection note for {hostname}: {e}")
+            logger.debug(f"TLS inspection note for {safe_log_text(hostname)}: {safe_log_text(e)}")
 
     def _audit_http_headers_and_cookies(self, job: UniversalScanJob, url: str):
         """Audits security headers (HSTS, CSP, X-Frame-Options, etc.) and cookie flags."""
@@ -583,7 +584,7 @@ class UniversalScannerEngine:
                             cvss_score=5.3
                         ))
         except Exception as e:
-            logger.debug(f"HTTP header inspection note: {e}")
+            logger.debug(f"HTTP header inspection note: {safe_log_text(e)}")
 
     def _audit_sensitive_endpoints(self, job: UniversalScanJob, base_url: str):
         """Safely checks for publicly exposed sensitive files and endpoints."""
@@ -677,7 +678,7 @@ class UniversalScannerEngine:
                 file_record.processing_status = "COMPLETED"
                 job.completed_files += 1
             except Exception as e:
-                logger.error(f"Error analyzing file '{fpath}': {e}", exc_info=True)
+                logger.error(f"Error analyzing file '{safe_log_text(fpath)}': {safe_log_text(e)}", exc_info=True)
                 job.failed_files += 1
                 if 'file_record' in locals():
                     file_record.processing_status = "FAILED"
@@ -741,7 +742,7 @@ class UniversalScannerEngine:
                     doc = docx.Document(record.storage_path)
                     extracted_text = "\n".join([p.text for p in doc.paragraphs])
                 except Exception as e:
-                    logger.debug(f"python-docx error on {record.original_filename}: {e}")
+                    logger.debug(f"python-docx error on {safe_log_text(record.original_filename)}: {safe_log_text(e)}")
             # Check for VBA Macros in docx package
             try:
                 with zipfile.ZipFile(record.storage_path, "r") as z:
@@ -770,7 +771,7 @@ class UniversalScannerEngine:
                 with open(record.storage_path, "r", encoding="utf-8", errors="ignore") as f:
                     extracted_text = f.read(500000)  # read first 500KB
             except Exception as e:
-                logger.debug(f"Failed to read document text: {e}")
+                logger.debug(f"Failed to read document text: {safe_log_text(e)}")
 
         # Scan extracted text for exposed secrets and phishing links
         if extracted_text:
@@ -807,7 +808,7 @@ class UniversalScannerEngine:
                         cvss_score=cvss
                     ))
         except Exception as e:
-            logger.debug(f"Raw PDF byte inspection error: {e}")
+            logger.debug(f"Raw PDF byte inspection error: {safe_log_text(e)}")
 
         # Extract text via PyPDF if available
         if PYPDF_AVAILABLE:
@@ -822,7 +823,7 @@ class UniversalScannerEngine:
                     self._scan_text_for_secrets(job, record, pdf_text)
                     self._scan_text_for_suspicious_urls(job, record, pdf_text)
             except Exception as e:
-                logger.debug(f"PyPDF extraction note: {e}")
+                logger.debug(f"PyPDF extraction note: {safe_log_text(e)}")
 
     # -------------------------------------------------------------------------
     # Image Analyzer
@@ -873,7 +874,7 @@ class UniversalScannerEngine:
                             cvss_score=2.0
                         ))
         except Exception as e:
-            logger.debug(f"Pillow EXIF note on {record.original_filename}: {e}")
+            logger.debug(f"Pillow EXIF note on {safe_log_text(record.original_filename)}: {safe_log_text(e)}")
 
         # 3. Polyglot / Appended Payload Detection (Past official EOF)
         self._check_image_appended_payload(job, record)
@@ -885,7 +886,7 @@ class UniversalScannerEngine:
                 if ocr_text:
                     self._scan_text_for_secrets(job, record, ocr_text, source="OCR Extraction")
             except Exception as e:
-                logger.debug(f"Tesseract OCR execution note: {e}")
+                logger.debug(f"Tesseract OCR execution note: {safe_log_text(e)}")
 
     def _check_image_appended_payload(self, job: UniversalScanJob, record: UploadedFileRecord):
         """Detects malicious binaries or archives appended after official image EOF markers."""
@@ -940,7 +941,7 @@ class UniversalScannerEngine:
                         cvss_score=7.8
                     ))
         except Exception as e:
-            logger.debug(f"Payload trailer check note: {e}")
+            logger.debug(f"Payload trailer check note: {safe_log_text(e)}")
 
     # -------------------------------------------------------------------------
     # Source Code and Configuration Analyzer
@@ -950,7 +951,7 @@ class UniversalScannerEngine:
             with open(record.storage_path, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
         except Exception as e:
-            logger.debug(f"Failed to read source code: {e}")
+            logger.debug(f"Failed to read source code: {safe_log_text(e)}")
             return
 
         lines = content.splitlines()
@@ -1007,7 +1008,7 @@ class UniversalScannerEngine:
             if text:
                 self._scan_text_for_secrets(job, record, text)
         except Exception as e:
-            logger.debug(f"Generic file scan error: {e}")
+            logger.debug(f"Generic file scan error: {safe_log_text(e)}")
 
     # -------------------------------------------------------------------------
     # Archive Analyzer with Zip Slip & Bomb Protection
@@ -1236,7 +1237,7 @@ class UniversalScannerEngine:
                         f.description, f.evidence, f.remediation, f.scanner_name, f.location, f.cwe_id, f.cvss_score, f.status, f.created_at
                     ))
         except Exception as e:
-            logger.warning(f"Failed to persist universal scan to SQLite: {e}")
+            logger.warning(f"Failed to persist universal scan to SQLite: {safe_log_text(e)}")
 
         # MySQL Persistence (if online)
         if mysql_manager.is_configured():
@@ -1261,7 +1262,7 @@ class UniversalScannerEngine:
                     ))
                 conn.close()
             except Exception as e:
-                logger.warning(f"Failed to persist universal scan to MySQL: {e}")
+                logger.warning(f"Failed to persist universal scan to MySQL: {safe_log_text(e)}")
 
     def _load_job_from_db(self, scan_id: str) -> Optional[UniversalScanJob]:
         try:
@@ -1314,7 +1315,7 @@ class UniversalScannerEngine:
                 return job
         except Exception as e:
             clean_id = str(scan_id).replace("\r", "").replace("\n", "")[:64]
-            logger.warning(f"Error loading job {clean_id} from SQLite: {e}")
+            logger.warning(f"Error loading job {safe_log_text(clean_id)} from SQLite: {safe_log_text(e)}")
             return None
 
     # =========================================================================

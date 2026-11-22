@@ -15,7 +15,7 @@ import uuid
 from typing import Any
 
 from pydantic import BaseModel, Field
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("snmk.crewai_adapter")
 
@@ -80,7 +80,7 @@ class SNMKCrewAIAgent:
     async def execute_task(self, task: CrewAITaskConfig, context: dict[str, Any] | None = None) -> dict[str, Any]:
         """Executes a defined cybersecurity task with boundary checks and timeout enforcement."""
         start = time.perf_counter()
-        logger.info(f"Agent [{self.role}] starting task: {task.description[:80]}...")
+        logger.info(f"Agent [{safe_log_text(self.role)}] starting task: {safe_log_text(task.description[:80])}...")
         
         # This adapter is the planning / orchestration layer. It deliberately
         # does NOT invent scanner output: no security tool is invoked here.
@@ -144,7 +144,7 @@ class SNMKCrew:
                 completed_results.append(res)
                 accumulated_context[task.task_id] = res.get("output", "")
             except Exception as exc:  # noqa: BLE001
-                logger.error(f"Task {task.task_id} failed in crew {self.crew_id}: {exc}")
+                logger.error(f"Task {safe_log_text(task.task_id)} failed in crew {safe_log_text(self.crew_id)}: {safe_log_text(exc)}")
                 overall_status = "FAILED"
                 completed_results.append({
                     "task_id": task.task_id,

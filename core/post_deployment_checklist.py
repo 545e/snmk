@@ -30,6 +30,7 @@ from typing import Any
 from core.antivirus_edr_manager import antivirus_edr_manager
 from core.database import db
 from core.scanner_integrations import ScannerIntegrations
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger('swa.checklist')
 
@@ -51,7 +52,7 @@ class PostDeploymentChecklistEngine:
             if c_proc.returncode == 0 and c_proc.stdout.strip():
                 commit = c_proc.stdout.strip()[:8]
         except Exception as e:
-            logger.debug("Non-fatal checklist evaluation note: %s", e)
+            logger.debug("Non-fatal checklist evaluation note: %s", safe_log_text(e))
         return {"branch": branch, "commit": commit}
 
     def generate_checklist(self, deployment_id: str) -> dict[str, Any]:
@@ -310,7 +311,7 @@ class PostDeploymentChecklistEngine:
                 ))
                 conn.commit()
         except Exception as e:
-            logger.debug("Non-fatal checklist evaluation note: %s", e)
+            logger.debug("Non-fatal checklist evaluation note: %s", safe_log_text(e))
 
     def get_checklist(self, deployment_id: str) -> dict[str, Any] | None:
         """Retrieves saved checklist from DB or generates a fresh one."""
@@ -322,7 +323,7 @@ class PostDeploymentChecklistEngine:
                 if row:
                     return json.loads(row[0])
         except Exception as e:
-            logger.debug("Non-fatal checklist evaluation note: %s", e)
+            logger.debug("Non-fatal checklist evaluation note: %s", safe_log_text(e))
         return self.generate_checklist(deployment_id)
 
     def get_latest_checklist(self) -> dict[str, Any] | None:
@@ -335,7 +336,7 @@ class PostDeploymentChecklistEngine:
                 if row:
                     return json.loads(row[0])
         except Exception as e:
-            logger.debug("Non-fatal checklist evaluation note: %s", e)
+            logger.debug("Non-fatal checklist evaluation note: %s", safe_log_text(e))
         # If none in table, inspect recent deployment
         recent = db.get_cyber_deployments(limit=1)
         if recent:

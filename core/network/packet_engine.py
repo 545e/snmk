@@ -18,6 +18,7 @@ import psutil
 
 from core.network.interfaces import check_capture_drivers
 from core.network.models import FlowSummary, PacketDetail, PacketSummary
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.packet_engine")
 
@@ -411,7 +412,7 @@ class LiveCaptureSession:
                       prn=_handle_pkt, stop_filter=lambda x: not self.is_running or count >= self.packet_limit,
                       timeout=self.duration_limit)
             except Exception as e:
-                logger.warning(f"Scapy native sniff error: {e}. Switching to active socket connection collector.")
+                logger.warning(f"Scapy native sniff error: {safe_log_text(e)}. Switching to active socket connection collector.")
                 driver_ok = False
 
         # Fallback & Windows without Npcap: High-fidelity active connection flow collector
@@ -455,7 +456,7 @@ class LiveCaptureSession:
                         summary, detail = self.dissector.dissect(pkt, count, self.interface, base_time)
                         self._record_packet(summary, detail)
                 except Exception as e:
-                    logger.debug(f"Socket sampling error: {e}")
+                    logger.debug(f"Socket sampling error: {safe_log_text(e)}")
 
             time.sleep(0.5)
 

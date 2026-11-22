@@ -16,6 +16,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from core.database import db
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.agent_memory")
 
@@ -151,7 +152,7 @@ class AgentMemoryStore:
             ))
             conn.commit()
 
-        logger.debug("Recorded %s memory turn %s for session %s (Tokens: %d)", memory_tier, mem_id, session_id, token_count)
+        logger.debug("Recorded %s memory turn %s for session %s (Tokens: %d)", safe_log_text(memory_tier), safe_log_text(mem_id), safe_log_text(session_id), token_count)
         return MemoryRecord(
             id=mem_id,
             session_id=session_id,

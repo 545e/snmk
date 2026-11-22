@@ -18,6 +18,7 @@ import hashlib
 import logging
 import os
 from pathlib import Path
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("swa.credentials")
 
@@ -49,7 +50,7 @@ def _load_or_generate_master_key() -> bytes:
                     return content
                 return hashlib.sha256(content).digest()
         except Exception as e:
-            logger.warning(f"Failed to read existing keyfile {keyfile}: {e}")
+            logger.warning(f"Failed to read existing keyfile {safe_log_text(keyfile)}: {safe_log_text(e)}")
 
     # Generate a new cryptographic random 32-byte key. Create the file with
     # restrictive permissions *before* writing the key: chmod after an
@@ -77,7 +78,7 @@ def _load_or_generate_master_key() -> bytes:
             except Exception:
                 logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
     except Exception as e:
-        logger.warning(f"Could not persist keyfile to {keyfile}: {e}")
+        logger.warning(f"Could not persist keyfile to {safe_log_text(keyfile)}: {safe_log_text(e)}")
 
     return new_key
 
@@ -166,7 +167,7 @@ class CredentialManager:
             data = bytes([b ^ p for b, p in zip(ciphertext, pad[: len(ciphertext)])])
             return data.decode("utf-8")
         except Exception as e:
-            logger.error(f"Credential decryption error: {e}")
+            logger.error(f"Credential decryption error: {safe_log_text(e)}")
             return ""
 
 

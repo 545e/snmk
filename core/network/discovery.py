@@ -14,6 +14,7 @@ from typing import Any
 
 from core.network.interfaces import get_local_network_info
 from core.network.models import DiscoveredDevice
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.discovery")
 
@@ -144,7 +145,7 @@ class DeviceDiscoveryEngine:
                     )
 
         except Exception as e:
-            logger.error(f"ARP table parse error: {e}")
+            logger.error(f"ARP table parse error: {safe_log_text(e)}")
 
         # 3. Compare with previous snapshot to identify New, Removed, or Changed
         results = list(devices.values())

@@ -18,6 +18,7 @@ import time
 from typing import Any
 
 import requests
+from core.error_sanitizer import safe_log_text
 
 # Context variables for request tracing across async tasks
 current_request_id: contextvars.ContextVar[str] = contextvars.ContextVar("current_request_id", default="")
@@ -186,4 +187,4 @@ def setup_observability_logging(
             loki_handler.setFormatter(JSONLogFormatter(service_name="snmk-backend"))
             root_logger.addHandler(loki_handler)
         except Exception as exc:  # noqa: BLE001
-            root_logger.warning(f"Could not initialize Loki logging handler: {exc}")
+            root_logger.warning(f"Could not initialize Loki logging handler: {safe_log_text(exc)}")

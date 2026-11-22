@@ -26,7 +26,7 @@ from core.integrations.ai_providers import (
     OpenRouterAdapter,
 )
 from core.scope_policy import scope_policy
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("swa.ai_agent_api")
 
@@ -187,7 +187,7 @@ def _decrypt_key(encrypted_str: str) -> str | None:
             return credentials_vault.decrypt(cipher, salt)
         return None
     except Exception as e:
-        logger.error(f"Error decrypting stored API key: {e}")
+        logger.error(f"Error decrypting stored API key: {safe_log_text(e)}")
         return None
 
 

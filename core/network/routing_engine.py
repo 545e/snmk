@@ -16,6 +16,7 @@ from typing import Any
 from core.network.geo_engine import geo_engine, is_private_ip
 from core.network.infrastructure import infra_engine
 from core.network.models import RouteHop
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.routing")
 
@@ -31,7 +32,7 @@ class RouteAnalysisEngine:
         # Validate that target does not contain command switches or invalid characters
         safe_target = str(target).replace("\r", "").replace("\n", "")[:128]
         if not target or target.startswith("-") or not re.match(r"^[a-zA-Z0-9.:-]+$", target):
-            logger.warning(f"Invalid target for traceroute: {safe_target}")
+            logger.warning(f"Invalid target for traceroute: {safe_log_text(safe_target)}")
             return {"target": target, "hops": [], "explanations": ["Target address contains invalid characters."]}
 
         # Resolve domain to a validated IP address and reconstruct from integer octets
@@ -51,7 +52,7 @@ class RouteAnalysisEngine:
             else:
                 return {"target": target, "hops": [], "explanations": ["Unsupported IP version."]}
         except Exception:
-            logger.warning(f"Could not resolve target to IP: {safe_target}")
+            logger.warning(f"Could not resolve target to IP: {safe_log_text(safe_target)}")
             return {"target": target, "hops": [], "explanations": ["Could not resolve target to a valid IP address."]}
 
         hops: list[RouteHop] = []
@@ -112,7 +113,7 @@ class RouteAnalysisEngine:
                     hops.append(hop)
 
         except Exception as e:
-            logger.error(f"Traceroute execution error: {e}")
+            logger.error(f"Traceroute execution error: {safe_log_text(e)}")
 
         # Summary explanations for missing/filtered hops
         has_filtered = any(h.status == "TIMEOUT" for h in hops)

@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.models import Severity, VulnerabilityFinding
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger(__name__)
 
@@ -579,7 +579,7 @@ class ScannerIntegrations:
             else:
                 output_msg = f"{name} operational and signature baseline verified."
         except Exception as e:
-            logger.debug(f"Tool update fallback triggered for {t_id}: {e}")
+            logger.debug(f"Tool update fallback triggered for {safe_log_text(t_id)}: {safe_log_text(e)}")
             status = "UP_TO_DATE"
             output_msg = "Baseline verified (offline fallback active)"
 

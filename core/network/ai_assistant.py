@@ -13,6 +13,7 @@ from typing import Any
 from core.llm_client import SWALLMClient
 from core.network.interfaces import get_local_network_info
 from core.network.packet_engine import live_capture
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.ai_assistant")
 
@@ -87,7 +88,7 @@ class MapAiAssistant:
                     system_instruction=system_prompt
                 )
             except Exception as e:
-                logger.warning(f"LLM call failed: {e}. Falling back to expert heuristics.")
+                logger.warning(f"LLM call failed: {safe_log_text(e)}. Falling back to expert heuristics.")
                 response_text = ""
 
         if not response_text:

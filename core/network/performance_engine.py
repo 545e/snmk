@@ -15,6 +15,7 @@ import time
 import httpx
 
 from core.network.models import SpeedTestResult
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.perf")
 
@@ -45,7 +46,7 @@ class NetworkPerformanceEngine:
             if loss_match:
                 loss_pct = float(loss_match.group(1))
         except Exception as e:
-            logger.debug(f"Ping failed: {e}")
+            logger.debug(f"Ping failed: {safe_log_text(e)}")
 
         if not rtts:
             return {"ping_ms": 0.0, "jitter_ms": 0.0, "packet_loss_pct": 100.0}
@@ -93,7 +94,7 @@ class NetworkPerformanceEngine:
                     bytes_len = len(res.content)
                     download_mbps = round((bytes_len * 8) / (dur * 1_000_000), 2)
         except Exception as e:
-            logger.debug(f"Primary speed test download failed: {e}")
+            logger.debug(f"Primary speed test download failed: {safe_log_text(e)}")
             # Fallback smaller payload
             try:
                 t0 = time.perf_counter()
@@ -118,7 +119,7 @@ class NetworkPerformanceEngine:
                     if res.status_code in (200, 204) and dur > 0:
                         upload_mbps = round((len(upload_payload) * 8) / (dur * 1_000_000), 2)
             except Exception as e:
-                logger.debug(f"Upload test failed: {e}")
+                logger.debug(f"Upload test failed: {safe_log_text(e)}")
 
         total_dur = round(time.perf_counter() - start_overall, 2)
 

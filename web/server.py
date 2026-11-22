@@ -71,7 +71,7 @@ from agents.orchestrator import SWAOrchestrator
 from core.ai_models import ai_model_manager
 from core.audit import audit
 from core.database import db
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 from core.integrations.registry import integration_registry
 from core.models import (
     LogEvent,
@@ -210,9 +210,9 @@ async def on_startup():
     try:
         reconciled = db.reconcile_orphaned_scans()
         if reconciled > 0:
-            logger.info(f"Reconciled {reconciled} orphaned scan(s) from prior session to CANCELLED.")
+            logger.info(f"Reconciled {safe_log_text(reconciled)} orphaned scan(s) from prior session to CANCELLED.")
     except Exception as e:
-        logger.warning(f"Error reconciling orphaned scans on startup: {e}")
+        logger.warning(f"Error reconciling orphaned scans on startup: {safe_log_text(e)}")
 
 
 
@@ -314,8 +314,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     """
     logger.error(
         "Unhandled error while processing %s %s",
-        request.method,
-        request.url.path,
+        safe_log_text(request.method),
+        safe_log_text(request.url.path),
         exc_info=exc,
     )
     return JSONResponse(
@@ -4176,7 +4176,7 @@ async def check_waf_endpoint(payload: WAFCheckPayload):
             return result
 
     except Exception as e:
-        logger.warning(f"WAF probe network exception for {url}: {e}")
+        logger.warning(f"WAF probe network exception for {safe_log_text(url)}: {safe_log_text(e)}")
         return {
             "detected": False,
             "waf_name": "Probing Error",
@@ -5116,7 +5116,7 @@ async def _execute_registry_handler(
             ),
         }
     except Exception as exc:
-        logger.error(f"Error executing registry handler {handler}: {exc}")
+        logger.error(f"Error executing registry handler {safe_log_text(handler)}: {safe_log_text(exc)}")
         return {
             **base,
             "status": "FAILED",
@@ -5513,7 +5513,7 @@ async def execute_tool_endpoint(tool_id: str, req: ToolExecuteRequest):
 
     except Exception as e:
         clean_tool_id = str(tool_id).replace("\r", "").replace("\n", "")[:64]
-        logger.error(f"Error executing tool {clean_tool_id}: {e}")
+        logger.error(f"Error executing tool {safe_log_text(clean_tool_id)}: {safe_log_text(e)}")
         _failed_finished = datetime.datetime.now(datetime.timezone.utc).isoformat()
         persistent_store.record_tool_execution(
             scan_id=tool_scan_id,
@@ -5632,7 +5632,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                     except Exception:
                         logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
-            logger.debug(f"DNS lookup notice: {e}")
+            logger.debug(f"DNS lookup notice: {safe_log_text(e)}")
 
         # 2. Port Prober
         try:
@@ -5662,7 +5662,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                     except Exception:
                         logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
-            logger.debug(f"Port prober notice: {e}")
+            logger.debug(f"Port prober notice: {safe_log_text(e)}")
 
         # 3. SSL/TLS Certificate Audit
         try:
@@ -5688,7 +5688,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                 except Exception:
                     logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
-            logger.debug(f"SSL inspector notice: {e}")
+            logger.debug(f"SSL inspector notice: {safe_log_text(e)}")
 
         # 4. Security Headers Audit
         try:
@@ -5718,9 +5718,9 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
                         except Exception:
                             logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
         except Exception as e:
-            logger.debug(f"Security headers notice: {e}")
+            logger.debug(f"Security headers notice: {safe_log_text(e)}")
     except Exception as e:
-        logger.warning(f"Active prober phase error: {e}")
+        logger.warning(f"Active prober phase error: {safe_log_text(e)}")
 
     # Run ScannerIntegrations tool suites
     for tool_name in ["nmap", "nuclei", "owasp_zap", "sqlmap", "nikto", "semgrep", "bandit", "trivy", "gitleaks", "tshark", "microsoft_defender", "swa_native", "snmk_fast_scan"]:
@@ -5737,7 +5737,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     except TimeoutError:
         logger.warning("OWASP plugins timed out after 10s budget")
     except Exception as e:
-        logger.warning(f"OWASP plugins execution notice: {e}")
+        logger.warning(f"OWASP plugins execution notice: {safe_log_text(e)}")
 
     # Execute all 85 Specialist Agents with bounded budget
     workforce_results = {"executed_agents": 85, "status": "COMPLETED"}
@@ -5753,7 +5753,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
     except TimeoutError:
         logger.warning("Agent workforce reached 20s budget; finalizing unified report")
     except Exception as e:
-        logger.warning(f"Agent workforce execution notice: {e}")
+        logger.warning(f"Agent workforce execution notice: {safe_log_text(e)}")
 
     # Mark Scan as COMPLETED
     t_dur = round(time.time() - t_start, 2)
@@ -5800,7 +5800,7 @@ async def run_all_tools_endpoint(req: RunAllToolsRequest):
             created_by="SWA All-Tools Autonomous Engine"
         )
     except Exception as e:
-        logger.warning(f"All-tools report generation notice: {e}")
+        logger.warning(f"All-tools report generation notice: {safe_log_text(e)}")
         rep_uuid = f"rep_at_{uuid.uuid4().hex[:8]}"
         report_data = {
             "id": rep_uuid,
@@ -7119,7 +7119,7 @@ async def run_cyber_tests(req: CyberTestRequest):
         return run_data
 
     except Exception as e:
-        logger.error(f"Cyber test execution error: {e}")
+        logger.error(f"Cyber test execution error: {safe_log_text(e)}")
         raise HTTPException(status_code=500, detail="Cyber test execution failed.")
 
 
@@ -7177,7 +7177,7 @@ async def initiate_cyber_deploy(req: CyberDeployRequest):
         return dep
 
     except Exception as e:
-        logger.error(f"Deployment initiation error: {e}")
+        logger.error(f"Deployment initiation error: {safe_log_text(e)}")
         raise HTTPException(status_code=500, detail="Deployment initiation failed.")
 
 
@@ -7195,7 +7195,7 @@ async def approve_cyber_deploy(deployment_id: str, req: CyberDeployApprovalReque
         return dep
 
     except Exception as e:
-        logger.error(f"Deployment approval error: {e}")
+        logger.error(f"Deployment approval error: {safe_log_text(e)}")
         raise HTTPException(status_code=500, detail="Deployment approval failed.")
 
 
@@ -7213,7 +7213,7 @@ async def rollback_cyber_deploy(deployment_id: str, req: CyberDeployRollbackRequ
         return dep
 
     except Exception as e:
-        logger.error(f"Deployment rollback error: {e}")
+        logger.error(f"Deployment rollback error: {safe_log_text(e)}")
         raise HTTPException(status_code=500, detail="Deployment rollback failed.")
 
 
@@ -9425,13 +9425,13 @@ try:
     from services.crypto_service.main import router as crypto_service_router
     app.include_router(crypto_service_router)
 except Exception as e:
-    logger.warning(f"Failed to mount Crypto Service router: {e}")
+    logger.warning(f"Failed to mount Crypto Service router: {safe_log_text(e)}")
 
 try:
     from services.pcap_service.main import router as pcap_service_router
     app.include_router(pcap_service_router)
 except Exception as e:
-    logger.warning(f"Failed to mount PCAP Service router: {e}")
+    logger.warning(f"Failed to mount PCAP Service router: {safe_log_text(e)}")
 
 
 # Client bootstrap configuration -----------------------------------------

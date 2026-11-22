@@ -12,7 +12,7 @@ import logging
 import os
 import time
 from typing import Any, Dict, Optional, Tuple
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("snmk.mysql")
 
@@ -112,7 +112,7 @@ class MySQLDatabaseManager:
             return True, f"Connected to MySQL {version}", round(latency, 2)
         except Exception as e:
             latency = (time.perf_counter() - t0) * 1000.0
-            logger.warning(f"MySQL connection diagnostic failed: {e}")
+            logger.warning(f"MySQL connection diagnostic failed: {safe_log_text(e)}")
             return False, "MySQL server connection failed or unreachable", round(latency, 2)
 
     def get_health_status(self, force_refresh: bool = False) -> Dict[str, Any]:
@@ -142,7 +142,7 @@ class MySQLDatabaseManager:
                         db_size_mb = float(res.get("size_mb", 0.0))
                 conn.close()
             except Exception as e:
-                logger.warning(f"Failed to query MySQL schema telemetry: {e}")
+                logger.warning(f"Failed to query MySQL schema telemetry: {safe_log_text(e)}")
 
         payload = {
             "status": status,

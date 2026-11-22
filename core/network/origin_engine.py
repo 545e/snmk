@@ -14,6 +14,7 @@ from core.network.geo_engine import geo_engine, is_private_ip
 from core.network.infrastructure import infra_engine
 from core.network.interfaces import get_local_network_info
 from core.network.models import OriginInvestigation
+from core.error_sanitizer import safe_log_text
 
 logger = logging.getLogger("snmk.map.origin")
 
@@ -50,7 +51,7 @@ class NetworkOriginEngine:
                 resolved_ip = socket.gethostbyname(target)
             except Exception as e:
                 clean_target = str(target).replace("\r", "").replace("\n", "")[:128]
-                logger.debug(f"Failed to resolve domain {clean_target}: {e}")
+                logger.debug(f"Failed to resolve domain {safe_log_text(clean_target)}: {safe_log_text(e)}")
 
         # Check if local gateway or local host
         is_local_host = (resolved_ip in [local_info.local_ipv4, "127.0.0.1", "::1"])

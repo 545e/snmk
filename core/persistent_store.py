@@ -35,7 +35,7 @@ from enum import Enum
 from typing import Any, Dict, Iterable, List, Optional
 
 from core.database import db
-from core.error_sanitizer import safe_error
+from core.error_sanitizer import safe_error, safe_log_text
 
 logger = logging.getLogger("snmk.persistence")
 
@@ -456,7 +456,7 @@ class ScanPersistence:
                         conn.close()
                 except Exception as exc:  # noqa: BLE001
                     result["mysql"] = safe_error("failed", exc)
-                    logger.warning("MySQL schema initialization failed: %s", exc)
+                    logger.warning("MySQL schema initialization failed: %s", safe_log_text(exc))
         self._schema_ready = True
         return result
 
@@ -505,7 +505,7 @@ class ScanPersistence:
                 conn.execute(sqlite_sql, sqlite_params)
             local_ok = True
         except Exception:  # pragma: no cover
-            logger.exception("Failed to create local scan record %s", scan_id)
+            logger.exception("Failed to create local scan record %s", safe_log_text(scan_id))
             local_ok = False
         state = self._state(local_ok, mysql_sql, (
             scan_id, target, status, profile, created,
@@ -536,7 +536,7 @@ class ScanPersistence:
                 conn.execute(f"UPDATE scans SET {assignments} WHERE id = ?", params)
             local_ok = True
         except Exception:  # pragma: no cover
-            logger.exception("Failed to update scan %s", scan_id)
+            logger.exception("Failed to update scan %s", safe_log_text(scan_id))
             local_ok = False
         mysql_sql = (
             f"UPDATE scans SET {', '.join(f'{c} = %s' for c in updates)} WHERE id = %s"
@@ -738,7 +738,7 @@ class ScanPersistence:
                 conn.execute(sql, values)
             return True
         except Exception:  # pragma: no cover
-            logger.exception("Local persistence failed for %s", table)
+            logger.exception("Local persistence failed for %s", safe_log_text(table))
             return False
 
     @staticmethod
