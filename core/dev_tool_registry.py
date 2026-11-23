@@ -32,6 +32,7 @@ import importlib.metadata
 import os
 import shutil
 import subprocess
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
@@ -165,9 +166,21 @@ SPECS: list[ToolSpec] = [
 class ToolRegistry:
     """Detects and reports the status of every declared tool."""
 
+    # A full snapshot executes one subprocess per executable tool (up to ~8s
+    # on Windows). Cache the measured result briefly so repeated dashboard and
+    # health requests do not re-probe every binary.
+    _SNAPSHOT_TTL_SEC = 60.0
+
     def __init__(self, specs: Sequence[ToolSpec] | None = None):
         self.specs = list(specs if specs is not None else SPECS)
         self._last: list[ToolStatusRecord] = []
+        self._snapshot_cache: list[dict[str, Any]] | None = None
+        self._snapshot_ts = 0.0
+
+    def invalidate_cache(self) -> None:
+        """Discard the cached snapshot so the next call re-probes every tool."""
+        self._snapshot_cache = None
+        self._snapshot_ts = 0.0
 
     # -- detection ----------------------------------------------------------
     @staticmethod
@@ -260,10 +273,22 @@ class ToolRegistry:
         record.reason = f"Unknown tool kind: {spec.kind}."
         return record
 
-    def snapshot(self) -> list[dict[str, Any]]:
-        """Checks every tool and returns a fresh, serializable status list."""
+    def snapshot(self, force_refresh: bool = False) -> list[dict[str, Any]]:
+        """Return a serializable status list for every declared tool.
+
+        Probes are cached for ``_SNAPSHOT_TTL_SEC``; pass ``force_refresh=True``
+        to measure again (used by the explicit "re-check" UI action).
+        """
+        if (
+            not force_refresh
+            and self._snapshot_cache is not None
+            and (time.time() - self._snapshot_ts) < self._SNAPSHOT_TTL_SEC
+        ):
+            return [dict(item) for item in self._snapshot_cache]
         self._last = [self.check(spec) for spec in self.specs]
-        return [record.to_dict() for record in self._last]
+        self._snapshot_cache = [record.to_dict() for record in self._last]
+        self._snapshot_ts = time.time()
+        return [dict(item) for item in self._snapshot_cache]
 
     def get(self, tool_id: str) -> ToolStatusRecord | None:
         for record in self._last:
@@ -275,6 +300,6 @@ class ToolRegistry:
 registry = ToolRegistry()
 
 
-def snapshot() -> list[dict[str, Any]]:
+def snapshot(force_refresh: bool = False) -> list[dict[str, Any]]:
     """Module-level convenience for the API layer."""
-    return registry.snapshot()
+    return registry.snapshot(force_refresh=force_refresh)

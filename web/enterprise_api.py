@@ -26,6 +26,7 @@ Remediation Lifecycle Board, 12-Template Enterprise Reports, and Diagnostics.
 
 
 
+import asyncio
 import datetime
 from typing import Any
 
@@ -1449,7 +1450,8 @@ async def get_detailed_diagnostics():
 
 
 
-    inventory = ScannerIntegrations.get_tool_inventory()
+    # Tool version probes spawn subprocesses; run them off the event loop.
+    inventory = await asyncio.to_thread(ScannerIntegrations.get_tool_inventory)
 
 
 

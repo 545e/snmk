@@ -11,8 +11,8 @@ fi
 echo "==================================================="
 echo "  SWA AI - Security Operations Center & Cyber Hub"
 echo "==================================================="
-echo "[+] Starting SWA AI Web Server on http://127.0.0.1:8000"
-echo "[+] Browser will open automatically."
+echo "[+] Starting SNMK Web Server (default port 8000; first free port is used)."
+echo "[+] Browser will open automatically at the actual address."
 echo "[+] Keep this terminal window OPEN while using SWA."
 echo ""
 

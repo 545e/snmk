@@ -37,9 +37,11 @@ if ($LASTEXITCODE -ne 0) {
     & $pyCmd -m pip install -r requirements.txt
 }
 
-Write-Host "[+] Starting SWA AI Web Server on http://127.0.0.1:8000 ..." -ForegroundColor Green
-Write-Host "[+] Opening browser: http://127.0.0.1:8000" -ForegroundColor Cyan
+$configuredPort = if ($env:SWA_PORT) { $env:SWA_PORT } else { "8000" }
+Write-Host "[+] Starting SNMK Web Server (configured port: $configuredPort) ..." -ForegroundColor Green
+Write-Host "[+] run.py will pick the first free port and open the dashboard there." -ForegroundColor Cyan
 Write-Host ""
 
-Start-Process "http://127.0.0.1:8000"
+# Do not open a hard-coded URL here: run.py may fall back to 8001 (or another
+# port) when 8000 is occupied, and it opens the browser at the actual address.
 & $pyCmd run.py

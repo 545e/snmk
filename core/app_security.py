@@ -23,6 +23,34 @@ from fastapi import HTTPException, Request, status
 SWA_AUTH_ENABLED = os.getenv("SWA_AUTH_ENABLED", "false").lower() in ("true", "1", "yes")
 SWA_MASTER_API_KEY = os.getenv("SWA_API_KEY", "")
 SWA_RATE_LIMIT_ENABLED = os.getenv("SWA_RATE_LIMIT_ENABLED", "true").lower() in ("true", "1", "yes")
+
+# Values that are clearly documentation placeholders rather than real credentials.
+# A template API key left in .env must not silently switch the whole API into
+# authenticated mode (which previously broke the MAP/network views because the
+# web client never received a matching token).
+_MASTER_KEY_PLACEHOLDER_MARKERS = (
+    "change_me", "your_api_key", "your_key", "placeholder", "dummy", "example", "none", "null",
+)
+
+
+def is_real_master_key(key: str | None = None) -> bool:
+    """Return True only for a plausible, non-placeholder master API key."""
+    candidate = (SWA_MASTER_API_KEY if key is None else key) or ""
+    candidate = candidate.strip()
+    return (
+        len(candidate) >= 16
+        and not any(marker in candidate.lower() for marker in _MASTER_KEY_PLACEHOLDER_MARKERS)
+    )
+
+
+def is_auth_required() -> bool:
+    """Single source of truth for whether API authentication is enforced.
+
+    Both the HTTP middleware in ``web.server`` and the per-route
+    ``authenticate_request`` check must agree, otherwise some views work while
+    others return 401 with the same configuration.
+    """
+    return SWA_AUTH_ENABLED or is_real_master_key()
 # The role a session receives when no more specific credential was presented.
 # It is server-side configuration; it is never derived from anything the
 # client sends.  See ``create_login_session``.
@@ -270,7 +298,7 @@ def create_login_session(
             return True, token, SWA_DEFAULT_ROLE, identity
         return False, "", "", identity
 
-    if SWA_AUTH_ENABLED or SWA_MASTER_API_KEY:
+    if is_auth_required():
         # Authentication is on and no usable credential was supplied.
         return False, "", "", identity
 
@@ -292,9 +320,11 @@ def verify_session_token(token: str) -> Optional[Dict[str, Any]]:
 def authenticate_request(request: Request) -> SecurityContext:
     """
     Authenticate an incoming HTTP request via Bearer token, X-API-Key header, or session cookie.
-    If SWA_AUTH_ENABLED is False (default for dev/local use), all requests pass as 'admin'.
+    When authentication is not required (the default for local single-user use,
+    including a leftover template API key), every request passes as local admin.
+    Uses the same policy as the HTTP middleware so all views behave identically.
     """
-    if not SWA_AUTH_ENABLED and not SWA_MASTER_API_KEY:
+    if not is_auth_required():
         return SecurityContext(authenticated=True, role="admin", identity="local_system_admin")
     
     # 1. Check Authorization: Bearer <token>

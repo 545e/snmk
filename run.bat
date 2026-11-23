@@ -60,10 +60,11 @@ if %errorlevel% neq 0 (
     )
 )
 
-echo [+] Starting SWA AI Web Server...
-echo [+] Opening browser: http://127.0.0.1:8000
+echo [+] Starting SNMK Web Server...
+echo [+] run.py will select the first free port and open the dashboard there.
 echo [+] IMPORTANT: Keep this command prompt window OPEN while using SWA.
 echo.
 
-start "" "http://127.0.0.1:8000"
+rem Do not open a hard-coded URL: run.py falls back to 8001/8002 when busy
+rem and opens the browser at the address it actually bound.
 %PY_CMD% run.py

@@ -1,34 +1,51 @@
 @echo off
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
-title SWA AI - Stop Server
+title SNMK - Stop Server
 
 echo ===================================================
-echo   SWA AI - Shutdown Server
+echo   SNMK - Shutdown Server
 echo ===================================================
 echo.
 
+set "STOPPED=0"
+
 if exist ".swa.pid" (
     set /p SWA_PID=<.swa.pid
-    echo [+] Found SWA AI PID: !SWA_PID!
-    taskkill /PID !SWA_PID! /F /T >nul 2>&1
+    rem Validate the recorded PID before killing it: .swa.pid can be stale.
+    if defined SWA_PID (
+        tasklist /FI "PID eq !SWA_PID!" /NH 2>nul | findstr /I "python" >nul
+        if !errorlevel! equ 0 (
+            taskkill /PID !SWA_PID! /F /T >nul 2>&1
+            set "STOPPED=1"
+            echo [+] Stopped SNMK server process !SWA_PID!
+        )
+    )
     del /f /q ".swa.pid" >nul 2>&1
-    echo [✓] SWA AI server stopped successfully.
-    goto :done
 )
 
-echo [i] No .swa.pid file found. Checking for processes listening on port 8000...
-for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":8000" ^| findstr "LISTENING"') do (
-    set TARGET_PID=%%a
-    if defined TARGET_PID (
-        echo [+] Stopping process on port 8000 (PID !TARGET_PID!)...
-        taskkill /PID !TARGET_PID! /F /T >nul 2>&1
-        echo [✓] Stopped SWA process on port 8000.
-        goto :done
+rem Fallback: configured port and the automatic 8001 fallback used by run.py.
+if "!STOPPED!"=="0" (
+    for %%P in (8000 8001) do (
+        if "!STOPPED!"=="0" (
+            for /f "tokens=5" %%a in ('netstat -aon ^| findstr ":%%P " ^| findstr "LISTENING"') do (
+                if "!STOPPED!"=="0" (
+                    set "TARGET_PID=%%a"
+                    tasklist /FI "PID eq !TARGET_PID!" /NH 2>nul | findstr /I "python" >nul
+                    if !errorlevel! equ 0 (
+                        taskkill /PID !TARGET_PID! /F /T >nul 2>&1
+                        set "STOPPED=1"
+                        echo [+] Stopped SNMK server process !TARGET_PID! on port %%P
+                    )
+                )
+            )
+        )
     )
 )
 
-echo [i] No active SWA AI server found running on port 8000.
-
-:done
+if "!STOPPED!"=="1" (
+    echo [OK] SNMK server stopped successfully.
+) else (
+    echo [i] No active SNMK server found.
+)
 echo.

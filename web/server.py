@@ -211,6 +211,28 @@ async def on_startup():
     except Exception as e:
         logger.warning(f"Error reconciling orphaned scans on startup: {safe_log_text(e)}")
 
+    # Tool/version discovery spawns several short-lived subprocesses and takes
+    # ~10s on a cold start. Warm those caches in the background so the first
+    # dashboard request does not stall while the probes run.
+    async def _warm_tool_caches():
+        try:
+            from core.scanner_integrations import ScannerIntegrations
+            await asyncio.to_thread(ScannerIntegrations.get_tool_inventory)
+        except Exception as exc:
+            logger.debug("Tool inventory warm-up failed: %s", safe_log_text(exc))
+        try:
+            from core.dev_tool_registry import snapshot as dev_snapshot
+            await asyncio.to_thread(dev_snapshot)
+        except Exception as exc:
+            logger.debug("Dev tool warm-up failed: %s", safe_log_text(exc))
+        try:
+            from core.tool_dependency_manager import tool_dependency_manager
+            await tool_dependency_manager.get_health_summary(force_refresh=False)
+        except Exception as exc:
+            logger.debug("Tool health warm-up failed: %s", safe_log_text(exc))
+
+    asyncio.create_task(_warm_tool_caches())
+
 
 
 @app.middleware("http")
@@ -434,13 +456,11 @@ async def auth_enforcement_middleware(request: Request, call_next):
     prefix and would otherwise be reachable without a credential.
     """
     from core.app_security import PUBLIC_PATHS as _PUBLIC
-    from core.app_security import SWA_AUTH_ENABLED as _auth_on
-    from core.app_security import SWA_MASTER_API_KEY as _master_key
-    from core.app_security import authenticate_request
-    _placeholder_markers = ("change_me", "your_api_key", "your_key", "placeholder", "dummy", "example", "none", "null")
-    _mk = (_master_key or "").strip()
-    _mk_is_real = bool(_mk) and len(_mk) >= 16 and not any(m in _mk.lower() for m in _placeholder_markers)
-    if not _auth_on and not _mk_is_real:
+    from core.app_security import authenticate_request, is_auth_required
+    # Use the shared policy helper instead of duplicating key validation here.
+    # Divergent checks previously left the MAP/network views returning 401
+    # while every other API view worked with the same configuration.
+    if not is_auth_required():
         return await call_next(request)
     path = request.url.path
     if path in _PUBLIC or not _is_protected_api_path(path):
@@ -4328,7 +4348,9 @@ async def get_tool_inventory_status():
 
     from core.scanner_integrations import ScannerIntegrations
 
-    return ScannerIntegrations.get_tool_inventory()
+    # Version probes shell out to external binaries and take several seconds.
+    # Keep them off the event loop so the rest of the dashboard stays responsive.
+    return await asyncio.to_thread(ScannerIntegrations.get_tool_inventory)
 
 
 
@@ -4862,7 +4884,8 @@ async def list_dev_tools():
     from core.dev_tool_registry import snapshot as _snapshot
     from collections import Counter
 
-    tools = _snapshot()
+    # Probe version commands in a worker thread: this is blocking subprocess work.
+    tools = await asyncio.to_thread(_snapshot)
     return {
         "total": len(tools),
         "summary": dict(Counter(item["status"] for item in tools)),
@@ -4876,7 +4899,7 @@ async def get_dev_tool(tool_id: str):
     """Returns the measured status of one development/security tool."""
     from core.dev_tool_registry import registry as _registry
 
-    _registry.snapshot()
+    await asyncio.to_thread(_registry.snapshot)
     record = _registry.get(tool_id)
     if not record:
         raise HTTPException(status_code=404, detail=f"Tool '{tool_id}' is not declared.")
