@@ -7423,6 +7423,13 @@ app.include_router(network_router)
 from web.forensics_api import forensics_router
 app.include_router(forensics_router)
 
+# Include Modular SNMK API Routers (Scans, Subdomains, Agents, Findings, Integrations, Reports)
+try:
+    from web.api import api_router
+    app.include_router(api_router)
+except Exception as _mod_err:
+    logger.warning("Failed mounting modular api_router: %s", _mod_err)
+
 
 
 

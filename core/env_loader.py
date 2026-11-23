@@ -130,34 +130,34 @@ def validate_environment(strict_production: bool = False) -> dict[str, Any]:
     warnings: list[str] = []
 
     # 1. Host and Port Validation
-    host = get_str("SWA_HOST", "127.0.0.1")
-    port = get_int("SWA_PORT", 8000)
+    host = os.environ.get("SNMK_HOST") or get_str("SWA_HOST", "127.0.0.1")
+    port = get_int("SNMK_PORT", get_int("SWA_PORT", 8000)) if "SNMK_PORT" in os.environ else get_int("SWA_PORT", 8000)
     if port < 1 or port > 65535:
-        issues.append(f"Invalid SWA_PORT: {port}. Port must be between 1 and 65535.")
+        issues.append(f"Invalid SNMK_PORT/SWA_PORT: {port}. Port must be between 1 and 65535.")
 
     # 2. Database Path Check
-    db_path = get_str("SWA_DB_PATH", "swa_data.db")
+    db_path = os.environ.get("SNMK_DB_PATH") or get_str("SWA_DB_PATH", "snmk_data.db" if not os.path.exists("swa_data.db") else "swa_data.db")
     if not db_path:
-        issues.append("SWA_DB_PATH cannot be empty.")
+        issues.append("SNMK_DB_PATH cannot be empty.")
 
     # 3. Authentication & Secret Key Validation
-    auth_enabled = get_bool("SWA_AUTH_ENABLED", False)
-    api_key = get_str("SWA_API_KEY", "")
-    secret_key = get_str("SWA_SECRET_KEY", "")
+    auth_enabled = get_bool("SNMK_AUTH_ENABLED", get_bool("SWA_AUTH_ENABLED", False)) if "SNMK_AUTH_ENABLED" in os.environ else get_bool("SWA_AUTH_ENABLED", False)
+    api_key = os.environ.get("SNMK_API_KEY") or get_str("SWA_API_KEY", "")
+    secret_key = os.environ.get("SNMK_SECRET_KEY") or get_str("SWA_SECRET_KEY", "")
 
     if strict_production or auth_enabled:
         if not api_key or api_key.lower() in DANGEROUS_PLACEHOLDERS:
-            issues.append("SWA_AUTH_ENABLED is active but SWA_API_KEY holds an insecure default or empty value.")
+            issues.append("Authentication is active but API key holds an insecure default or empty value.")
         if not secret_key or secret_key.lower() in DANGEROUS_PLACEHOLDERS:
-            issues.append("SWA_SECRET_KEY holds an insecure default or placeholder value.")
+            issues.append("Secret key holds an insecure default or placeholder value.")
 
     # 4. AI Provider & Base URL Check
-    ai_provider = get_str("SWA_AI_PROVIDER", "auto")
-    base_url = get_str("SWA_AI_BASE_URL", "")
+    ai_provider = os.environ.get("SNMK_AI_PROVIDER") or get_str("SWA_AI_PROVIDER", "auto")
+    base_url = os.environ.get("SNMK_AI_BASE_URL") or get_str("SWA_AI_BASE_URL", "")
     if base_url:
         parsed = urlparse(base_url)
         if parsed.scheme not in ("http", "https"):
-            warnings.append(f"SWA_AI_BASE_URL should use http or https scheme: {base_url}")
+            warnings.append(f"AI Base URL should use http or https scheme: {base_url}")
 
     return {
         "valid": len(issues) == 0,
@@ -168,7 +168,7 @@ def validate_environment(strict_production: bool = False) -> dict[str, Any]:
             "host": host,
             "port": port,
             "auth_enabled": auth_enabled,
-            "rate_limit_enabled": get_bool("SWA_RATE_LIMIT_ENABLED", True),
+            "rate_limit_enabled": get_bool("SNMK_RATE_LIMIT_ENABLED", get_bool("SWA_RATE_LIMIT_ENABLED", True)),
             "ai_provider": ai_provider,
             "db_path": db_path
         }

@@ -1,10 +1,10 @@
 @echo off
 setlocal enabledelayedexpansion
 cd /d "%~dp0"
-title SWA AI - Installation and Setup
+title SNMK - Installation and Setup
 
 echo ===================================================
-echo   SWA AI - Autonomous Cyber Tool Suite Installer
+echo   SNMK - Autonomous Cyber Tool Suite Installer
 echo ===================================================
 echo.
 
@@ -77,15 +77,15 @@ if %errorlevel% neq 0 (
 )
 
 :: Register swa console command locally
-echo [+] Registering swa CLI command in environment...
+echo [+] Registering snmk / swa CLI command in environment...
 %PY_CMD% -m pip install -e .
 
 if %errorlevel% equ 0 (
     echo.
     echo ===================================================
-    echo  [v] SWA AI successfully installed and configured!
-    echo  [v] 'swa' command registered for terminal usage.
-    echo  Starting SWA AI Dashboard automatically...
+    echo  [v] SNMK successfully installed and configured!
+    echo  [v] 'snmk' and 'swa' commands registered for terminal usage.
+    echo  Starting SNMK Dashboard automatically...
     echo  (Opening http://127.0.0.1:8000 in your browser)
     echo ===================================================
     echo.

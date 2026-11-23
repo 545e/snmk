@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-SWA AI — Autonomous Application Security & Penetration Testing Engine
+SNMK — Autonomous Application Security & Penetration Testing Engine
 Package configuration and installation setup.
 """
 
@@ -10,10 +10,10 @@ with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
 
 setup(
-    name="swa-ai",
-    version="2.1.0",
+    name="snmk",
+    version="2.4.0",
     author="545e",
-    description="Autonomous Multi-Agent Cybersecurity & Penetration Testing Platform",
+    description="SNMK — Autonomous Multi-Agent Cybersecurity & Penetration Testing Platform",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/545e/snmk",
@@ -52,6 +52,8 @@ setup(
     },
     entry_points={
         "console_scripts": [
+            "snmk=swa_cli:main",
+            "snmk-cli=swa_cli:main",
             "swa=swa_cli:main",
             "swa-cli=swa_cli:main",
         ],

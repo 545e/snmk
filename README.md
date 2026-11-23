@@ -2,17 +2,17 @@
 
 <p align="center">
   <b>Generation 2 Autonomous Multi-Agent Cybersecurity Auditor & Operations Hub</b><br>
-  <i>Cross-platform cybersecurity operating system for Windows, Linux, and macOS. Featuring 85 autonomous agents, OWASP Top 10 auditing, encrypted API key management, verifiable PoC generation, AI Lab, continuous EASM drift detection, and post-deployment verification.</i>
+  <i>Cross-platform cybersecurity operating system for Windows, Linux, and macOS. Featuring 94 operational agents across 6 tiers, OWASP Top 10 auditing, encrypted API key management, verifiable PoC generation, AI Lab, continuous EASM drift detection, and post-deployment verification.</i>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Version-2.3.0--Sentinel-10b981?style=for-the-badge" alt="Version">
+  <img src="https://img.shields.io/badge/Version-2.4.0--Enterprise-10b981?style=for-the-badge" alt="Version">
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-3b82f6?style=for-the-badge" alt="Platform">
   <img src="https://img.shields.io/badge/Python-3.10%20%7C%203.11%20%7C%203.12-3b82f6?style=for-the-badge&logo=python&logoColor=white" alt="Python">
-  <img src="https://img.shields.io/badge/Agents-85%20Operational-8b5cf6?style=for-the-badge" alt="Agents">
+  <img src="https://img.shields.io/badge/Agents-94%20Operational-8b5cf6?style=for-the-badge" alt="Agents">
   <img src="https://img.shields.io/badge/API-v1%20Standardized-0284c7?style=for-the-badge" alt="API v1">
   <img src="https://img.shields.io/badge/Integrations-23%20Providers-6366f1?style=for-the-badge" alt="Integrations">
-  <img src="https://img.shields.io/badge/Tests-206%20Passed%20(100%25)-10b981?style=for-the-badge" alt="Tests">
+  <img src="https://img.shields.io/badge/Tests-100%25%20Passing-10b981?style=for-the-badge" alt="Tests">
   <img src="https://img.shields.io/badge/License-MIT-purple?style=for-the-badge" alt="License">
 </p>
 

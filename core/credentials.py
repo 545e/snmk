@@ -20,21 +20,25 @@ import os
 from pathlib import Path
 from core.error_sanitizer import safe_log_text
 
-logger = logging.getLogger("swa.credentials")
+logger = logging.getLogger("snmk.credentials")
 
 # Path to the isolated local encryption keyfile
-_KEYFILE_NAME = ".swa_master.key"
+_KEYFILE_NAME = ".snmk_master.key"
+_LEGACY_KEYFILE_NAME = ".swa_master.key"
 
 
 def _get_keyfile_path() -> Path:
     # Use parent directory of project root or scratch safe root
-    base = Path(os.environ.get("SWA_HOME", Path(__file__).resolve().parent.parent))
+    base = Path(os.environ.get("SNMK_HOME", os.environ.get("SWA_HOME", Path(__file__).resolve().parent.parent)))
+    legacy = base / _LEGACY_KEYFILE_NAME
+    if legacy.exists():
+        return legacy
     return base / _KEYFILE_NAME
 
 
 def _load_or_generate_master_key() -> bytes:
     """Retrieves the master key from environment or creates/loads a local protected keyfile."""
-    env_key = os.environ.get("SWA_ENCRYPTION_KEY", "").strip()
+    env_key = (os.environ.get("SNMK_ENCRYPTION_KEY") or os.environ.get("SWA_ENCRYPTION_KEY", "")).strip()
     if env_key:
         try:
             return base64.urlsafe_b64decode(env_key.encode("utf-8"))

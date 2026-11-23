@@ -1,6 +1,6 @@
-<#
+﻿<#
 .SYNOPSIS
-    SWA AI - PowerShell Installer for Windows (10/11 & Windows Server)
+    SNMK - PowerShell Installer for Windows (10/11 & Windows Server)
 .DESCRIPTION
     Automates prerequisite detection, virtual environment creation,
     dependency installation, and editable CLI registration.
@@ -10,7 +10,7 @@ $ErrorActionPreference = "Stop"
 Set-Location -Path $PSScriptRoot
 
 Write-Host "===================================================" -ForegroundColor Cyan
-Write-Host "  SWA AI - Enterprise Installation & Setup (PowerShell)" -ForegroundColor Cyan
+Write-Host "  SNMK - Enterprise Installation & Setup (PowerShell)" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Cyan
 Write-Host ""
 
@@ -67,13 +67,13 @@ Write-Host "[+] Upgrading pip in environment ..." -ForegroundColor Cyan
 Write-Host "[+] Installing dependencies from requirements.txt ..." -ForegroundColor Cyan
 & $runPy -m pip install -r requirements.txt
 
-# Register swa CLI
-Write-Host "[+] Registering swa CLI console entry point ..." -ForegroundColor Cyan
+# Register snmk / swa CLI
+Write-Host "[+] Registering snmk CLI console entry point ..." -ForegroundColor Cyan
 & $runPy -m pip install -e .
 
 Write-Host ""
 Write-Host "===================================================" -ForegroundColor Green
-Write-Host " [✓] SWA AI successfully installed and configured!" -ForegroundColor Green
+Write-Host " [✓] SNMK successfully installed and configured!" -ForegroundColor Green
 Write-Host " Launch anytime via: .\run.ps1 or run.bat" -ForegroundColor Cyan
 Write-Host " Stop anytime via:   .\stop.ps1 or stop.bat" -ForegroundColor Cyan
 Write-Host "===================================================" -ForegroundColor Green

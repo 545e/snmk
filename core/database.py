@@ -41,7 +41,11 @@ from core.models import (
 )
 from core.error_sanitizer import safe_error
 
-DB_PATH = os.getenv("SWA_DB_PATH", os.path.join(os.path.dirname(os.path.dirname(__file__)), "swa_data.db"))
+_default_db = os.path.join(os.path.dirname(os.path.dirname(__file__)), "snmk_data.db")
+_legacy_db = os.path.join(os.path.dirname(os.path.dirname(__file__)), "swa_data.db")
+if not os.path.exists(_default_db) and os.path.exists(_legacy_db):
+    _default_db = _legacy_db
+DB_PATH = os.getenv("SNMK_DB_PATH", os.getenv("SWA_DB_PATH", _default_db))
 
 
 
@@ -3229,6 +3233,112 @@ class Database:
             """)
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ths_tool_id ON tool_health_snapshots(tool_id);")
             cursor.execute("CREATE INDEX IF NOT EXISTS idx_ths_timestamp ON tool_health_snapshots(timestamp);")
+
+            # Durable scan persistence tables (§18 Subdomains, Tool Executions, Findings)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scan_audit_logs (
+                id TEXT PRIMARY KEY,
+                user_id TEXT,
+                scan_id TEXT,
+                event_type TEXT NOT NULL,
+                event_details TEXT,
+                created_at TEXT NOT NULL
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS tool_executions (
+                id TEXT PRIMARY KEY,
+                scan_id TEXT NOT NULL,
+                tool_id TEXT,
+                tool_name TEXT NOT NULL,
+                execution_status TEXT NOT NULL,
+                arguments_metadata TEXT,
+                started_at TEXT,
+                completed_at TEXT,
+                exit_code INTEGER,
+                stdout_reference TEXT,
+                stderr_reference TEXT,
+                error_message TEXT,
+                pid INTEGER,
+                created_at TEXT NOT NULL,
+                UNIQUE (scan_id, tool_id, started_at)
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS subdomains (
+                id TEXT PRIMARY KEY,
+                scan_id TEXT NOT NULL,
+                user_id TEXT,
+                root_domain TEXT NOT NULL,
+                subdomain TEXT NOT NULL,
+                ip_addresses TEXT,
+                cname_records TEXT,
+                dns_status TEXT,
+                http_status INTEGER,
+                discovery_source TEXT,
+                discovery_type TEXT,
+                confidence REAL DEFAULT 0.0,
+                first_seen TEXT NOT NULL,
+                last_seen TEXT NOT NULL,
+                verification_timestamp TEXT,
+                UNIQUE (scan_id, root_domain, subdomain)
+            );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_subdomains_root ON subdomains (root_domain, subdomain);")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_subdomains_scan ON subdomains (scan_id);")
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS vulnerability_findings (
+                id TEXT PRIMARY KEY,
+                scan_id TEXT NOT NULL,
+                user_id TEXT,
+                target TEXT,
+                finding_title TEXT NOT NULL,
+                severity TEXT,
+                confidence TEXT,
+                description TEXT,
+                evidence TEXT,
+                remediation TEXT,
+                scanner_name TEXT,
+                status TEXT DEFAULT 'OPEN',
+                created_at TEXT NOT NULL,
+                UNIQUE (scan_id, finding_title, scanner_name)
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scan_results (
+                id TEXT PRIMARY KEY,
+                scan_id TEXT NOT NULL,
+                result_type TEXT NOT NULL,
+                result_data TEXT,
+                created_at TEXT NOT NULL,
+                UNIQUE (scan_id, result_type)
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS scan_reports (
+                id TEXT PRIMARY KEY,
+                scan_id TEXT NOT NULL,
+                report_type TEXT NOT NULL,
+                report_reference TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE (scan_id, report_type, report_reference)
+            );
+            """)
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS persistence_outbox (
+                id TEXT PRIMARY KEY,
+                target_table TEXT NOT NULL,
+                operation TEXT NOT NULL,
+                payload TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'PENDING',
+                attempts INTEGER DEFAULT 0,
+                last_error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+            """)
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_persist_outbox_status ON persistence_outbox (status, created_at);")
 
             conn.commit()
             # --- indexes supporting the platform's hot read paths ---

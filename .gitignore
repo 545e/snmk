@@ -53,8 +53,12 @@ SWA/
 *.egg-info/
 # Local credentials and runtime files
 .swa_master.key
+.snmk_master.key
 *.pid
 .swa.pid
+.snmk.pid
+*.key
+snmk_evidence.db
 
 # Local backups and temporary scan export files
 backups/

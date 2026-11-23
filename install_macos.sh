@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# SWA AI — macOS Installation Script (Apple Silicon & Intel)
+# SNMK — macOS Installation Script (Apple Silicon & Intel)
 set -e
 
 # Change to script directory
 cd "$(dirname "$0")"
 
 echo "==================================================="
-echo "  SWA AI — macOS Installation & Setup"
+echo "  SNMK — macOS Installation & Setup"
 echo "  Supporting Apple Silicon (M1/M2/M3/M4) and Intel"
 echo "==================================================="
 echo ""
@@ -62,11 +62,11 @@ fi
 echo "[+] Upgrading pip in environment ..."
 python3 -m pip install --upgrade pip
 
-echo "[+] Installing SWA AI dependencies from requirements.txt ..."
+echo "[+] Installing SNMK dependencies from requirements.txt ..."
 python3 -m pip install -r requirements.txt
 
-# Register swa CLI
-echo "[+] Registering swa CLI command ..."
+# Register snmk / swa CLI
+echo "[+] Registering snmk / swa CLI command ..."
 python3 -m pip install -e .
 
 chmod +x run.sh || true
@@ -77,8 +77,8 @@ chmod +x swa_cli.py || true
 
 echo ""
 echo "==================================================="
-echo " [✓] SWA AI successfully installed on macOS ($ARCH)!"
+echo " [✓] SNMK successfully installed on macOS ($ARCH)!"
 echo " Run './run_macos.sh' or './run.sh' to launch."
 echo " Run './stop_macos.sh' or './stop.sh' to shutdown."
-echo " Run 'swa --help' for CLI security commands."
+echo " Run 'snmk --help' or 'swa --help' for CLI security commands."
 echo "==================================================="

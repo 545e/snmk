@@ -2,7 +2,7 @@
 set -e
 
 echo "==================================================="
-echo "  SWA AI - Autonomous Cyber Tool Suite Installer"
+echo "  SNMK - Autonomous Cyber Tool Suite Installer"
 echo "==================================================="
 echo ""
 
@@ -41,7 +41,7 @@ chmod +x swa_cli.py || true
 
 echo ""
 echo "==================================================="
-echo " [✓] SWA AI successfully installed and configured!"
+echo " [✓] SNMK successfully installed and configured!"
 echo " Run './run.sh' or 'python3 run.py' to launch."
-echo " Run 'swa --help' or 'python3 swa_cli.py --help' for CLI."
+echo " Run 'snmk --help' or 'swa --help' for CLI."
 echo "==================================================="
