@@ -2072,8 +2072,8 @@ async function loadFindings(scanId) {
             renderVulnTable(items);
             updateVulnPaginationUI();
 
-            // Also render legacy container for compatibility
-            if (container) renderFindings(items);
+            // Also render container for active assessment dashboard and legacy compatibility
+            renderFindings(items);
 
             if (countBadge) countBadge.textContent = vfTotalCount;
             const statVulns = document.getElementById('statVerifiedPoC');
@@ -3526,10 +3526,15 @@ function switchTab(tabId, btn) {
 
     // Auto-load & render tab specific data
     if (tabId === 'tabFindings') {
-        if (Array.isArray(activeFindings) && activeFindings.length > 0) {
+        const scan = currentScanId ? scansData[currentScanId] : null;
+        if (scan && Array.isArray(scan.findings) && scan.findings.length > 0) {
+            renderFindings(scan.findings);
+        } else if (currentScanId) {
+            loadFindings(currentScanId);
+        } else if (Array.isArray(activeFindings) && activeFindings.length > 0) {
             renderFindings(activeFindings);
         } else {
-            loadFindings(currentScanId || null);
+            loadFindings(null);
         }
     } else if (tabId === 'tabSubdomains') {
         const scan = currentScanId ? scansData[currentScanId] : null;
@@ -6206,7 +6211,17 @@ function recalculateActiveScanScore() {
     const scan = scansData[currentScanId];
     if (!scan) return;
 
-    const findingsList = Array.isArray(activeFindings) ? activeFindings : [];
+    let findingsList = [];
+    if (Array.isArray(scan.findings) && scan.findings.length > 0) {
+        findingsList = scan.findings;
+    } else if (Array.isArray(activeFindings) && activeFindings.length > 0) {
+        const scoped = activeFindings.filter(f => !currentScanId || !f.scan_id || f.scan_id === currentScanId);
+        if (scoped.length > 0) {
+            findingsList = scoped;
+        } else if (!activeFindings.some(f => f.scan_id && f.scan_id !== currentScanId)) {
+            findingsList = activeFindings;
+        }
+    }
     let crit = 0, high = 0, med = 0, low = 0, info = 0;
     findingsList.forEach(f => {
         const s = (f.severity || '').toUpperCase();

@@ -86,7 +86,9 @@ async def get_finding(finding_id: str) -> dict[str, Any]:
     finding = db.get_finding(finding_id)
     if not finding:
         raise HTTPException(status_code=404, detail=f"Finding '{finding_id}' not found")
-    return finding.dict() if hasattr(finding, "dict") else dict(finding)
+    data = finding.model_dump() if hasattr(finding, "model_dump") else (finding.dict() if hasattr(finding, "dict") else dict(finding))
+    data["history"] = db.get_finding_status_history(finding_id)
+    return data
 
 
 @router.post("/{finding_id}/transition")

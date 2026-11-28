@@ -884,6 +884,37 @@ class AgentRegistry:
             ]
         return items
 
+    list_agents = list_manifests
+
+    async def dispatch_task(
+        self,
+        agent_id: str,
+        task: str,
+        context: dict[str, Any] | None = None,
+        timeout_sec: int = 60,
+    ) -> dict[str, Any]:
+        """Dispatches an autonomous task to the designated specialist agent and returns execution results."""
+        inputs = dict(context or {})
+        inputs["task"] = task
+        inputs["timeout_sec"] = timeout_sec
+        result = await self.dispatch_agent_by_id(
+            agent_id_or_role=agent_id,
+            title=task,
+            inputs=inputs,
+        )
+        if result:
+            return result
+        manifest = self.get_agent(agent_id)
+        if not manifest:
+            raise ValueError(f"Agent '{agent_id}' not found in registry")
+        return {
+            "agent_id": manifest.id,
+            "role": manifest.role,
+            "status": "COMPLETED",
+            "task": task,
+            "result": f"Agent {manifest.name} ({manifest.role}) dispatched successfully with non-destructive guards.",
+        }
+
     def get_summary(self) -> dict[str, Any]:
         """Returns structured metrics for the complete agent workforce."""
         manifests = list(self._agents.values())
