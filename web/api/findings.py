@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 from pydantic import BaseModel, Field
 
 from core.database import db
@@ -38,28 +38,46 @@ async def get_findings_metrics() -> dict[str, Any]:
 
 @router.get("")
 async def list_findings(
+    response: Response,
     scan_id: Optional[str] = None,
+    search: Optional[str] = None,
     severity: Optional[str] = None,
-    status: Optional[str] = None,
+    lifecycle_status: Optional[str] = None,
+    remediation_status: Optional[str] = None,
+    poc_state: Optional[str] = None,
     limit: int = 100,
     offset: int = 0,
-) -> dict[str, Any]:
-    """List vulnerability findings with filtering by scan, severity, and remediation status."""
-    findings = db.get_findings(scan_id=scan_id) if scan_id else db.list_all_findings()
-    if severity:
-        findings = [f for f in findings if (getattr(f, "severity", "") or "").upper() == severity.upper()]
-    if status:
-        findings = [f for f in findings if (getattr(f, "status", "") or "").upper() == status.upper()]
+    sort_by: str = "cvss_score",
+    sort_order: str = "desc",
+    paged: bool = False,
+) -> Any:
+    """Retrieve vulnerability findings with multi-dimensional filtering, pagination, and sorting."""
+    if not (search or severity or lifecycle_status or remediation_status or poc_state or paged or offset > 0 or limit != 100):
+        findings = db.list_findings(scan_id=scan_id)
+        response.headers["X-Total-Count"] = str(len(findings))
+        return findings
 
-    total = len(findings)
-    paged = findings[offset : offset + limit]
-    return {
-        "total": total,
-        "count": len(paged),
-        "limit": limit,
-        "offset": offset,
-        "findings": [f.dict() if hasattr(f, "dict") else dict(f) for f in paged],
-    }
+    items, total = db.list_findings_advanced(
+        search=search,
+        severity=severity,
+        lifecycle_status=lifecycle_status,
+        remediation_status=remediation_status,
+        poc_state=poc_state,
+        scan_id=scan_id,
+        limit=limit,
+        offset=offset,
+        sort_by=sort_by,
+        sort_order=sort_order,
+    )
+    response.headers["X-Total-Count"] = str(total)
+    if paged:
+        return {
+            "items": [item.model_dump() if hasattr(item, "model_dump") else (item.dict() if hasattr(item, "dict") else dict(item)) for item in items],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+    return items
 
 
 @router.get("/{finding_id}")
@@ -95,11 +113,13 @@ async def mark_false_positive(finding_id: str, req: FalsePositiveRequest) -> dic
     if not finding:
         raise HTTPException(status_code=404, detail=f"Finding '{finding_id}' not found")
 
-    db.mark_finding_false_positive(
+    success, msg = db.review_false_positive(
         finding_id=finding_id,
         reason=req.reason,
-        operator=req.operator,
+        reviewed_by=req.operator or "Senior Security Analyst",
     )
+    if not success:
+        raise HTTPException(status_code=400, detail=msg)
     return {"status": "success", "finding_id": finding_id, "marked_false_positive": True}
 
 

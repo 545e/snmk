@@ -70,6 +70,9 @@ async def test_single_integration(integration_id: str) -> dict[str, Any]:
 
 
 @router.post("/{integration_id}/toggle")
-async def toggle_integration(integration_id: str) -> dict[str, Any]:
+async def toggle_integration(integration_id: str, enabled: bool = Query(...)) -> dict[str, Any]:
     """Enable or disable a specific third-party integration."""
-    return integration_registry.toggle_integration(integration_id)
+    updated = integration_registry.toggle_integration(integration_id, enabled)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Integration '{integration_id}' not found")
+    return {"status": "SUCCESS", "integration": updated}
