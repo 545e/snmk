@@ -120,9 +120,19 @@ class SWAOrchestrator:
 
             # Phase 3: Attack Surface & API Discovery
             await queue_manager.emit_progress(self.scan_id, 35, "Phase 2/6: Attack Surface & API Route Discovery")
+            effective_base_url = recon_agent.base_url
+
+            # If recon detected open ports, ensure web ports are checked
+            open_port_nums = [p["port"] for p in getattr(recon_data, "open_ports", []) if isinstance(p, dict)]
+            domain = recon_agent.domain
+
+            # Auto-detect responsive web port if original target was https and port 443 closed
+            if effective_base_url.startswith("https://") and 443 not in open_port_nums and 80 in open_port_nums:
+                effective_base_url = f"http://{domain}:80"
+
             surface_agent = AttackSurfaceAgent(
                 self.scan_id,
-                recon_agent.base_url,
+                effective_base_url,
                 max_depth=self.config.max_depth,
                 concurrency=self.config.concurrency
             )
@@ -133,7 +143,7 @@ class SWAOrchestrator:
                 await queue_manager.emit_progress(self.scan_id, 55, "Phase 3/6: Anomaly-Filtered Path & Parameter Fuzzing")
                 fuzzer = FuzzerAgent(
                     self.scan_id,
-                    recon_agent.base_url,
+                    effective_base_url,
                     concurrency=self.config.concurrency,
                     timeout=self.config.timeout_sec
                 )
@@ -178,12 +188,26 @@ class SWAOrchestrator:
             if not endpoints:
                 from core.models import DiscoveredEndpoint
                 endpoints.append(DiscoveredEndpoint(
-                    url=recon_agent.base_url,
+                    url=effective_base_url,
                     method="GET",
                     status_code=200,
                     content_type="text/html",
                     title="Root Target"
                 ))
+
+            # Also seed any other open web ports as candidate endpoints for thorough auditing
+            for wp in open_port_nums:
+                if wp in (80, 8080, 8000, 8001, 3000, 5000, 8888, 8443) and wp != 443:
+                    proto = "https" if wp == 8443 else "http"
+                    wp_url = f"{proto}://{domain}:{wp}"
+                    if not any(ep.url.startswith(wp_url) or ep.url == f"{proto}://{domain}" for ep in endpoints):
+                        endpoints.append(DiscoveredEndpoint(
+                            url=wp_url,
+                            method="GET",
+                            status_code=200,
+                            content_type="text/html",
+                            title=f"Open Web Service (Port {wp})"
+                        ))
 
             # Phase 5: Vulnerability Hunting with Modular OWASP Plugins & Scanner Integrations
             await queue_manager.emit_progress(self.scan_id, 70, "Phase 4/6: Autonomous OWASP Top 10 Hunting")
@@ -199,7 +223,7 @@ class SWAOrchestrator:
             inventory = ScannerIntegrations.get_tool_inventory()
             if inventory.get("nuclei", {}).get("installed"):
                 await self.log("Invoking Nuclei safe detection templates...", "INFO")
-                nuclei_findings, _ = await ScannerIntegrations.run_nuclei_safe(recon_agent.base_url, self.scan_id)
+                nuclei_findings, _ = await ScannerIntegrations.run_nuclei_safe(effective_base_url, self.scan_id)
                 candidate_findings.extend(nuclei_findings)
                 await self.log(f"Nuclei completed with {len(nuclei_findings)} findings.", "SUCCESS")
 

@@ -4267,6 +4267,27 @@ function escapeHtml(text) {
         .replace(/'/g, "&#039;");
 }
 
+function setSafeContainerError(container, message) {
+    if (!container) return;
+    container.textContent = '';
+    const errDiv = document.createElement('div');
+    errDiv.style.cssText = 'color: #ef4444; text-align: center; padding: 20px;';
+    errDiv.textContent = message || 'An error occurred';
+    container.appendChild(errDiv);
+}
+
+function setSafeTableError(tbody, colSpan, message) {
+    if (!tbody) return;
+    tbody.textContent = '';
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = colSpan;
+    td.style.cssText = 'padding: 20px; text-align: center; color: #ef4444;';
+    td.textContent = message || 'An error occurred';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+}
+
 function copyTextToClipboard(btn, elementId) {
     const el = document.getElementById(elementId);
     if (!el) return;
@@ -7536,7 +7557,7 @@ async function loadAssetsTable() {
         if (badge) badge.textContent = cachedAssets.length;
         renderAssetsTable(cachedAssets);
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="7" style="color: #ef4444; text-align: center; padding: 20px;">Failed to load assets: ${escapeHtml(e?.message || '')}</td></tr>`;
+        setSafeTableError(tbody, 7, 'Failed to load assets: ' + (e?.message || 'Unknown error'));
     }
 }
 
@@ -7729,7 +7750,7 @@ async function loadDatasets() {
             </tr>`;
         }).join('');
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center; padding: 20px;">Failed to load datasets: ${escapeHtml(e?.message || '')}</td></tr>`;
+        setSafeTableError(tbody, 8, 'Failed to load datasets: ' + (e?.message || 'Unknown error'));
     }
 }
 
@@ -7868,7 +7889,7 @@ async function loadAiTrainingJobs() {
             </tr>`;
         }).join('');
     } catch (e) {
-        tbody.innerHTML = `<tr><td colspan="8" style="color: #ef4444; text-align: center;">Failed to load training jobs: ${escapeHtml(e?.message || '')}</td></tr>`;
+        setSafeTableError(tbody, 8, 'Failed to load training jobs: ' + (e?.message || 'Unknown error'));
     }
 }
 
@@ -7935,7 +7956,7 @@ async function loadRedteamSuite() {
         cachedRedteamSuite = data.test_cases || [];
         renderRedteamCards(cachedRedteamSuite);
     } catch (e) {
-        container.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">Failed to load red-team suite: ${escapeHtml(e?.message || '')}</div>`;
+        setSafeContainerError(container, 'Failed to load red-team suite: ' + (e?.message || 'Unknown error'));
     }
 }
 
@@ -8036,7 +8057,7 @@ async function loadToolRegistry(category = '') {
         cachedTools = data.tools || [];
         renderToolCatalog(cachedTools);
     } catch (e) {
-        container.innerHTML = `<div style="color: #ef4444; text-align: center; padding: 20px;">Failed to load tool catalog: ${escapeHtml(e?.message || '')}</div>`;
+        setSafeContainerError(container, 'Failed to load tool catalog: ' + (e?.message || 'Unknown error'));
     }
 }
 
@@ -8189,7 +8210,7 @@ async function loadExportHistory() {
             </tr>
         `).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Error loading exports: ${escapeHtml(err?.message || '')}</td></tr>`;
+        setSafeTableError(tbody, 7, 'Error loading exports: ' + (err?.message || 'Unknown error'));
     }
 }
 
@@ -8221,7 +8242,7 @@ async function runCyberTestAction() {
         }
     } catch (err) {
         if (tbody) {
-            tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Test execution failed: ${escapeHtml(err?.message || '')}</td></tr>`;
+            setSafeTableError(tbody, 7, 'Test execution failed: ' + (err?.message || 'Unknown error'));
         }
     } finally {
         if (btn) {
@@ -8422,7 +8443,7 @@ async function loadDeployHistory() {
             `;
         }).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="7" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${escapeHtml(err?.message || '')}</td></tr>`;
+        setSafeTableError(tbody, 7, 'Error: ' + (err?.message || 'Unknown error'));
     }
 }
 
@@ -8447,7 +8468,7 @@ async function loadAuditLogsAction() {
             </tr>
         `).join('');
     } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5" style="padding: 20px; text-align: center; color: #ef4444;">Error: ${escapeHtml(err?.message || '')}</td></tr>`;
+        setSafeTableError(tbody, 5, 'Error: ' + (err?.message || 'Unknown error'));
     }
 }
 

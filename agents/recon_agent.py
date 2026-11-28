@@ -89,7 +89,10 @@ class ReconAgent:
         clean_target = (target or "").strip()
         if not clean_target.startswith(("http://", "https://")):
             t_lower = clean_target.lower()
-            if any(h in t_lower for h in ["127.0.0.1", "localhost", "0.0.0.0", "[::1]"]):
+            if (
+                any(h in t_lower for h in ["127.0.0.1", "localhost", "0.0.0.0", "[::1]"])
+                or any(t_lower.startswith(p) for p in ["192.168.", "10.", "172.16.", "172.17.", "172.18.", "172.19.", "172.2", "172.30.", "172.31."])
+            ):
                 clean_target = f"http://{clean_target}"
             else:
                 clean_target = f"https://{clean_target}"
@@ -110,17 +113,21 @@ class ReconAgent:
         # 1. DNS & IP resolution first (needed for connection routing)
         await self.resolve_dns(recon)
 
-        # 2. Execute Subdomain Discovery, Port Probing, HTTP Tech Stack, SSL, and Sensitive Paths in PARALLEL
-        parallel_recon_tasks = [
+        # 2. Port scan & subdomain enumeration first to discover open services
+        await asyncio.gather(
             self.enumerate_subdomains(recon),
             self.scan_ports(recon),
-            self.inspect_http_and_tech(recon),
-            self.discover_sensitive_paths(recon)
-        ]
-        if self.parsed.scheme == "https":
-            parallel_recon_tasks.append(self.inspect_ssl(recon))
+            return_exceptions=True
+        )
 
-        await asyncio.gather(*parallel_recon_tasks, return_exceptions=True)
+        # 3. HTTP inspection & tech stack (uses protocol fallback and open port awareness)
+        await self.inspect_http_and_tech(recon)
+
+        # 4. Sensitive path discovery and SSL inspection on confirmed active target
+        sensitive_tasks = [self.discover_sensitive_paths(recon)]
+        if self.parsed.scheme == "https":
+            sensitive_tasks.append(self.inspect_ssl(recon))
+        await asyncio.gather(*sensitive_tasks, return_exceptions=True)
 
         await self.log(f"Reconnaissance phase completed successfully. Discovered {len(recon.subdomains)} subdomains, {len(recon.open_ports)} open ports.", "SUCCESS")
         return recon
@@ -215,15 +222,51 @@ class ReconAgent:
         await self.log("Analyzing HTTP headers, security policies, and tech signatures...", "INFO")
         try:
             from core.cyber_tools import _validate_safe_target_url
-            safe_target = _validate_safe_target_url(self.base_url)
+            from core.scope_policy import scope_policy
+            allow_lab = scope_policy.is_lab_authorized(self.base_url) or scope_policy.is_lab_target(self.base_url)
+            safe_target = _validate_safe_target_url(self.base_url, allow_lab=allow_lab)
             if not safe_target:
                 await self.log("Target host is invalid or points to restricted address space; skipping external HTTP inspection.", "WARN")
                 return
 
+            candidate_urls = [safe_target]
+            if safe_target.startswith("https://"):
+                candidate_urls.append(safe_target.replace("https://", "http://", 1))
+            elif safe_target.startswith("http://"):
+                candidate_urls.append(safe_target.replace("http://", "https://", 1))
+
+            # Also check if any alternative HTTP ports were discovered open during port scanning
+            open_port_nums = [p["port"] for p in getattr(recon, "open_ports", []) if isinstance(p, dict)]
+            for p in open_port_nums:
+                if p in (80, 8080, 8000, 3000, 5000, 8443, 8001):
+                    proto = "https" if p in (443, 8443) else "http"
+                    alt_url = f"{proto}://{self.domain}:{p}"
+                    if alt_url not in candidate_urls:
+                        candidate_urls.append(alt_url)
+
+            resp = None
+            working_url = None
             async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=self.timeout, follow_redirects=False)) as client:
-                resp = await client.get(safe_target)
-                
-                # Security Headers Check
+                for test_url in candidate_urls:
+                    try:
+                        r = await client.get(test_url)
+                        resp = r
+                        working_url = test_url
+                        break
+                    except Exception:
+                        continue
+
+            if not resp or not working_url:
+                await self.log("HTTP inspection note: Target host did not respond on HTTP/HTTPS", "WARN")
+                return
+
+            if working_url != self.base_url:
+                await self.log(f"Protocol auto-fallback: switched active target from {self.base_url} to responsive service at {working_url}", "SUCCESS")
+                self.base_url = working_url
+                recon.target = working_url
+                self.parsed = urlparse(working_url)
+
+            # Security Headers Check
                 headers = dict(resp.headers)
                 sec_headers = {
                     "Strict-Transport-Security": headers.get("strict-transport-security"),

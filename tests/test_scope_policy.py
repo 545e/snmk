@@ -93,6 +93,17 @@ class TestScopePolicy(unittest.TestCase):
         self.assertTrue(res_v6.is_allowed)
         self.assertTrue(res_v6.is_lab_target)
 
+        # RFC 1918 (192.168.0.9, 10.0.0.1, 172.16.0.1) in lab mode
+        res_rfc1918 = self.policy_strict.validate_target("http://192.168.0.9", explicit_lab_authorization=True)
+        self.assertTrue(res_rfc1918.is_allowed)
+        self.assertTrue(res_rfc1918.is_lab_target)
+        self.assertIn("Authorized Lab Mode", res_rfc1918.reason)
+
+        # RFC 1918 without lab mode must be blocked by SSRF protection
+        res_rfc1918_blocked = self.policy_strict.validate_target("http://192.168.0.9", explicit_lab_authorization=False)
+        self.assertFalse(res_rfc1918_blocked.is_allowed)
+        self.assertEqual(res_rfc1918_blocked.error_code, "SSRF_RESTRICTED_IP")
+
     def test_ipv4_mapped_imds_blocked_even_in_lab_mode(self):
         res = self.policy_lab.validate_target("http://[::ffff:169.254.169.254]/", explicit_lab_authorization=True)
         self.assertFalse(res.is_allowed)

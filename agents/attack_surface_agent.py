@@ -46,6 +46,20 @@ class AttackSurfaceAgent:
         
         limits = httpx.Limits(max_keepalive_connections=20, max_connections=40)
         async with httpx.AsyncClient(**tls_policy.client_kwargs(timeout=4.0, follow_redirects=True, limits=limits)) as client:
+            # Seed reachability check with protocol fallback
+            try:
+                await client.get(self.base_url)
+            except Exception:
+                if self.base_url.startswith("https://"):
+                    http_seed = self.base_url.replace("https://", "http://", 1)
+                    try:
+                        await client.get(http_seed)
+                        await self.log(f"Attack surface protocol fallback: switched target to {http_seed}", "INFO")
+                        self.base_url = http_seed
+                        self.parsed_base = urlparse(http_seed)
+                    except Exception:
+                        pass
+
             sem = asyncio.Semaphore(self.concurrency or 12)
 
             async def process_page(current_url: str, depth: int) -> list[str]:

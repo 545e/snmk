@@ -64,7 +64,8 @@ class ScopePolicy:
         self.config_path = targets_config_path or os.path.join(
             os.path.dirname(os.path.dirname(__file__)), "config", "targets.json"
         )
-        self.allow_lab_mode = allow_lab_mode
+        env_lab = os.environ.get("SWA_LAB_MODE", "").strip().lower() in ("1", "true", "yes", "on")
+        self.allow_lab_mode = allow_lab_mode or env_lab
         self.allowed_domains: Set[str] = set()
         self.allowed_ips: Set[str] = set()
         # Session-scoped (not persisted) authorizations, kept in insertion
@@ -214,15 +215,34 @@ class ScopePolicy:
             return False
         if not host:
             return False
-        if host in _LAB_HOST_NAMES:
+        if host in _LAB_HOST_NAMES or host in _LAB_HOST_SET:
             return True
-        if host.endswith(".localhost"):
+        if (
+            host.endswith(".localhost")
+            or host.endswith(".local")
+            or host.endswith(".internal")
+            or host.endswith(".lan")
+            or host.endswith(".lab")
+        ):
             return True
         try:
             ip = ipaddress.ip_address(host)
         except ValueError:
             return False
-        return ip.is_loopback
+        return ip.is_loopback or ip.is_private
+
+    def is_lab_authorized(self, target: str) -> bool:
+        """Checks whether the target is an authorized lab target under active policy."""
+        if not self.is_lab_target(target):
+            return False
+        clean_h = self._normalize_hostname(target)
+        return (
+            self.allow_lab_mode
+            or clean_h in self.allowed_domains
+            or clean_h in self._session_domains
+            or self._matches_allowlist(clean_h)
+            or self.is_ip_address(clean_h)
+        )
 
     def is_private_or_restricted(self, ip_str: str) -> Tuple[bool, str]:
         """Checks whether an IP address belongs to loopback, RFC1918, link-local, or cloud metadata."""
@@ -293,17 +313,26 @@ class ScopePolicy:
                     error_code="INVALID_DOMAIN_SYNTAX"
                 )
 
-        # Check for designated Lab Targets (DVWA, PortSwigger, local testbeds)
+        # Check for designated Lab Targets (DVWA, PortSwigger, local testbeds, RFC 1918)
         is_loopback = False
+        is_private_ip = False
         if self.is_ip_address(hostname):
             try:
-                is_loopback = ipaddress.ip_address(hostname).is_loopback or hostname == "0.0.0.0"
+                ip_obj = ipaddress.ip_address(hostname)
+                is_loopback = ip_obj.is_loopback or hostname == "0.0.0.0"
+                is_private_ip = ip_obj.is_private
             except ValueError:
                 logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
 
         is_lab = (
             hostname in _LAB_HOST_SET
             or is_loopback
+            or is_private_ip
+            or hostname.endswith(".localhost")
+            or hostname.endswith(".local")
+            or hostname.endswith(".internal")
+            or hostname.endswith(".lan")
+            or hostname.endswith(".lab")
             or any(hostname.endswith(sfx) for sfx in _LAB_HOST_SUFFIXES)
         )
 
@@ -344,7 +373,16 @@ class ScopePolicy:
         for ip in resolved_ips:
             is_restricted, restriction_reason = self.is_private_or_restricted(ip)
             if is_restricted:
-                if is_lab and lab_authorized:
+                # Cloud Metadata (IMDS) must ALWAYS be blocked, even in lab mode
+                is_cloud_metadata = (ip in _CLOUD_METADATA_IP_SET) or ("Metadata" in restriction_reason)
+                is_lab_eligible = (
+                    is_lab
+                    or restriction_reason in (
+                        "Private internal network (RFC 1918)",
+                        "Loopback address (127.0.0.0/8 or ::1)",
+                    )
+                )
+                if not is_cloud_metadata and is_lab_eligible and lab_authorized:
                     return ScopeValidationResult(
                         is_allowed=True,
                         target=clean_target,
@@ -503,11 +541,19 @@ def _is_builtin_lab_host(hostname: str) -> bool:
     if clean in _LAB_HOST_SET:
         return True
     try:
-        if ipaddress.ip_address(clean).is_loopback:
+        ip = ipaddress.ip_address(clean)
+        if ip.is_loopback or ip.is_private:
             return True
     except ValueError:
         logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
-    return any(clean.endswith(sfx) for sfx in _LAB_HOST_SUFFIXES)
+    return (
+        clean.endswith(".localhost")
+        or clean.endswith(".local")
+        or clean.endswith(".internal")
+        or clean.endswith(".lan")
+        or clean.endswith(".lab")
+        or any(clean.endswith(sfx) for sfx in _LAB_HOST_SUFFIXES)
+    )
 
 
 _DOMAIN_RE = re.compile(

@@ -1510,6 +1510,10 @@ async def launch_scan(config: ScanConfig):
     from core.scope_policy import scope_policy
 
     is_lab = getattr(config, "lab_mode", False) or config.profile == ScanProfile.LAB_ASSESSMENT
+    if not is_lab and scope_policy.is_lab_target(target):
+        clean_h = scope_policy._normalize_hostname(target)
+        if clean_h in scope_policy.allowed_domains or scope_policy._matches_allowlist(clean_h):
+            is_lab = True
 
     scope_res = scope_policy.validate_target(target, explicit_lab_authorization=is_lab, auto_authorize=True)
 

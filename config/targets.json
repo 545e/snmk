@@ -22,5 +22,11 @@
     "profile": "standard",
     "enabled": true,
     "description": "Operator authorized assessment target"
+  },
+  {
+    "domain": "192.168.0.9",
+    "profile": "standard",
+    "enabled": true,
+    "description": "Operator authorized assessment target"
   }
 ]
