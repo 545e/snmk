@@ -6,9 +6,8 @@ Handles scan initiation, status checks, task cancellations, and historical compa
 from __future__ import annotations
 
 import logging
-from typing import Any, Optional
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from core.database import db
 from core.models import ScanJob, ScanStatus, VulnerabilityFinding, LogEvent

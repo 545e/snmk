@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Response
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, HTTPException, Response
+from pydantic import BaseModel
 
 from core.database import db
 

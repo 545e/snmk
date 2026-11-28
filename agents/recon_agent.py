@@ -261,7 +261,7 @@ class ReconAgent:
                     try:
                         db.save_finding(finding)
                     except Exception:
-                        pass
+                        logging.getLogger(__name__).debug("Suppressed finding persistence notice", exc_info=True)
                     await queue_manager.emit_finding(finding)
 
                 # Tech Stack Detection
@@ -350,7 +350,7 @@ class ReconAgent:
                             try:
                                 db.save_finding(finding)
                             except Exception:
-                                pass
+                                logging.getLogger(__name__).debug("Suppressed finding persistence notice", exc_info=True)
                             await queue_manager.emit_finding(finding)
                     except Exception:
                         logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)
