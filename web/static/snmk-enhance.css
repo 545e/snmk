@@ -191,3 +191,180 @@ button:focus-visible, a:focus-visible, .swa-sidebar-link:focus-visible {
     /* keep the top bar pinned while the content scrolls underneath it */
     .swa-main-shell > .swa-topbar { position: sticky; top: 0; z-index: 90; }
 }
+
+/* =====================================================================
+   SNMK v3.6 — Cyber Command Center Polish & Glassmorphism Depth
+   Elevates subheader capsules, KPI cards, launcher console, OWASP matrix,
+   and live feed cards with responsive reactive styling.
+   ===================================================================== */
+
+/* Global Context Bar: Glassmorphic Capsule Layout */
+.swa-global-context-bar {
+    background: rgba(13, 19, 33, 0.88) !important;
+    backdrop-filter: blur(16px) !important;
+    border-bottom: 1px solid rgba(56, 189, 248, 0.14) !important;
+    box-shadow: 0 4px 20px -5px rgba(0, 0, 0, 0.5) !important;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 18px;
+    flex-wrap: wrap;
+}
+.swa-global-context-bar .ctx-item {
+    padding: 5px 12px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.swa-global-context-bar .ctx-item:hover {
+    background: rgba(56, 189, 248, 0.07);
+    border-color: rgba(56, 189, 248, 0.28);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+.ctx-target-badge {
+    background: rgba(16, 185, 129, 0.12) !important;
+    border: 1px solid rgba(16, 185, 129, 0.35) !important;
+    color: #10B981 !important;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    font-weight: 700;
+    padding: 3px 10px;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.18);
+}
+.ctx-target-badge .shield-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10B981;
+    box-shadow: 0 0 6px #10B981;
+    animation: snmkPulse 2s infinite ease-in-out;
+}
+.grade-badge {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.3px;
+    font-size: 11px;
+    border: 1px solid currentColor;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+/* KPI Cards: Deeper Gradients & Luminous Micro-Interactions */
+.soc-kpi-card {
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    background: linear-gradient(155deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.88) 100%) !important;
+    backdrop-filter: blur(14px);
+    transition: all 0.25s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+.soc-kpi-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(56, 189, 248, 0.38) !important;
+    box-shadow: 0 16px 36px -12px rgba(56, 189, 248, 0.2), 0 0 20px rgba(56, 189, 248, 0.08);
+}
+.soc-kpi-title {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: #94A3B8;
+}
+.soc-kpi-number {
+    font-weight: 800;
+    letter-spacing: -0.5px;
+}
+
+/* Assessment Launcher Console: Cyber Command Center Style */
+.soc-launch-bar-container {
+    background: linear-gradient(165deg, rgba(26, 34, 53, 0.8) 0%, rgba(15, 23, 42, 0.92) 100%) !important;
+    border: 1px solid rgba(56, 189, 248, 0.2) !important;
+    box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(14px);
+}
+.soc-target-input-wrap {
+    background: rgba(11, 15, 25, 0.85) !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+    border-radius: 10px;
+    transition: all 0.2s ease;
+}
+.soc-target-input-wrap:focus-within {
+    border-color: #38BDF8 !important;
+    box-shadow: 0 0 18px rgba(56, 189, 248, 0.28) !important;
+}
+.soc-btn-launch {
+    background: linear-gradient(135deg, #2563EB 0%, #38BDF8 100%) !important;
+    box-shadow: 0 4px 16px rgba(37, 99, 235, 0.45);
+}
+.soc-btn-launch:hover {
+    box-shadow: 0 6px 24px rgba(56, 189, 248, 0.55);
+    filter: brightness(1.08);
+}
+.profile-pills .pill-item {
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.profile-pills .pill-item.active {
+    background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(99, 102, 241, 0.25)) !important;
+    border-color: #38BDF8 !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.3);
+}
+.profile-pills .pill-item:hover:not(.active) {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Core Panels: Cyber Glass & Dynamic Rows */
+.soc-panel-card {
+    background: linear-gradient(170deg, rgba(22, 30, 49, 0.75) 0%, rgba(15, 23, 42, 0.88) 100%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    box-shadow: 0 10px 28px -12px rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(12px);
+}
+.owasp-matrix-row {
+    transition: all 0.2s ease;
+    border-radius: 10px !important;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    background: rgba(15, 23, 42, 0.5);
+}
+.owasp-matrix-row:hover {
+    transform: translateX(3px);
+    border-color: rgba(56, 189, 248, 0.4) !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+.soc-finding-feed-item {
+    background: rgba(15, 23, 42, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.07) !important;
+    border-radius: 10px !important;
+    transition: all 0.2s ease;
+}
+.soc-finding-feed-item:hover {
+    border-color: rgba(56, 189, 248, 0.38) !important;
+    background: rgba(22, 30, 49, 0.92) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.45);
+}
+.btn-soc-action {
+    border-radius: 6px !important;
+    transition: all 0.18s ease;
+}
+.btn-soc-action:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.28);
+}
+
+/* Sleek Cyber Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: rgba(11, 15, 25, 0.6); }
+::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(56, 189, 248, 0.45); }

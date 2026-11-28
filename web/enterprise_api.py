@@ -28,7 +28,7 @@ Remediation Lifecycle Board, 12-Template Enterprise Reports, and Diagnostics.
 
 import asyncio
 import datetime
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
@@ -120,7 +120,7 @@ class ContextUpdateRequest(BaseModel):
 
 
 
-async def get_global_context():
+async def get_global_context(scan_id: Optional[str] = None):
 
 
 
@@ -145,8 +145,11 @@ async def get_global_context():
 
 
     # Calculate live posture score and grade using canonical scoring engine
-    scan_findings = db.get_findings_by_scan(active_scan.id) if active_scan else []
-    findings = scan_findings if scan_findings else db.list_findings()
+    if scan_id:
+        selected_scan = db.get_scan(scan_id)
+        if selected_scan:
+            active_scan = selected_scan
+    findings = db.list_findings(scan_id=active_scan.id) if active_scan else []
     deduped = deduplicate_findings(findings)
     posture = compute_posture(deduped)
     posture_score = float(posture["score"])
@@ -186,7 +189,7 @@ async def get_global_context():
 
 
 
-        target=raw.get("target", "127.0.0.1:8000"),
+        target=active_scan.target_url if (active_scan and hasattr(active_scan, "target_url") and active_scan.target_url) else raw.get("target", "127.0.0.1:8000"),
 
 
 
@@ -225,9 +228,16 @@ async def get_global_context():
 
 
 @router.get("/posture")
-async def get_security_posture():
+async def get_security_posture(scan_id: Optional[str] = None):
     """Retrieve canonical security posture score, grade, risk, and deduplicated breakdown."""
-    findings = db.list_findings()
+    if scan_id and scan_id != "ALL":
+        findings = db.list_findings(scan_id=scan_id)
+    elif scan_id == "ALL":
+        findings = db.list_findings()
+    else:
+        recent_scans = db.get_scans(limit=1)
+        active_scan = recent_scans[0] if recent_scans else None
+        findings = db.list_findings(scan_id=active_scan.id) if active_scan else []
     deduped = deduplicate_findings(findings)
     posture = compute_posture(deduped)
     return {
@@ -240,6 +250,7 @@ async def get_security_posture():
         "total": posture["total"],
         "raw_total": len(findings),
         "deduplicated_total": len(deduped),
+        "scan_id": scan_id,
     }
 
 

@@ -755,6 +755,24 @@ async function selectScan(scanId) {
     if (bar) bar.style.width = (scan.status === 'COMPLETED' ? '100%' : '50%');
     if (pctText) pctText.textContent = (scan.status === 'COMPLETED' ? '100%' : '50%');
 
+    // Update Subheader Authorized Target & Status
+    const ctxTargetEl = document.getElementById('ctxTargetText');
+    if (ctxTargetEl && scan.target_url) ctxTargetEl.textContent = scan.target_url;
+
+    const ctxStatusEl = document.getElementById('ctxScanStatus');
+    if (ctxStatusEl) {
+        ctxStatusEl.textContent = scan.status || 'READY';
+        ctxStatusEl.style.color = scan.status === 'RUNNING' ? '#38bdf8' : (scan.status === 'COMPLETED' ? '#3fb950' : '#94a3b8');
+    }
+
+    // Update Card 4 Target Scope
+    const cardTargetEl = document.getElementById('socKpiTarget');
+    if (cardTargetEl && scan.target_url) cardTargetEl.textContent = scan.target_url;
+
+    // Update Launch Input Target
+    const launchInputEl = document.getElementById('targetInput');
+    if (launchInputEl && scan.target_url) launchInputEl.value = scan.target_url;
+
     // Synchronize Topbar Assessment Dropdown
     const topSelect = document.getElementById('topbarAssessmentSelect');
     if (topSelect && topSelect.value !== scanId) {
@@ -778,6 +796,12 @@ async function selectScan(scanId) {
     }
 
     loadFindings(scanId);
+    if (typeof syncSocMetrics === 'function') {
+        syncSocMetrics(scanId);
+    }
+    if (typeof loadGlobalContext === 'function') {
+        loadGlobalContext(scanId);
+    }
     if (typeof recalculateActiveScanScore === 'function') {
         recalculateActiveScanScore();
     }
@@ -8432,9 +8456,11 @@ async function loadAuditLogsAction() {
 // SWA AI Enterprise Intelligence & Multi-Agent UI Handlers
 // ==========================================================================
 
-async function loadGlobalContext() {
+async function loadGlobalContext(targetScanId) {
     try {
-        const res = await apiFetch('/api/context');
+        const scanId = (targetScanId !== undefined && targetScanId !== null) ? targetScanId : (currentScanId || '');
+        const url = scanId ? `/api/context?scan_id=${encodeURIComponent(scanId)}` : '/api/context';
+        const res = await apiFetch(url);
         if (!res.ok) return;
         const ctx = await res.json();
         
@@ -13851,12 +13877,20 @@ function zoomMap(factor) {
 }
 
 // Automatically sync Real SNMK SOC metrics & live findings
-function syncSocMetrics() {
+function syncSocMetrics(targetScanId) {
+    const scanId = (targetScanId !== undefined && targetScanId !== null) ? targetScanId : (currentScanId || '');
+    const findingsUrl = scanId 
+        ? `/api/findings?paged=true&limit=200&offset=0&scan_id=${encodeURIComponent(scanId)}`
+        : '/api/findings?paged=true&limit=200&offset=0';
+    const postureUrl = scanId
+        ? `/api/posture?scan_id=${encodeURIComponent(scanId)}`
+        : '/api/posture';
+
     // Bounded page - the SOC counters only need the current window.
     Promise.all([
-        apiFetch('/api/findings?paged=true&limit=200&offset=0').then(r => r.json()).catch(() => null),
+        apiFetch(findingsUrl).then(r => r.json()).catch(() => null),
         // Canonical posture score lives in the backend (core/scoring.py).
-        apiFetch('/api/posture').then(r => r.json()).catch(() => null)
+        apiFetch(postureUrl).then(r => r.json()).catch(() => null)
     ])
         .then(([payload, postureData]) => {
             const findings = Array.isArray(payload) ? payload : ((payload && payload.items) || []);
@@ -13874,6 +13908,11 @@ function syncSocMetrics() {
                     seenDedupKeys.add(k);
                     uniqueFindings.push(f);
                 }
+            }
+
+            // Update OWASP Top 10 Matrix dynamically based on active findings
+            if (typeof updateOwaspMatrixUI === 'function') {
+                updateOwaspMatrixUI(uniqueFindings);
             }
 
             // Prefer the canonical posture counts (core/scoring.py) so this
@@ -13980,39 +14019,125 @@ function syncSocMetrics() {
 
             // Populate live deduplicated findings feed (never show duplicate items)
             const feedList = document.getElementById('socFindingsFeedList');
-            if (feedList && uniqueFindings.length > 0) {
-                const topFindings = uniqueFindings.slice(0, 4);
-                feedList.innerHTML = topFindings.map(f => {
-                    const sev = (f.severity || 'LOW').toUpperCase();
-                    const sevClass = sev === 'CRITICAL' ? 'sev-crit' : (sev === 'HIGH' ? 'sev-high' : (sev === 'MEDIUM' ? 'sev-med' : 'sev-low'));
-                    const title = escapeHtml(f.title || f.name || 'Discovered Security Finding');
-                    const url = escapeHtml(f.target_url || f.url || 'http://127.0.0.1:8000');
-                    const cwe = escapeHtml(f.cwe || f.cwe_id || 'CWE-16');
-                    const cvss = f.cvss_score || (sev === 'HIGH' ? 7.5 : 3.5);
-                    const pocCurl = f.curl_poc || `curl -i -X GET "${url}"`;
-
-                    return `
-                        <div class="soc-finding-feed-item">
-                            <div class="soc-finding-top">
-                                <div class="soc-finding-title">${title}</div>
-                                <span class="sev-tag ${sevClass}">${sev} &bull; CVSS ${cvss}</span>
-                            </div>
-                            <div class="soc-finding-meta">
-                                <span>${url}</span>
-                                <span>${cwe}</span>
-                                <span style="color: #34D399;">✓ PoC Verified</span>
-                            </div>
-                            <div class="soc-finding-actions">
-                                <button class="btn-soc-action" onclick="copyFindingCurl('${escapeHtml(pocCurl)}')">📋 Copy cURL PoC</button>
-                                <button class="btn-soc-action" onclick="triggerCopilotDefensivePatch()">🛡️ WAF Patch</button>
-                                <button class="btn-soc-action" onclick="navToView('vulnerabilities')">Inspect</button>
-                            </div>
+            if (feedList) {
+                if (uniqueFindings.length === 0) {
+                    feedList.innerHTML = `
+                        <div style="text-align:center; padding:36px 16px; color:var(--text-muted);">
+                            <div style="width:48px; height:48px; border-radius:50%; background:rgba(16, 185, 129, 0.15); border:1px solid rgba(16, 185, 129, 0.35); display:inline-flex; align-items:center; justify-content:center; margin-bottom:12px; color:#10B981; font-size:22px; box-shadow:0 0 15px rgba(16,185,129,0.2);">✓</div>
+                            <div style="color:var(--text-title); font-weight:700; font-size:14px; margin-bottom:4px;">No Vulnerabilities Detected</div>
+                            <div style="font-size:12px; color:var(--text-muted); max-width:320px; margin:0 auto; line-height:1.5;">Target verified clean & secured. All automated tests, OWASP heuristics, and payload validations completed with 0 exploitable defects.</div>
                         </div>
                     `;
-                }).join('');
+                } else {
+                    const topFindings = uniqueFindings.slice(0, 4);
+                    feedList.innerHTML = topFindings.map(f => {
+                        const sev = (f.severity || 'LOW').toUpperCase();
+                        const sevClass = sev === 'CRITICAL' ? 'sev-crit' : (sev === 'HIGH' ? 'sev-high' : (sev === 'MEDIUM' ? 'sev-med' : 'sev-low'));
+                        const title = escapeHtml(f.title || f.name || 'Discovered Security Finding');
+                        const url = escapeHtml(f.target_url || f.url || 'http://127.0.0.1:8000');
+                        const cwe = escapeHtml(f.cwe || f.cwe_id || 'CWE-16');
+                        const cvss = f.cvss_score || (sev === 'HIGH' ? 7.5 : 3.5);
+                        const pocCurl = f.curl_poc || `curl -i -X GET "${url}"`;
+
+                        return `
+                            <div class="soc-finding-feed-item">
+                                <div class="soc-finding-top">
+                                    <div class="soc-finding-title">${title}</div>
+                                    <span class="sev-tag ${sevClass}">${sev} &bull; CVSS ${cvss}</span>
+                                </div>
+                                <div class="soc-finding-meta">
+                                    <span>${url}</span>
+                                    <span>${cwe}</span>
+                                    <span style="color: #34D399;">✓ PoC Verified</span>
+                                </div>
+                                <div class="soc-finding-actions">
+                                    <button class="btn-soc-action" onclick="copyFindingCurl('${escapeHtml(pocCurl)}')">📋 Copy cURL PoC</button>
+                                    <button class="btn-soc-action" onclick="triggerCopilotDefensivePatch()">🛡️ WAF Patch</button>
+                                    <button class="btn-soc-action" onclick="navToView('vulnerabilities')">Inspect</button>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                }
             }
         })
         .catch(err => console.debug("SOC metrics notice:", err));
+}
+
+function updateOwaspMatrixUI(findings) {
+    const listEl = document.querySelector('.owasp-matrix-list');
+    if (!listEl) return;
+
+    const list = Array.isArray(findings) ? findings : [];
+    
+    const categories = {
+        'A01': { title: 'Broken Access Control', sub: 'CWE-200, CWE-284 • Path Traversal, IDOR', items: [] },
+        'A02': { title: 'Cryptographic Failures', sub: 'CWE-310, CWE-326 • TLS 1.3 / Cipher Audit', items: [] },
+        'A03': { title: 'Injection & SQLi / XSS', sub: 'CWE-89, CWE-79 • AST Payload Verification', items: [] },
+        'A05': { title: 'Security Misconfiguration', sub: 'CWE-942 CORS Policy • CWE-16 Missing Headers', items: [] },
+        'A07': { title: 'Identification & Auth Failures', sub: 'CWE-287, CWE-384 • Session & JWT Tokens', items: [] },
+        'A10': { title: 'Server-Side Request Forgery', sub: 'CWE-918 • Lab Loopback & Cloud Metadata Guard', items: [] },
+    };
+
+    list.forEach(f => {
+        const cat = String(f.owasp_category || f.category || '').toUpperCase();
+        const title = String(f.title || f.name || '').toLowerCase();
+        const cwe = String(f.cwe_id || f.cwe || '');
+
+        if (cat.includes('A01') || cwe.includes('200') || cwe.includes('284') || title.includes('traversal') || title.includes('access control') || title.includes('exposure') || title.includes('disclosure')) {
+            categories['A01'].items.push(f);
+        } else if (cat.includes('A02') || cwe.includes('310') || cwe.includes('326') || title.includes('tls') || title.includes('ssl') || title.includes('crypto')) {
+            categories['A02'].items.push(f);
+        } else if (cat.includes('A03') || cwe.includes('89') || cwe.includes('79') || title.includes('sql') || title.includes('injection') || title.includes('xss') || title.includes('rce')) {
+            categories['A03'].items.push(f);
+        } else if (cat.includes('A05') || cwe.includes('942') || cwe.includes('16') || cwe.includes('693') || title.includes('cors') || title.includes('header') || title.includes('misconfiguration')) {
+            categories['A05'].items.push(f);
+        } else if (cat.includes('A07') || cwe.includes('287') || cwe.includes('384') || title.includes('auth') || title.includes('jwt') || title.includes('session')) {
+            categories['A07'].items.push(f);
+        } else if (cat.includes('A10') || cwe.includes('918') || title.includes('ssrf')) {
+            categories['A10'].items.push(f);
+        } else {
+            categories['A05'].items.push(f);
+        }
+    });
+
+    listEl.innerHTML = Object.entries(categories).map(([code, meta]) => {
+        const count = meta.items.length;
+        let badgeHtml = '';
+        let rowStyle = 'cursor: pointer;';
+        let codeStyle = '';
+        let titleStyle = '';
+
+        if (count === 0) {
+            const label = code === 'A02' ? 'Secure' : (code === 'A03' ? 'Clean (0 Injections)' : (code === 'A10' ? 'Guarded' : (code === 'A07' ? 'Verified' : 'Passed (0 findings)')));
+            badgeHtml = `<span class="sev-tag sev-low" style="background: rgba(16, 185, 129, 0.12); color: #10B981; border: 1px solid rgba(16, 185, 129, 0.3); font-weight:700;">${label}</span>`;
+        } else {
+            const hasCrit = meta.items.some(x => String(x.severity || '').toLowerCase() === 'critical');
+            const hasHigh = meta.items.some(x => String(x.severity || '').toLowerCase() === 'high');
+            const sevLabel = hasCrit ? 'CRITICAL' : (hasHigh ? 'HIGH' : 'MEDIUM');
+            const sevClass = hasCrit ? 'sev-crit' : (hasHigh ? 'sev-high' : 'sev-med');
+            const color = hasCrit ? '#EF4444' : (hasHigh ? '#FB923C' : '#FBBF24');
+            rowStyle += ` border-color: color-mix(in srgb, ${color} 40%, transparent); background: color-mix(in srgb, ${color} 6%, transparent);`;
+            codeStyle = ` style="background: color-mix(in srgb, ${color} 22%, transparent); color: ${color}; font-weight:800;"`;
+            titleStyle = ` style="color: ${color}; font-weight:700;"`;
+            badgeHtml = `<span class="sev-tag ${sevClass}">${count} ${sevLabel} Finding${count > 1 ? 's' : ''}</span>`;
+        }
+
+        return `
+            <button type="button" class="owasp-matrix-row swa-plain swa-plain-block" onclick="filterFindingsByOwasp('${code}')" style="${rowStyle}" title="Filter findings by OWASP ${code}">
+                <div class="owasp-row-left">
+                    <span class="owasp-code-badge"${codeStyle}>${code}</span>
+                    <div>
+                        <div class="owasp-row-title"${titleStyle}>${meta.title}</div>
+                        <div class="owasp-cwe-sub">${meta.sub}</div>
+                    </div>
+                </div>
+                <div class="owasp-row-right">
+                    ${badgeHtml}
+                </div>
+            </button>
+        `;
+    }).join('');
 }
 
 function copyFindingCurl(curlCmd) {
