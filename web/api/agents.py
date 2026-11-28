@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from core.agent_registry import AgentRegistry
-from core.database import db
 from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.api.agents")
@@ -88,5 +87,6 @@ async def dispatch_agent_task(agent_id: str, req: AgentTaskRequest) -> dict[str,
             "duration_seconds": result.get("duration_seconds", 0) if isinstance(result, dict) else 0,
         }
     except Exception as e:
-        logger.error(f"Failed executing task on agent {agent_id}: %s", safe_error("Agent task execution failed", e))
+        safe_id = agent_id.replace("\r", "").replace("\n", "")[:64]
+        logger.error("Failed executing task on agent %s: %s", safe_id, safe_error("Agent task execution failed", e))
         raise HTTPException(status_code=500, detail="Agent task execution failed")

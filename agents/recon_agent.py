@@ -12,12 +12,13 @@ from urllib.parse import urlparse
 
 import httpx
 
+from core.database import db
 from core.models import LogEvent, ReconResult, Severity, VulnerabilityFinding
 from core.queue_manager import queue_manager
 
 from core import tls_policy
 
-COMMON_PORTS = [80, 443, 8080, 8443, 3000, 5000, 8000, 8888, 22, 21, 3306, 5432, 6379, 27017]
+COMMON_PORTS = [80, 443, 8080, 8443, 3000, 5000, 8000, 8888, 22, 21, 25, 53, 110, 143, 993, 995, 3306, 5432, 6379, 9000, 9200, 27017]
 
 COMMON_SUBDOMAINS = [
     "api", "dev", "staging", "test", "admin", "app", "portal", "mail",
@@ -28,6 +29,8 @@ COMMON_SUBDOMAINS = [
 
 SENSITIVE_PATHS = [
     ("/.env", "Environment Variables Disclosure", Severity.CRITICAL, "DB_PASS|SECRET|AWS_|KEY=|TOKEN="),
+    ("/.env.local", "Local Environment Configuration Exposure", Severity.CRITICAL, "DB_PASS|SECRET|KEY=|TOKEN="),
+    ("/.env.production", "Production Environment Configuration Exposure", Severity.CRITICAL, "DB_PASS|SECRET|KEY=|TOKEN="),
     ("/.git/HEAD", "Exposed Git Repository", Severity.HIGH, "ref: refs/"),
     ("/robots.txt", "Robots.txt Information Disclosure", Severity.INFO, "User-agent:|Disallow:"),
     ("/sitemap.xml", "Sitemap Asset Mapping", Severity.INFO, "<urlset|<sitemapindex"),
@@ -38,6 +41,9 @@ SENSITIVE_PATHS = [
     ("/server-status", "Apache Server-Status Exposure", Severity.MEDIUM, "Apache Server Status"),
     ("/actuator/health", "Spring Boot Actuator Exposure", Severity.MEDIUM, "UP|status"),
     ("/config.json", "Sensitive Configuration Exposure", Severity.HIGH, "{"),
+    ("/docker-compose.yml", "Exposed Docker Compose Configuration", Severity.HIGH, "version:|services:|image:"),
+    ("/Dockerfile", "Exposed Dockerfile Container Spec", Severity.MEDIUM, "FROM |WORKDIR|EXPOSE"),
+    ("/package.json", "Exposed Node.js Package Manifest", Severity.LOW, "\"name\":|\"dependencies\":"),
     ("/backup.sql", "Exposed Database SQL Dump", Severity.CRITICAL, "CREATE TABLE|INSERT INTO"),
 ]
 
@@ -55,6 +61,17 @@ TECH_SIGNATURES = {
     "FastAPI": [r"FastAPI", r"/docs#/default/"],
     "PHP": [r"PHPSESSID", r"X-Powered-By:.*PHP"],
     "ASP.NET": [r"ASP\.NET", r"ASPSESSIONID", r"__VIEWSTATE"],
+    "Node.js": [r"Node\.js", r"express", r"sails\.js"],
+    "TailwindCSS": [r"tailwindcss", r"class=\".*flex.*grid.*\""],
+    "Bootstrap": [r"bootstrap(?:\.min)?\.css", r"class=\".*container.*row.*col.*\""],
+    "jQuery": [r"jquery(?:\.min)?\.js", r"jQuery\s*v?\d"],
+    "Gunicorn": [r"Server:.*gunicorn"],
+    "Uvicorn": [r"Server:.*uvicorn"],
+    "Caddy": [r"Server:.*caddy"],
+    "Ruby on Rails": [r"X-Rack-Cache", r"_rails_session", r"csrf-param.*authenticity_token"],
+    "Spring Boot": [r"whitelabel error page", r"X-Application-Context"],
+    "AWS CloudFront": [r"cloudfront", r"X-Amz-Cf-Id", r"Via:.*CloudFront"],
+    "Vercel": [r"x-vercel-id", r"Vercel"],
 }
 
 class ReconAgent:
@@ -66,6 +83,7 @@ class ReconAgent:
         self.domain = self.parsed.hostname or target_url
         self.base_url = f"{self.parsed.scheme}://{self.parsed.netloc}"
         self.takeover_findings: list[VulnerabilityFinding] = []
+        self.recon_findings: list[VulnerabilityFinding] = []
 
     def _normalize_url(self, target: str):
         clean_target = (target or "").strip()
@@ -171,7 +189,14 @@ class ReconAgent:
                 _, writer = await asyncio.wait_for(conn, timeout=1.2)
                 writer.close()
                 await writer.wait_closed()
-                service = "http" if port in [80, 8080, 3000, 5000, 8000] else "https" if port in [443, 8443] else "service"
+                service_map = {
+                    80: "http", 443: "https", 8080: "http-proxy", 8443: "https-alt",
+                    3000: "node-app", 5000: "flask-app", 8000: "fastapi-app", 8888: "jupyter-app",
+                    22: "ssh", 21: "ftp", 25: "smtp", 53: "dns", 110: "pop3", 143: "imap",
+                    993: "imaps", 995: "pop3s", 3306: "mysql", 5432: "postgresql",
+                    6379: "redis", 9000: "sonar/fastcgi", 9200: "elasticsearch", 27017: "mongodb",
+                }
+                service = service_map.get(port, "service")
                 return {"port": port, "state": "open", "service": service}
             except Exception:
                 return None
@@ -232,6 +257,11 @@ class ReconAgent:
                         remediation_advice="Configure standard security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) in reverse proxy or web server.",
                         remediation_patch="add_header X-Content-Type-Options 'nosniff' always;\nadd_header X-Frame-Options 'SAMEORIGIN' always;\nadd_header Strict-Transport-Security 'max-age=31536000; includeSubDomains' always;"
                     )
+                    self.recon_findings.append(finding)
+                    try:
+                        db.save_finding(finding)
+                    except Exception:
+                        pass
                     await queue_manager.emit_finding(finding)
 
                 # Tech Stack Detection
@@ -316,6 +346,11 @@ class ReconAgent:
                                 remediation_advice=f"Block public access to {path} in web server rules and never commit secrets to production web roots.",
                                 remediation_patch=f"# Nginx rule:\nlocation = {path} {{\n    deny all;\n    return 404;\n}}"
                             )
+                            self.recon_findings.append(finding)
+                            try:
+                                db.save_finding(finding)
+                            except Exception:
+                                pass
                             await queue_manager.emit_finding(finding)
                     except Exception:
                         logging.getLogger(__name__).debug("Suppressed exception (audited empty handler)", exc_info=True)

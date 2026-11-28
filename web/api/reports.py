@@ -7,15 +7,13 @@ from __future__ import annotations
 
 import csv
 import io
-import json
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
-from fastapi.responses import PlainTextResponse, JSONResponse
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 
 from core.database import db
 from core.persistent_store import persistent_store
-from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.api.reports")
 router = APIRouter(prefix="/reports", tags=["reports"])

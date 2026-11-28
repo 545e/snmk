@@ -6,9 +6,7 @@ agent registry readiness, tool integrations, and test metrics.
 """
 
 import sys
-import os
 import json
-import time
 from datetime import datetime, timezone
 from pathlib import Path
 

@@ -2029,7 +2029,6 @@ let vfCurrentDrawerFinding = null;
 
 // Global Finding Data Loader
 async function loadFindings(scanId) {
-    const container = document.getElementById("findingsContainer");
     const countBadge = document.getElementById("findingsCountBadge");
     const tableBody = document.getElementById("vfTableBody");
 

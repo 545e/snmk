@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from core.database import db
-from core.models import ScanConfig, ScanJob, ScanStatus, VulnerabilityFinding, LogEvent
+from core.models import ScanJob, ScanStatus, VulnerabilityFinding, LogEvent
 from core.queue_manager import queue_manager
-from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.api.scans")
 router = APIRouter(prefix="/scans", tags=["scans"])

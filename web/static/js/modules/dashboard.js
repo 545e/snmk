@@ -4,7 +4,6 @@
  */
 
 import { escapeHtml } from "./sanitize.js";
-import { store } from "./state.js";
 
 export function renderDashboardCards(metrics, containerId = "dashboard-metrics") {
   const container = document.getElementById(containerId);

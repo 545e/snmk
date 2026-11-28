@@ -7,12 +7,10 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Request, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import BaseModel, Field
 
 from core.database import db
-from core.models import Severity, VulnerabilityFinding
-from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.api.findings")
 router = APIRouter(prefix="/findings", tags=["findings"])
@@ -98,13 +96,23 @@ async def transition_finding_state(finding_id: str, req: FindingTransitionReques
     if not finding:
         raise HTTPException(status_code=404, detail=f"Finding '{finding_id}' not found")
 
-    updated = db.transition_finding_status(
-        finding_id=finding_id,
-        new_status=req.status,
-        remediation_status=req.remediation_status,
-        operator=req.operator,
-        notes=req.notes,
-    )
+    updated = False
+    if req.status:
+        updated = db.transition_finding_status(
+            finding_id=finding_id,
+            new_status=req.status,
+            status_type="LIFECYCLE",
+            actor=req.operator,
+            reason=req.notes or "",
+        )
+    if req.remediation_status:
+        updated = db.transition_finding_status(
+            finding_id=finding_id,
+            new_status=req.remediation_status,
+            status_type="REMEDIATION",
+            actor=req.operator,
+            reason=req.notes or "",
+        )
     return {"status": "success", "finding_id": finding_id, "updated": updated}
 
 

@@ -7,11 +7,10 @@ from __future__ import annotations
 
 import json
 from typing import Any, Optional
-from fastapi import APIRouter, Query, HTTPException, Request
+from fastapi import APIRouter
 
 from core.database import db
 from core.persistent_store import persistent_store
-from core.error_sanitizer import safe_error
 
 router = APIRouter(prefix="/subdomains", tags=["subdomains"])
 

@@ -108,6 +108,12 @@ class SWAOrchestrator:
                 db.save_finding(tf)
                 await queue_manager.emit_finding(tf)
 
+            # Harvest any Recon findings (missing headers, sensitive asset disclosures)
+            recon_findings = getattr(recon_agent, "recon_findings", [])
+            for rf in recon_findings:
+                db.save_finding(rf)
+                await queue_manager.emit_finding(rf)
+
             if self.job.profile in [ScanProfile.RECON_ONLY, ScanProfile.PASSIVE_RECON]:
                 await self._finalize_scan(start_time, recon_data)
                 return
@@ -185,6 +191,8 @@ class SWAOrchestrator:
             candidate_findings = await vuln_agent.run(recon_data=recon_data)
             if takeover_findings:
                 candidate_findings.extend(takeover_findings)
+            if recon_findings:
+                candidate_findings.extend(recon_findings)
 
             # Check for Nuclei Safe Scan if binary is present
             from core.scanner_integrations import ScannerIntegrations

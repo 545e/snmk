@@ -7,13 +7,11 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Optional
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from core.integrations.registry import integration_registry
-from core.scanner_integrations import ScannerIntegrations
 from core.audit import audit
-from core.error_sanitizer import safe_error
 
 logger = logging.getLogger("snmk.api.integrations")
 router = APIRouter(prefix="/integrations", tags=["integrations"])

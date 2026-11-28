@@ -11,8 +11,7 @@
 """
 
 import os
-import unittest
-from unittest import mock
+from unittest import TestCase, main, mock
 
 from starlette.requests import Request
 
@@ -26,7 +25,7 @@ def _request(path="/api/network/interfaces"):
     return Request({"type": "http", "method": "GET", "path": path, "headers": []})
 
 
-class TestAuthPolicyConsistency(unittest.TestCase):
+class TestAuthPolicyConsistency(TestCase):
     def test_template_master_key_is_not_a_real_key(self):
         key = "sk-change_me-please-replace-this-template-value-1234"
         with mock.patch.object(app_security, "SWA_MASTER_API_KEY", key), \
@@ -64,7 +63,7 @@ class TestAuthPolicyConsistency(unittest.TestCase):
         self.assertNotIn("_placeholder_markers", body)
 
 
-class TestNonBlockingToolDiscovery(unittest.TestCase):
+class TestNonBlockingToolDiscovery(TestCase):
     def _source(self, relative):
         with open(os.path.join(REPO, *relative.split("/")), encoding="utf-8") as fh:
             return fh.read()
@@ -87,4 +86,4 @@ class TestNonBlockingToolDiscovery(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()
